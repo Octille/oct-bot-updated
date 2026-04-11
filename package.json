@@ -6,6 +6,7 @@
     "node": ">=20.20.2"
   },
   "scripts": {
+    "postinstall": "pip install -U yt-dlp",
     "start": "node index.js"
   },
   "author": "Gurkirat",
