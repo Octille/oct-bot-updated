@@ -1,7 +1,0 @@
-{
-  "aptPackages": [
-    "python3",
-    "python3-pip",
-    "ffmpeg"
-  ]
-}
