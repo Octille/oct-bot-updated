@@ -1,8 +1,6 @@
 {
-  "build": {
-    "steps": [
-      "apt-get update",
-      "apt-get install -y python3 python3-pip"
-    ]
-  }
+  "packages": [
+    "python311",
+    "python311Packages.pip"
+  ]
 }
