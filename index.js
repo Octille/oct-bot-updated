@@ -25,8 +25,8 @@ client.lavalink = new LavalinkManager({
     host: process.env.LAVALINK_HOST || 'localhost',
     port: Number(process.env.LAVALINK_PORT) || 2333,
     id: 'main-node',
-    retryAmount: 5,
-    retryDelay: 3000,
+    retryAmount: 20,
+    retryDelay: 5000,
   }],
   sendToShard: (guildId, payload) => {
     const guild = client.guilds.cache.get(guildId);
