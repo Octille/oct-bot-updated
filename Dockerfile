@@ -20,4 +20,4 @@ ADD https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.j
 
 # 6. Start both
 # We use -xe to debug. 'set -xe' prints every command to the logs as it runs.
-CMD ["/bin/sh", "-c", "set -xe; cd lavalink && java -jar Lavalink.jar & sleep 30; cd /app && node index.js"]
+CMD ["/bin/sh", "-c", "cd lavalink && java -jar Lavalink.jar"]
