@@ -19,5 +19,5 @@ COPY . .
 ADD https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar ./lavalink/Lavalink.jar
 
 # 6. Start both
-# We change directory into 'lavalink' to start the jar, then go back to root for the bot
-CMD sh -c "cd lavalink && java -jar Lavalink.jar & cd .. && node index.js"
+# We use -xe to debug. 'set -xe' prints every command to the logs as it runs.
+CMD ["/bin/sh", "-c", "set -xe; cd lavalink && java -jar Lavalink.jar & sleep 30; cd /app && node index.js"]
