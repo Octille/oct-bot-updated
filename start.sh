@@ -1,15 +1,13 @@
 #!/bin/sh
+echo "--- Checking for Lavalink.jar ---"
+ls -l /app/lavalink/Lavalink.jar
 
-# 1. Start Lavalink in the background
-echo "Starting Lavalink..."
-cd lavalink && java -jar Lavalink.jar &
+echo "--- Starting Lavalink ---"
+cd /app/lavalink && java -jar Lavalink.jar &
 
-# 2. Wait for Lavalink to warm up
-# It takes a bit to load plugins and Java. 20s is safe.
-echo "Waiting 20 seconds for Lavalink to boot..."
-sleep 20
+echo "--- Waiting for boot ---"
+sleep 25
 
-# 3. Start the Bot
-echo "Starting the Bot..."
+echo "--- Starting Bot ---"
 cd /app
 node index.js

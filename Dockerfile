@@ -1,24 +1,27 @@
+# 1. Base Image
 FROM eclipse-temurin:17-jdk-jammy
 
-# Install Node.js
-RUN apt-get update && apt-get install -y curl && \
+# 2. Install Node.js and curl
+RUN apt-get update && apt-get install -y curl dos2unix && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs
 
 WORKDIR /app
 
-# Install Node dependencies
+# 3. Handle Node Dependencies
 COPY package*.json ./
 RUN npm ci
 
-# Copy everything else
+# 4. Copy everything else
 COPY . .
 
-# Download the Lavalink jar into the folder
-ADD https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar ./lavalink/Lavalink.jar
+# 5. DOWNLOAD LAVALINK (Using curl instead of ADD)
+# We make the directory first to be safe
+RUN mkdir -p lavalink && \
+    curl -L https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar -o ./lavalink/Lavalink.jar
 
-# IMPORTANT: Give the script permission to run
-RUN chmod +x start.sh
+# 6. Final Prep
+RUN dos2unix start.sh && chmod +x start.sh
 
-# Run the wrapper script
+# 7. Start Command
 CMD ["./start.sh"]
