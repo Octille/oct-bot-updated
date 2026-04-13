@@ -1,5 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { promptMessage } = require('../../functions');
+const { promptMessage } = require('../../utils.js');
 module.exports = {
   name: 'ban',
   description: 'Bans a member',

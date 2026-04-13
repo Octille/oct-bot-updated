@@ -1,4 +1,6 @@
 const profileModel = require('../../models/profileSchema');
+const { awardXP } = require('../../functions/xp');  // <-- ADD THIS
+
 module.exports = {
   name: 'beg',
   description: 'Beg for coins',
@@ -23,18 +25,20 @@ module.exports = {
         `Stop begging! Well, here's **₪${randomNumber}** since you asked so nicely.`,
         `You earned **₪${randomNumber}** for doing absolutely nothing.`,
       ];
-      return message.channel.send(messages[Math.floor(Math.random() * messages.length)]);
+      await message.channel.send(messages[Math.floor(Math.random() * messages.length)]);
     } else {
       const loss = Math.floor(Math.random() * 500) + 1;
       await profileModel.findOneAndUpdate({ userID: message.author.id }, { $inc: { coins: -loss } });
       const fail = [
         `You lost **₪ ${loss}** after crying like a wimp.`,
         `You begged too hard and lost **₪ ${loss}**.`,
-        `You paid too much attention in class and lost **₪ ${loss}**!`,
+        `You paid too much attention in class and lost **₪ ${loss}**.`,
         `The developer took **₪ ${loss}** because of your horrible behaviour today.`,
         `You donated to a streamer and lost **₪ ${loss}**.`,
       ];
-      return message.channel.send(fail[Math.floor(Math.random() * fail.length)]);
+      await message.channel.send(fail[Math.floor(Math.random() * fail.length)]);
     }
+
+    await awardXP(message, 'beg');  // <-- ADD THIS
   }
 };

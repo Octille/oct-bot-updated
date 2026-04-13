@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { promptMessage } = require('../../functions');
+const { promptMessage } = require('../../utils.js');
 const choices = ['🗻', '📰', '✂️'];
 module.exports = {
   name: 'rockpaperscissors',
