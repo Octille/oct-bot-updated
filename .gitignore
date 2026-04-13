@@ -1,3 +1,14 @@
-node_modules/
+# Secrets
 .env
-*.log
+
+# Lavalink
+# We upload application.yml so Railway knows the password/port
+# But we DO NOT upload the .jar or logs
+*.jar
+lavalink/logs/
+lavalink/plugins/
+
+# OS/Dependencies
+.DS_Store
+node_modules/
+__pycache__/

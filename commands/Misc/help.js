@@ -1,57 +1,82 @@
 const { EmbedBuilder } = require('discord.js');
 const { readdirSync } = require('fs');
+
+const categories = {
+  economy:    { emoji: '💰', label: 'Economy',    folder: 'economy' },
+  fun:        { emoji: '😄', label: 'Fun',         folder: 'fun' },
+  misc:       { emoji: '💡', label: 'Misc',        folder: 'Misc' },
+  moderation: { emoji: '🔧', label: 'Moderation', folder: 'Moderation' },
+  music:      { emoji: '🎶', label: 'Music',       folder: 'Music' },
+};
+
 module.exports = {
   name: 'help',
   aliases: ['h'],
   description: 'Shows help',
   async execute(message, args, cmd, client, profileData, settings) {
     const prefix = settings?.prefix || '!';
+
+    // ── Main menu ──────────────────────────────────────────────────────────────
     if (!args.length) {
       const embed = new EmbedBuilder()
-        .setAuthor({ name: 'Oct Bot Commands', iconURL: 'https://cdn.discordapp.com/avatars/741776473613926490/9254bec36f20830f7632e521b1ef8148.webp' })
+        .setAuthor({
+          name: 'Oct Bot — Command List',
+          iconURL: client.user.displayAvatarURL(),
+        })
+        .setDescription(`Use \`${prefix}help <category>\` to see commands in that category.\nUse \`${prefix}help <command>\` for info on a specific command.`)
         .addFields(
-          { name: '💰 Economy', value: `\`${prefix}help economy\``, inline: true },
-          { name: '😄 Fun', value: `\`${prefix}help fun\``, inline: true },
-          { name: '🗺️ Minecraft', value: `\`${prefix}help minecraft\``, inline: true },
-          { name: '🔧 Moderation', value: `\`${prefix}help moderation\``, inline: true },
-          { name: '💡 Misc', value: `\`${prefix}help misc\``, inline: true },
-          { name: '🎶 Music', value: `\`${prefix}help music\``, inline: true }
+          Object.entries(categories).map(([key, { emoji, label }]) => ({
+            name: `${emoji} ${label}`,
+            value: `\`${prefix}help ${key}\``,
+            inline: true,
+          }))
         )
-        .setColor('Blue');
+        .setColor('#5865F2')
+        .setFooter({ text: `${client.commands.size} commands loaded` })
+        .setTimestamp();
       return message.channel.send({ embeds: [embed] });
     }
 
-    const folderMap = {
-      economy: 'economy', fun: 'fun', misc: 'Misc', minecraft: 'Minecraft',
-      moderation: 'Moderation', music: 'Music'
-    };
-    const titleMap = {
-      economy: '💰 Economy', fun: '😄 Fun', misc: '💡 Misc', minecraft: '🗺️ Minecraft',
-      moderation: '🔧 Moderation', music: '🎶 Music'
-    };
-
     const key = args[0].toLowerCase();
-    if (folderMap[key]) {
+
+    // ── Category listing ───────────────────────────────────────────────────────
+    if (categories[key]) {
+      const { emoji, label, folder } = categories[key];
       try {
-        const files = readdirSync(`./commands/${folderMap[key]}/`).filter(f => f.endsWith('.js') && f !== 'a.js');
-        const cmds = files.map(f => `\`${f.replace('.js', '')}\``).join(', ');
+        const files = readdirSync(`./commands/${folder}/`).filter(f => f.endsWith('.js') && f !== 'a.js');
+        const cmds = files.map(f => {
+          const name = f.replace('.js', '');
+          const command = client.commands.get(name);
+          return `\`${prefix}${name}\`${command?.description ? ` — ${command.description}` : ''}`;
+        });
+
         const embed = new EmbedBuilder()
-          .setTitle(`${titleMap[key]} commands`)
-          .setDescription(cmds)
-          .setFooter({ text: `Use \`${prefix}\` before every command` });
+          .setAuthor({ name: `${emoji} ${label} Commands`, iconURL: client.user.displayAvatarURL() })
+          .setDescription(cmds.join('\n') || 'No commands found.')
+          .setColor('#5865F2')
+          .setFooter({ text: `${files.length} command${files.length !== 1 ? 's' : ''} • Use ${prefix}help <command> for more info` });
         return message.channel.send({ embeds: [embed] });
       } catch {
         return message.channel.send('Could not load that category.');
       }
     }
 
-    // Individual command help
+    // ── Individual command ─────────────────────────────────────────────────────
     const command = client.commands.get(key) || client.commands.find(c => c.aliases?.includes(key));
-    if (!command) return message.channel.send(`Command \`${key}\` not found.`);
-    const data = [`**Name:** ${command.name}`];
-    if (command.aliases) data.push(`**Aliases:** ${command.aliases.join(', ')}`);
-    if (command.description) data.push(`**Description:** ${command.description}`);
-    if (command.cooldown) data.push(`**Cooldown:** ${command.cooldown}s`);
-    message.channel.send(data.join('\n'));
-  }
+    if (!command) return message.channel.send(`❌ Command \`${key}\` not found.`);
+
+    const embed = new EmbedBuilder()
+      .setAuthor({ name: `Command: ${command.name}`, iconURL: client.user.displayAvatarURL() })
+      .setColor('#5865F2');
+
+    if (command.description) embed.setDescription(command.description);
+
+    embed.addFields(
+      { name: '📌 Usage', value: `\`${prefix}${command.name}\``, inline: true },
+      ...(command.aliases?.length ? [{ name: '🔀 Aliases', value: command.aliases.map(a => `\`${a}\``).join(', '), inline: true }] : []),
+      ...(command.cooldown ? [{ name: '⏱️ Cooldown', value: `\`${command.cooldown}s\``, inline: true }] : []),
+    );
+
+    return message.channel.send({ embeds: [embed] });
+  },
 };
