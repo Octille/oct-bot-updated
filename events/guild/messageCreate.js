@@ -43,13 +43,13 @@ module.exports = async (client, message) => {
   }
 
   // Mention response with settings
-  if (message.mentions.users.has(client.user.id) && message.content.includes('whatsmysettings')) {
+  if (message.mentions.users.has(client.user.id)) {
     let welcome = settings.WelcomeCID || 'no welcome message setup';
     let invitelinks = settings.InviteLinks == '1' ? 'on' : 'off';
     const embed = new EmbedBuilder()
-      .setTitle('Oh, looks like I was mentioned! Here are my settings:')
+      .setTitle('Here are my settings:')
       .setDescription(`Prefix: \`${settings.prefix}\`\nWelcome Channel: \`${welcome}\`\nInvite Links: \`${invitelinks}\``);
-    return message.channel.send({ embeds: [embed] });
+    return message.channel.reply({ embeds: [embed] });
   }
 
   const prefix = settings.prefix || '!';
