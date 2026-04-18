@@ -24,10 +24,12 @@ plugins:
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
     clients:
-      - MUSIC
-      - WEB
-      - ANDROID
-      - ANDROID_MUSIC
+      - identifier: MUSIC
+        oauth: true
+      - identifier: ANDROID
+        oauth: true
+      - identifier: ANDROID_MUSIC
+        oauth: true
     oauth:
       enabled: true
       skipInitialization: false
