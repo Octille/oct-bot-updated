@@ -26,7 +26,8 @@ plugins:
     clients:
       - MUSIC
       - WEB
-      - WEB_EMBEDDED_PLAYER
+      - ANDROID
+      - ANDROID_MUSIC
     oauth:
       enabled: true
       skipInitialization: false
