@@ -49,7 +49,7 @@ module.exports = async (client, message) => {
     const embed = new EmbedBuilder()
       .setTitle('Here are my settings:')
       .setDescription(`Prefix: \`${settings.prefix}\`\nWelcome Channel: \`${welcome}\`\nInvite Links: \`${invitelinks}\``);
-    return message.channel.reply({ embeds: [embed] });
+    return message.channel.send({ embeds: [embed] });
   }
 
   const prefix = settings.prefix || '!';
