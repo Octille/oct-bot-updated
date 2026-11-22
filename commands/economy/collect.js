@@ -3,7 +3,7 @@ const { calcPendingWages } = require('../../functions/economy');
 
 module.exports = {
   name: 'collect',
-  aliases: ['wages', 'claim'],
+  aliases: ['wages', 'claim', 'hourly'],
   description: 'Collect wages from your company workers.',
 
   async execute(message, args, cmd, client, profileData) {

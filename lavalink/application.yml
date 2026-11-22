@@ -1,0 +1,51 @@
+# Lavalink config used by the Docker image (start.sh runs Lavalink from /app/lavalink).
+# Secrets come from environment variables — nothing sensitive is stored here.
+server:
+  port: ${LAVALINK_PORT:2333}
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # Snapshot build: 1.18.2 has a TV-client bug YouTube started enforcing in Aug 2026 (fixed in b33460b, not released yet).
+    # Switch back to a release (e.g. 1.18.3+) once one is published.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:e41dd95f8bd134b51e75080fb28cc805fecb431a"
+      snapshot: true
+  server:
+    password: "${LAVALINK_PASSWORD:youshallnotpass}"
+    sources:
+      youtube: false # replaced by the youtube plugin below
+      bandcamp: false
+      soundcloud: false
+      twitch: false
+      vimeo: false
+      http: false
+      local: false
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    remoteCipher:
+      # Public yt-cipher instance (https://github.com/kikkia/yt-cipher); decodes YouTube stream signatures.
+      url: "${YT_CIPHER_URL:https://cipher.kikkia.dev/}"
+      userAgent: "OctBot"
+    clients:
+      - MUSIC
+      - TV # needs the YouTube login (YT_OAUTH_ENABLED + YT_REFRESH_TOKEN)
+      - TVHTML5_SIMPLY
+      - MWEB
+      - ANDROID_MUSIC
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
+    oauth:
+      # Set YT_OAUTH_ENABLED=true and YT_REFRESH_TOKEN to use a YouTube account (helps with "sign in to confirm" errors).
+      enabled: ${YT_OAUTH_ENABLED:false}
+      refreshToken: "${YT_REFRESH_TOKEN:}"
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO

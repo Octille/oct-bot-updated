@@ -3,7 +3,7 @@ const profileModel = require('../../models/profileSchema');
 
 module.exports = {
   name: 'leaderboard',
-  aliases: ['lb', 'top'],
+  aliases: ['lb', 'top', 'cookielb', 'clb'],
   description: 'Server/global leaderboards + around me',
 
   async execute(message, args, cmd, client) {
@@ -13,6 +13,7 @@ module.exports = {
     const isAroundMe = lowerArgs.includes('aroundme');
 
     const mode =
+      ['cookielb', 'clb'].includes(cmd) || lowerArgs.includes('cookies') ? 'cookies' :
       lowerArgs.includes('level') ? 'level' :
       lowerArgs.includes('streak') ? 'streak' :
       'wealth';
@@ -21,6 +22,8 @@ module.exports = {
     let title = `${scope} ${
       mode === 'level'
         ? 'Level'
+        : mode === 'cookies'
+        ? 'Cookie'
         : mode === 'streak'
         ? 'Streak'
         : 'Wealth'
@@ -46,6 +49,11 @@ module.exports = {
 
     else if (mode === 'streak') {
       players.sort((a, b) => b.streak - a.streak);
+    }
+
+    else if (mode === 'cookies') {
+      players = players.filter(p => p.Items?.Cookies > 0);
+      players.sort((a, b) => b.Items.Cookies - a.Items.Cookies);
     }
 
     else {
@@ -109,6 +117,10 @@ module.exports = {
           statText = `🔥 **${p.streak || 0}** day streak`;
         }
 
+        else if (mode === 'cookies') {
+          statText = `🍪 **${p.Items.Cookies.toLocaleString()}**`;
+        }
+
         else {
           statText = `₪ **${(p.coins + p.bank).toLocaleString()}** | Level **${p.level || 1}**`;
         }
@@ -122,7 +134,7 @@ module.exports = {
       .setTitle(title)
       .setDescription(lines.join('\n'))
       .setFooter({
-        text: '!lb | !lb global | !lb streak | !lb aroundme'
+        text: '!lb | !lb global | !lb level | !lb streak | !lb cookies | !lb aroundme'
       });
 
     message.channel.send({ embeds: [embed] });

@@ -18,6 +18,7 @@ const client = new Client({
 
 client.commands = new Collection();
 client.events = new Collection();
+client.cooldowns = new Collection();
 
 client.lavalink = new LavalinkManager({
   nodes: [{
@@ -43,8 +44,15 @@ client.on('raw', (data) => client.lavalink.sendRawData(data));
   require(`./handlers/${handler}`)(client)
 );
 
-mongoose.connect(process.env.MONGODB_SRV, {})
-  .then(() => console.log('Connected to MongoDB!'))
-  .catch((err) => console.error('MongoDB error:', err));
+const mongoURI = process.env.MONGODB_SRV || require('./config.json').mongopath;
 
-client.login(process.env.token);
+// Every command depends on the database, so don't come online without it.
+mongoose.connect(mongoURI, { serverSelectionTimeoutMS: 15000 })
+  .then(() => {
+    console.log('Connected to MongoDB!');
+    return client.login(process.env.token);
+  })
+  .catch((err) => {
+    console.error('❌ Could not connect to MongoDB. Check MONGODB_SRV in .env.\n', err.message);
+    process.exit(1);
+  });

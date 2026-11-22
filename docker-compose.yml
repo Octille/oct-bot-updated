@@ -1,0 +1,22 @@
+# Runs the bot (with its built-in Lavalink) plus a MongoDB database.
+#   docker compose up -d --build
+# Uses the values in .env; MONGODB_SRV is overridden to point at the bundled database.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MONGODB_SRV: mongodb://mongo:27017/octbot
+      LAVALINK_HOST: localhost
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:

@@ -1,9 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
-const { readdirSync } = require('fs');
 
 const categories = {
   economy:    { emoji: '💰', label: 'Economy',    folder: 'economy' },
   fun:        { emoji: '😄', label: 'Fun',         folder: 'fun' },
+  minecraft:  { emoji: '⛏️', label: 'Minecraft',  folder: 'minecraft' },
   misc:       { emoji: '💡', label: 'Misc',        folder: 'Misc' },
   moderation: { emoji: '🔧', label: 'Moderation', folder: 'Moderation' },
   music:      { emoji: '🎶', label: 'Music',       folder: 'Music' },
@@ -42,23 +42,15 @@ module.exports = {
     // ── Category listing ───────────────────────────────────────────────────────
     if (categories[key]) {
       const { emoji, label, folder } = categories[key];
-      try {
-        const files = readdirSync(`./commands/${folder}/`).filter(f => f.endsWith('.js') && f !== 'a.js');
-        const cmds = files.map(f => {
-          const name = f.replace('.js', '');
-          const command = client.commands.get(name);
-          return `\`${prefix}${name}\`${command?.description ? ` — ${command.description}` : ''}`;
-        });
+      const commands = client.commands.filter(c => c.category === folder && !c.hidden);
+      const cmds = commands.map(c => `\`${prefix}${c.name}\`${c.description ? ` — ${c.description}` : ''}`);
 
-        const embed = new EmbedBuilder()
-          .setAuthor({ name: `${emoji} ${label} Commands`, iconURL: client.user.displayAvatarURL() })
-          .setDescription(cmds.join('\n') || 'No commands found.')
-          .setColor('#5865F2')
-          .setFooter({ text: `${files.length} command${files.length !== 1 ? 's' : ''} • Use ${prefix}help <command> for more info` });
-        return message.channel.send({ embeds: [embed] });
-      } catch {
-        return message.channel.send('Could not load that category.');
-      }
+      const embed = new EmbedBuilder()
+        .setAuthor({ name: `${emoji} ${label} Commands`, iconURL: client.user.displayAvatarURL() })
+        .setDescription(cmds.join('\n') || 'No commands found.')
+        .setColor('#5865F2')
+        .setFooter({ text: `${commands.size} command${commands.size !== 1 ? 's' : ''} • Use ${prefix}help <command> for more info` });
+      return message.channel.send({ embeds: [embed] });
     }
 
     // ── Individual command ─────────────────────────────────────────────────────

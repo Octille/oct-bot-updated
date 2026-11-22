@@ -2,10 +2,11 @@
 .env
 
 # Lavalink
-# We upload application.yml so Railway knows the password/port
-# But we DO NOT upload the .jar or logs
+# lavalink/application.yml is committed (it reads secrets from env vars)
+# But we DO NOT upload the .jar, plugins or logs
 *.jar
 lavalink/logs/
+logs/
 lavalink/plugins/
 
 # OS/Dependencies

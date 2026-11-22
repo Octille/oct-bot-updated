@@ -1,11 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'pole',
-  description: 'Sets up a poll!',
+  aliases: ['poll'],
+  description: 'Sets up a 👍 / 👎 poll (optionally in a mentioned channel)',
   async execute(message, args) {
-    const pollChannel = message.mentions.channels.first();
-    if (!pollChannel) return message.channel.send('Please mention a channel for the poll.');
-    const pollDescription = args.slice(1).join(' ');
+    const pollChannel = message.mentions.channels.first() || message.channel;
+    const pollDescription = args.filter(a => !/^<#\d+>$/.test(a)).join(' ');
     if (!pollDescription) return message.channel.send('Please provide a poll description.');
     const embed = new EmbedBuilder()
       .setTitle('New Poll!')

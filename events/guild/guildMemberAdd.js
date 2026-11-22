@@ -1,5 +1,5 @@
 const profileModel = require('../../models/profileSchema');
-const Canvas = require('canvas');
+const Canvas = require('@napi-rs/canvas');
 const path = require('path');
 const { AttachmentBuilder } = require('discord.js');
 const Guild = require('../../models/guild');
@@ -23,6 +23,11 @@ module.exports = async (client, member) => {
   }
 
   const settings = await Guild.findOne({ guildID: member.guild.id });
+
+  if (settings?.autoRoleID) {
+    await member.roles.add(settings.autoRoleID).catch((err) => console.log('Auto role error:', err.message));
+  }
+
   if (!settings || !settings.welcomeID || settings.welcomeID === '0') return;
 
   try {
@@ -47,7 +52,7 @@ module.exports = async (client, member) => {
     x = canvas.width / 2 - ctx.measureText(text).width / 2;
     ctx.fillText(text, x, 100 + pfp.height);
 
-    const attachment = new AttachmentBuilder(canvas.toBuffer(), { name: 'welcome.png' });
+    const attachment = new AttachmentBuilder(canvas.toBuffer('image/png'), { name: 'welcome.png' });
     const channel = member.guild.channels.cache.get(`${settings.welcomeID}`);
     if (channel) await channel.send({ files: [attachment] });
   } catch (err) {

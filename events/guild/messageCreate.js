@@ -1,9 +1,10 @@
 const profileModel = require('../../models/profileSchema');
 const Guild = require('../../models/guild');
+const Afk = require('../../models/Afk');
 const mongoose = require('mongoose');
-const { Collection, EmbedBuilder } = require('discord.js');
+const { Collection, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
-const cooldowns = new Collection();
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 module.exports = async (client, message) => {
   if (message.author.bot) return;
@@ -26,34 +27,59 @@ module.exports = async (client, message) => {
         prefix: process.env.PREFIX || '!',
         InviteLinks: 0,
       }).save();
-      message.channel.send('This server was not in our database! I have now added it, and your command will still work.')
-        .then(m => setTimeout(() => m.delete().catch(() => {}), 10000));
     }
   } catch (err) {
     console.error('[MessageCreate] Guild settings error:', err);
     settings = { prefix: process.env.PREFIX || '!' };
   }
 
-  // Invite link filter
+  // Counting channel: only the next number is allowed
+  if (settings.countingChannelID && message.channel.id === settings.countingChannelID) {
+    const next = (settings.countingNumber || 0) + 1;
+    if (message.content.trim() !== `${next}`) {
+      message.delete().catch(() => {});
+      message.author.send(`Wrong number in **${message.guild.name}**! Hint: \`${next}\``).catch(() => {});
+      return;
+    }
+    await Guild.updateOne({ guildID: message.guild.id }, { $set: { countingNumber: next } });
+    return;
+  }
+
+  // Invite link filter (moderators are exempt)
   if (message.content.includes('discord.gg/') || message.content.includes('discordapp.com/invite/')) {
-    if (settings.InviteLinks < 1) {
+    if (settings.InviteLinks < 1 && !message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       message.delete().catch(() => {});
       message.channel.send(`${message.author} Invite links are not allowed on this server`);
     }
   }
 
-  // Mention response with settings
-  if (message.mentions.users.has(client.user.id)) {
-    let welcome = settings.WelcomeCID || 'no welcome message setup';
-    let invitelinks = settings.InviteLinks == '1' ? 'on' : 'off';
+  await handleAfk(message);
+
+  const prefix = settings.prefix || '!';
+  const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
+
+  // A bare mention shows the server settings
+  if (mentionRegex.test(message.content) && !message.content.replace(mentionRegex, '').trim()) {
+    const welcome = settings.welcomeID && settings.welcomeID !== '0' ? `<#${settings.welcomeID}>` : 'no welcome message setup';
+    const invitelinks = settings.InviteLinks == '1' ? 'on' : 'off';
     const embed = new EmbedBuilder()
       .setTitle('Here are my settings:')
-      .setDescription(`Prefix: \`${settings.prefix}\`\nWelcome Channel: \`${welcome}\`\nInvite Links: \`${invitelinks}\``);
+      .setDescription(`Prefix: \`${prefix}\`\nWelcome Channel: ${welcome}\nInvite Links: \`${invitelinks}\``);
     return message.channel.send({ embeds: [embed] });
   }
 
-  const prefix = settings.prefix || '!';
-  if (!message.content.startsWith(prefix)) return;
+  // Commands work with either the prefix or a bot mention
+  const prefixRegex = new RegExp(`^(<@!?${client.user.id}>\\s*|${escapeRegex(prefix)})`);
+  const matched = message.content.match(prefixRegex);
+  if (!matched) return;
+
+  const args = message.content.slice(matched[0].length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
+  const command = client.commands.get(cmd) || client.commands.find(a => a.aliases && a.aliases.includes(cmd));
+
+  if (!command) {
+    return message.channel.send(`Command not found. Please refer to \`${prefix}help\``);
+  }
 
   // Ensure user profile exists
   let profileData;
@@ -74,6 +100,14 @@ module.exports = async (client, message) => {
     console.log(err);
   }
 
+  if (profileData?.banned) {
+    const embed = new EmbedBuilder()
+      .setColor('Red')
+      .setTitle('Banned!')
+      .setDescription('Looks like you have been banned from using Oct Bot. If you think this is a mistake, please open a ticket in the support server.');
+    return message.channel.send({ embeds: [embed] });
+  }
+
   // Coin penalty for negative balance
   if (profileData && profileData.coins < 0) {
     message.channel.send('Looks like you lost all your coins and had a stroke. You paid the hospital half your bank.');
@@ -83,29 +117,23 @@ module.exports = async (client, message) => {
     return;
   }
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const cmd = args.shift().toLowerCase();
-  const command = client.commands.get(cmd) || client.commands.find(a => a.aliases && a.aliases.includes(cmd));
+  // Cooldown handling (developers can switch it off per user with !dev)
+  if (!profileData?.cooldownsDisabled) {
+    if (!client.cooldowns.has(command.name)) client.cooldowns.set(command.name, new Collection());
+    const now = Date.now();
+    const timestamps = client.cooldowns.get(command.name);
+    const cooldownAmount = (command.cooldown || 3) * 1000;
 
-  if (!command) {
-    return message.channel.send('Command not found. Please refer to `!help`');
-  }
-
-  // Cooldown handling
-  if (!cooldowns.has(command.name)) cooldowns.set(command.name, new Collection());
-  const now = Date.now();
-  const timestamps = cooldowns.get(command.name);
-  const cooldownAmount = (command.cooldown || 3) * 1000;
-
-  if (timestamps.has(message.author.id)) {
-    const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
-    if (now < expirationTime) {
-      const timeLeft = (expirationTime - now) / 1000;
-      return message.reply(`Please wait \`${timeLeft.toFixed(1)}\` more second(s) before using **${command.name}** again.`);
+    if (timestamps.has(message.author.id)) {
+      const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
+      if (now < expirationTime) {
+        const timeLeft = (expirationTime - now) / 1000;
+        return message.reply(`Please wait \`${timeLeft.toFixed(1)}\` more second(s) before using **${command.name}** again.`);
+      }
     }
+    timestamps.set(message.author.id, now);
+    setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
   }
-  timestamps.set(message.author.id, now);
-  setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
 
   try {
     await command.execute(message, args, cmd, client, profileData, settings);
@@ -119,3 +147,26 @@ module.exports = async (client, message) => {
     }
   }
 };
+
+// Clears the author's AFK status and tells people when they ping someone who is AFK
+async function handleAfk(message) {
+  try {
+    const own = await Afk.findOneAndDelete({ userID: message.author.id, guildID: message.guild.id });
+    if (own) {
+      const nick = message.member.displayName;
+      if (nick.startsWith('[AFK] ')) message.member.setNickname(nick.slice(6)).catch(() => {});
+      message.reply(`Welcome back! I removed your AFK status.`)
+        .then(m => setTimeout(() => m.delete().catch(() => {}), 5000)).catch(() => {});
+    }
+
+    const mentioned = message.mentions.users.filter(u => u.id !== message.author.id);
+    if (!mentioned.size) return;
+    const afks = await Afk.find({ guildID: message.guild.id, userID: { $in: [...mentioned.keys()] } });
+    for (const afk of afks) {
+      const since = Math.floor(new Date(afk.since).getTime() / 1000);
+      message.channel.send(`💤 **${mentioned.get(afk.userID).username}** is AFK: ${afk.reason} (<t:${since}:R>)`);
+    }
+  } catch (err) {
+    console.error('[AFK] Error:', err);
+  }
+}
