@@ -102,6 +102,12 @@ describe('phase 3 (database)', () => {
     expect(await checkAchievements('ach1')).toEqual([]);
   });
 
+  it('level achievements count a level that was set directly (best still 0)', async () => {
+    await User.create({ _id: 'lvset', account: { xp: totalXpForLevel(25), level: 25, best: 0 } });
+    const ids = (await checkAchievements('lvset')).map((x) => x.id);
+    expect(ids).toEqual(expect.arrayContaining(['getting_started', 'climbing', 'seasoned']));
+  });
+
   it('prestige resets level and coins once, keeps unlocks, and pays tokens', async () => {
     await User.create({ _id: 'pr1', wallet: 80_000, bank: 20_000, account: { xp: totalXpForLevel(prestigeLevel), level: prestigeLevel, best: prestigeLevel } });
     const tries = await Promise.allSettled([prestige('pr1'), prestige('pr1'), prestige('pr1')]);

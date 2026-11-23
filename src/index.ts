@@ -8,28 +8,30 @@ import { onReady } from './events/ready';
 import { stopScheduler } from './scheduler';
 import { onMessageCreate, setMessageContentAvailable } from './events/messageCreate';
 
-/** Application flags for the privileged Message Content intent (enabled, or limited under 100 servers). */
+/** Application flags for privileged intents (enabled, or "limited" for bots under 100 servers). */
 const MESSAGE_CONTENT_FLAGS = (1 << 18) | (1 << 19);
+const GUILD_MEMBERS_FLAGS = (1 << 14) | (1 << 15);
 
 /**
  * Asking for a privileged intent the app doesn't have makes login fail (close code 4014), so
- * check the app's flags first and only request Message Content when it's switched on.
+ * check the app's flags first and only request the privileged intents that are switched on.
  */
-async function hasMessageContent(): Promise<boolean> {
+async function privilegedIntents(): Promise<{ messageContent: boolean; members: boolean }> {
   try {
     const app = (await new REST().setToken(env.DISCORD_TOKEN).get(Routes.currentApplication())) as APIApplication;
-    return ((app.flags ?? 0) & MESSAGE_CONTENT_FLAGS) !== 0;
+    const flags = app.flags ?? 0;
+    return { messageContent: (flags & MESSAGE_CONTENT_FLAGS) !== 0, members: (flags & GUILD_MEMBERS_FLAGS) !== 0 };
   } catch (err) {
     logError('intents', err);
-    return false;
+    return { messageContent: false, members: false };
   }
 }
 
-function createClient(messageContent: boolean): Client {
+function createClient({ messageContent, members }: { messageContent: boolean; members: boolean }): Client {
   return new Client({
     intents: [
       GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
+      ...(members ? [GatewayIntentBits.GuildMembers] : []),
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildVoiceStates,
       ...(messageContent ? [GatewayIntentBits.MessageContent] : []),
@@ -63,10 +65,11 @@ process.once('SIGTERM', () => void shutdown('SIGTERM'));
 // Every feature depends on the database, so don't come online without it.
 connectDatabase()
   .then(async () => {
-    const messageContent = await hasMessageContent();
-    setMessageContentAvailable(messageContent);
-    if (!messageContent) console.log('[intents] Message Content intent not enabled: chat XP counts every message (once a minute)');
-    client = createClient(messageContent);
+    const intents = await privilegedIntents();
+    setMessageContentAvailable(intents.messageContent);
+    if (!intents.messageContent) console.log('[intents] Message Content intent not enabled: chat XP counts every message (once a minute)');
+    if (!intents.members) console.log('[intents] Server Members intent not enabled: member lookups fall back to fetching');
+    client = createClient(intents);
     attachEvents(client);
     await client.login(env.DISCORD_TOKEN);
   })

@@ -25,7 +25,8 @@ const stat = (path: string) => (p: Profile): number => {
   const v = (p.stats as unknown as Stats | undefined)?.[a];
   return (b ? (v as Record<string, number> | undefined)?.[b] : (v as number | undefined)) ?? 0;
 };
-const level = (p: Profile) => p.account?.best ?? p.account?.level ?? 0;
+// Best-ever level, so prestiging doesn't undo progress (best defaults to 0, so take the max)
+const level = (p: Profile) => Math.max(p.account?.level ?? 0, p.account?.best ?? 0);
 const prestige = (p: Profile) => p.account?.prestige ?? 0;
 const species = (p: Profile) => Object.keys((p.fishdex ?? {}) as Record<string, unknown>).length;
 const coinsHeld = (p: Profile) => (p.wallet ?? 0) + (p.bank ?? 0);

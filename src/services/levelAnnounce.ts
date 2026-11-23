@@ -2,7 +2,7 @@ import { AttachmentBuilder, PermissionFlagsBits, type Guild, type GuildMember, t
 import { levelUpCard } from '../lib/cards';
 import { cardStyle } from '../lib/theme';
 import { getCosmetic } from '../content/cosmetics';
-import { logError } from '../lib/logger';
+import { logError, logInfo } from '../lib/logger';
 import { User } from '../models/User';
 import { rewardRoleChanges, type LevelSettings, type ServerLevelUp } from './levels';
 
@@ -11,6 +11,15 @@ const EXPECTED = new Set([50001, 50007, 50013, 10003, 10007, 10011]);
 
 function expected(err: unknown): boolean {
   return EXPECTED.has((err as { code?: number }).code ?? 0);
+}
+
+/** Servers we already logged a permission problem for (logged once, so admins can find it). */
+const warned = new Set<string>();
+function noteBlocked(guild: Guild, what: string, err: unknown): void {
+  const key = `${guild.id}:${what}`;
+  if (warned.has(key)) return;
+  warned.add(key);
+  logInfo('levels', `Can't ${what} in "${guild.name}" (${guild.id}): Discord error ${(err as { code?: number }).code}. Check the bot's permissions.`);
 }
 
 /** Adds/removes reward roles. Skips roles the bot can't manage. Returns the roles added. */
@@ -29,7 +38,8 @@ export async function applyRewardRoles(member: GuildMember, levels: LevelSetting
     if (toAdd.length) await member.roles.add(toAdd, `Reached server level ${up.to}`);
     if (toRemove.length) await member.roles.remove(toRemove, `Reached server level ${up.to}`);
   } catch (err) {
-    if (!expected(err)) logError('level roles', err);
+    if (expected(err)) noteBlocked(member.guild, 'give reward roles', err);
+    else logError('level roles', err);
     return [];
   }
   return toAdd;
@@ -69,6 +79,7 @@ export async function announceLevelUp(guild: Guild, member: GuildMember, levels:
     const channel = levels.announce === 'channel' && levels.channelId ? guild.channels.cache.get(levels.channelId) : here;
     if (channel && 'send' in channel && channel.isSendable()) await channel.send(payload);
   } catch (err) {
-    if (!expected(err)) logError('level announce', err);
+    if (expected(err)) noteBlocked(guild, levels.announce === 'dm' ? 'DM level-ups' : 'post level-ups', err);
+    else logError('level announce', err);
   }
 }

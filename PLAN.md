@@ -225,6 +225,8 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 - [ ] **7. Polish:**
   - `migrate-v2-to-v3.ts` (idempotent, `--dry-run`, summary), `/eco` owner tools and `/eco stats`
   - Veteran tiers awarded by the migration (counts in the dry-run summary); one-time welcome-back message on a veteran's first v3 command
+  - The migration sets `account.best` to the migrated level (unlocks and level achievements read it)
+  - Check the real bot's privileged intents (Message Content, Server Members) in the developer portal; the bot falls back safely if they're off, but chat XP is better with Message Content
   - BALANCE.md and README
   - Docker update (replset Mongo, build step), `.env.example`
   - full test pass, live run and fixes.
