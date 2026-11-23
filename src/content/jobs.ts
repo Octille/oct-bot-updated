@@ -15,13 +15,13 @@ export interface Job {
 export const jobs: readonly Job[] = [
   { id: 'barista', name: 'Barista', emoji: '☕', level: 0, basePay: 500, difficulty: 1,
     words: ['latte', 'mocha', 'beans', 'cream', 'sugar', 'brew', 'froth', 'decaf', 'cups', 'roast'] },
-  { id: 'coder', name: 'Coder', emoji: '💻', level: 5, basePay: 1_100, difficulty: 2,
+  { id: 'coder', name: 'Coder', emoji: '💻', level: 5, basePay: 1400, difficulty: 2,
     words: ['debug', 'array', 'stack', 'merge', 'class', 'async', 'regex', 'cache', 'build', 'query'] },
-  { id: 'chef', name: 'Chef', emoji: '👨‍🍳', level: 10, basePay: 2_000, difficulty: 3,
+  { id: 'chef', name: 'Chef', emoji: '👨‍🍳', level: 10, basePay: 3200, difficulty: 3,
     words: ['sauce', 'knife', 'grill', 'onion', 'pasta', 'whisk', 'spice', 'steak', 'broth', 'flour'] },
-  { id: 'doctor', name: 'Doctor', emoji: '🩺', level: 20, basePay: 3_800, difficulty: 4,
+  { id: 'doctor', name: 'Doctor', emoji: '🩺', level: 20, basePay: 4500, difficulty: 4,
     words: ['nurse', 'pulse', 'scalp', 'nerve', 'tonic', 'virus', 'organ', 'lungs', 'serum', 'xrays'] },
-  { id: 'ceo', name: 'CEO', emoji: '💼', level: 35, basePay: 7_500, difficulty: 5,
+  { id: 'ceo', name: 'CEO', emoji: '💼', level: 35, basePay: 5000, difficulty: 5,
     words: ['stock', 'board', 'merger', 'yacht', 'brand', 'profit', 'equity', 'growth', 'assets', 'shares'] },
 ];
 

@@ -2,7 +2,7 @@
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpToNext(level: number): number {
-  return 100 + 60 * level + 8 * level * level;
+  return Math.round(100 + 35 * level + 2.5 * level * level);
 }
 
 /** Total XP needed to reach `level` from 0. */

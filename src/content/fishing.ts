@@ -35,18 +35,30 @@ export const fishRarityWeights: Record<Rarity, number> = {
   common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.9, mythic: 0.1,
 };
 
-/** Each point of rod luck multiplies every non-common weight by this much. */
-export const luckPerPoint = 0.25;
+/** Each point of rod luck multiplies every non-common weight by (1 + luck × this). */
+export const luckPerPoint = 0.5;
 
-/** Average sell value per rarity; a fish's actual value scales with its size (0.75×–1.5×). */
+/**
+ * Base value per rarity — what the fish sells for from your inventory.
+ * A catch is worth base × size (0.75×–1.5×) × the rod's value multiplier; everything above the
+ * base is paid immediately as a fresh-catch bonus.
+ */
 export const fishValue: Record<Rarity, number> = {
-  common: 50, uncommon: 150, rare: 400, epic: 1_200, legendary: 4_000, mythic: 15_000,
+  common: 50, uncommon: 150, rare: 600, epic: 2_000, legendary: 8_000, mythic: 40_000,
 };
 
-/** Milliseconds you get to hit REEL, by rarity (before the rod's bonus). */
+/** Milliseconds you get to hit REEL, by rarity (before the rod's bonus). Never below 1.2s. */
 export const reelWindowMs: Record<Rarity, number> = {
-  common: 2_500, uncommon: 2_000, rare: 1_600, epic: 1_300, legendary: 1_100, mythic: 950,
+  common: 2_500, uncommon: 2_000, rare: 1_600, epic: 1_400, legendary: 1_300, mythic: 1_200,
 };
+
+/** One-off rewards for catching a share of all species at least once. */
+export const fishdexRewards: { percent: number; coins: number }[] = [
+  { percent: 25, coins: 15_000 },
+  { percent: 50, coins: 60_000 },
+  { percent: 75, coins: 200_000 },
+  { percent: 100, coins: 750_000 },
+];
 
 export const castWait = {
   /** Wait before the bite, in ms. */

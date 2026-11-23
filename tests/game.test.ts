@@ -5,11 +5,14 @@ import { colourClick, isPerfect, memory, performanceFor, quickMath, randomMiniga
 import { shiftPay } from '../src/game/jobs';
 import { expectedMineCoins, resolveMine, rollTunnels } from '../src/game/mining';
 import { tunnels } from '../src/content/mining';
-import { expectedCatchValue, planCast, rarityWeights, reelWindow, rollCatch } from '../src/game/fishing';
+import { expectedCatchValue, freshCatchBonus, newFishdexRewards, planCast, rarityWeights, reelWindow, rollCatch } from '../src/game/fishing';
+import { fishSpecies, fishValue, reelWindowMs } from '../src/content/fishing';
+import { rarities } from '../src/content/rarity';
+import { hourly, hoursToLevel, scenarios } from '../src/game/balance';
 import { claimDaily, claimWeekly, dayNumber, streakCalendar } from '../src/game/streaks';
 import { rollBeg, rollSearch } from '../src/game/begSearch';
 import { levelFromXp, totalXpForLevel, xpToNext } from '../src/content/levels';
-import { repairCost, pickaxes } from '../src/content/tools';
+import { repairCost, pickaxes, rods, repairCostFraction } from '../src/content/tools';
 import { performance } from '../src/content/jobs';
 
 describe('minigames', () => {
@@ -141,11 +144,32 @@ describe('fishing', () => {
   it('catches stay inside each species size range', () => {
     const rng = seededRng(2);
     for (let i = 0; i < 5000; i++) {
-      const c = rollCatch(2, rng);
+      const c = rollCatch(2, 1, rng);
       expect(c.kg).toBeGreaterThanOrEqual(c.species.kg[0]);
       expect(c.kg).toBeLessThanOrEqual(c.species.kg[1]);
       expect(c.value).toBeGreaterThan(0);
     }
+  });
+
+  it('every reel window is at least 1.2s before the rod bonus', () => {
+    for (const r of rarities) expect(reelWindowMs[r]).toBeGreaterThanOrEqual(1_200);
+  });
+
+  it('better rods make each catch worth more; the bonus is the value above the base price', () => {
+    expect(expectedCatchValue(0, 4.5)).toBeCloseTo(expectedCatchValue(0, 1) * 4.5);
+    const rng = seededRng(8);
+    for (let i = 0; i < 500; i++) {
+      const c = rollCatch(4, 4.5, rng);
+      expect(freshCatchBonus(c)).toBe(Math.max(0, c.value - fishValue[c.species.rarity]));
+    }
+  });
+
+  it('fishdex rewards unlock at 25/50/75/100% and only once', () => {
+    const quarter = Math.ceil(fishSpecies.length / 4);
+    expect(newFishdexRewards(quarter - 1, [])).toEqual([]);
+    expect(newFishdexRewards(quarter, []).map((r) => r.percent)).toEqual([25]);
+    expect(newFishdexRewards(quarter, [25])).toEqual([]);
+    expect(newFishdexRewards(fishSpecies.length, [25]).map((r) => r.percent)).toEqual([50, 75, 100]);
   });
 
   it('rarer fish give less time to reel, rods give more', () => {
@@ -175,9 +199,12 @@ describe('streaks', () => {
     expect(again.ok).toBe(false);
   });
 
-  it('consecutive UTC days grow the streak; a gap resets it', () => {
+  it('consecutive UTC days grow the streak; missing a full reset day resets it', () => {
     const next = claimDaily({ count: 6, best: 6, lastDaily: day(100), days: [] }, day(101), 1);
-    expect(next).toMatchObject({ ok: true, streak: 7, multiplier: 1.5, milestoneBonus: 10_000 });
+    expect(next).toMatchObject({ ok: true, streak: 7, multiplier: 1.5, milestoneBonus: 10_000, coins: 11_250 });
+    // Claimed at 00:01 on day 100, then 23:59 on day 101: nearly 48h apart but no reset day missed
+    const lateNextDay = claimDaily({ count: 6, best: 6, lastDaily: new Date(100 * 86_400_000 + 60_000), days: [] }, new Date(102 * 86_400_000 - 60_000), 1);
+    expect(lateNextDay).toMatchObject({ ok: true, streak: 7 });
     const gap = claimDaily({ count: 6, best: 6, lastDaily: day(100), days: [] }, day(102), 1);
     expect(gap).toMatchObject({ ok: true, streak: 1, broken: true, best: 6 });
   });
@@ -201,6 +228,46 @@ describe('streaks', () => {
     const cal = streakCalendar([99, 100], day(100));
     expect(cal.split('\n')).toHaveLength(3);
     expect(cal).toContain('🟩');
+  });
+});
+
+describe('balance targets', () => {
+  it('no single loop is more than 35% of income at any stage', () => {
+    for (const s of scenarios) {
+      const h = hourly(s);
+      for (const loop of ['work', 'mine', 'fish', 'beg', 'search'] as const) {
+        expect(h[loop] / h.gross, `${s.name}: ${loop}`).toBeLessThanOrEqual(0.355);
+      }
+    }
+  });
+
+  it('tool wear is 10–15% of income once you own real tools', () => {
+    for (const s of scenarios.slice(1)) {
+      const share = hourly(s).wear / hourly(s).gross;
+      expect(share, s.name).toBeGreaterThanOrEqual(0.095);
+      expect(share, s.name).toBeLessThanOrEqual(0.15);
+    }
+  });
+
+  it('level 35 takes 60–80 active hours; first unlocks come quickly', () => {
+    expect(hoursToLevel(35)).toBeGreaterThanOrEqual(60);
+    expect(hoursToLevel(35)).toBeLessThanOrEqual(80);
+    expect(hoursToLevel(5)).toBeLessThan(2);
+  });
+
+  it('income grows at every stage', () => {
+    const gross = scenarios.map((s) => hourly(s).gross);
+    for (let i = 1; i < gross.length; i++) expect(gross[i]!).toBeGreaterThan(gross[i - 1]!);
+  });
+
+  it('tools get strictly better and tougher each tier', () => {
+    for (const set of [pickaxes, rods]) {
+      for (let i = 1; i < set.length; i++) {
+        expect(set[i]!.cost).toBeGreaterThan(set[i - 1]!.cost);
+        expect(set[i]!.durability).toBeGreaterThan(set[i - 1]!.durability);
+        expect((set[i]!.mult ?? set[i]!.valueMult)!).toBeGreaterThan((set[i - 1]!.mult ?? set[i - 1]!.valueMult)!);
+      }
+    }
   });
 });
 
@@ -232,7 +299,7 @@ describe('levels and tools', () => {
   it('repairs cost a fraction of the price, pro rata', () => {
     const wood = pickaxes[0]!;
     expect(repairCost(wood, wood.durability)).toBe(0);
-    expect(repairCost(wood, 0)).toBe(Math.ceil(wood.cost * 0.3));
-    expect(repairCost(wood, wood.durability / 2)).toBe(Math.ceil(wood.cost * 0.15));
+    expect(repairCost(wood, 0)).toBe(Math.ceil(wood.cost * repairCostFraction));
+    expect(repairCost(wood, wood.durability / 2)).toBe(Math.ceil((wood.cost * repairCostFraction) / 2));
   });
 });

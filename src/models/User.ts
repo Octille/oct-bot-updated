@@ -49,6 +49,9 @@ const userSchema = new Schema(
       default: () => new Map(),
     },
 
+    /** Fishdex completion rewards already claimed (percentages). */
+    fishdexRewards: { type: [Number], default: [] },
+
     stats: {
       worked: { type: Number, default: 0 },
       perfectShifts: { type: Number, default: 0 },

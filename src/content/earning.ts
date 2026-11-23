@@ -59,7 +59,7 @@ export const search = {
 
 /** /daily and /weekly */
 export const daily = {
-  base: 2_500,
+  base: 7_500,
   // Claims reset at 00:00 UTC; missing a whole UTC day resets the streak.
   /** [minimum streak, multiplier] — highest matching tier applies. */
   multipliers: [[60, 2.5], [30, 2], [14, 1.75], [7, 1.5], [3, 1.25], [0, 1]] as const,

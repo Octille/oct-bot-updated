@@ -8,7 +8,8 @@ import { logError } from '../../lib/logger';
 import { UserError } from '../../lib/errors';
 import { cooldowns } from '../../content/earning';
 import { rarityInfo } from '../../content/rarity';
-import { planCast, reelWindow, rollCatch } from '../../game/fishing';
+import { freshCatchBonus, newFishdexRewards, planCast, reelWindow, rollCatch } from '../../game/fishing';
+import { fishSpecies, fishValue } from '../../content/fishing';
 import { grant } from '../../services/progression';
 import { apply } from '../../services/economy';
 import { describeTool, ensureStarterRod, equipped } from '../../services/tools';
@@ -28,7 +29,7 @@ export default defineCommand({
     const rod = equipped(profile, 'rod');
     if (!rod.tool || rod.broken) throw new UserError('Your rod is broken. `/tools` to repair it.');
 
-    const catchRoll = rollCatch(rod.tool.luck ?? 0);
+    const catchRoll = rollCatch(rod.tool.luck ?? 0, rod.tool.valueMult ?? 1);
     const plan = planCast();
     const windowMs = reelWindow(catchRoll.species.rarity, rod.tool.windowBonusMs ?? 0);
     const id = (label: string, style: ButtonStyle, emoji?: string, disabled = false) =>
@@ -57,18 +58,29 @@ export default defineCommand({
       let footerXp = '';
 
       if (outcome === 'caught') {
+        const dex = (profile.fishdex ?? {}) as Record<string, { caught: number }>;
+        const isNew = (dex[fish.id]?.caught ?? 0) === 0;
+        const speciesCaught = fishSpecies.filter((f) => (dex[f.id]?.caught ?? 0) > 0).length + (isNew ? 1 : 0);
+        const claimed = profile.fishdexRewards ?? [];
+        const rewards = isNew ? newFishdexRewards(speciesCaught, claimed) : [];
+        const bonus = freshCatchBonus(catchRoll);
+        const rewardCoins = rewards.reduce((s, r) => s + r.coins, 0);
+
         const { xp, levelUp, profile: after } = await grant(userId, {
+          wallet: bonus + rewardCoins || undefined,
           items: { [fish.id]: 1 },
           inc: { ...durability, 'stats.fishCaught': 1, [`fishdex.${fish.id}.caught`]: 1 },
           max: { [`fishdex.${fish.id}.biggest`]: catchRoll.kg },
-          where,
-        }, { source: 'fish', xp: 'fish', meta: { fish: fish.id, kg: catchRoll.kg } });
-        const before = (profile.fishdex as Record<string, { caught: number }> | undefined)?.[fish.id]?.caught ?? 0;
+          addToSet: { fishdexRewards: rewards.map((r) => r.percent) },
+          // The rod must still have durability, and the rewards must not have been claimed meanwhile
+          where: { ...where, ...(rewards.length ? { fishdexRewards: { $nin: rewards.map((r) => r.percent) } } : {}) },
+        }, { source: 'fish', xp: 'fish', meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
         text = [
           `${info.emoji} **${fish.emoji} ${fish.name}** — ${num(catchRoll.kg)} kg (${info.label})`,
           `Reeled in ${((reactionMs ?? 0) / 1000).toFixed(2)}s after the bite.`,
-          `Worth about **${coins(catchRoll.value)}** — keep it or sell it later.`,
-          before === 0 ? '📘 **New fishdex entry!**' : null,
+          bonus > 0 ? `🏷️ Fresh-catch bonus **+${coins(bonus)}** (size + rod). It sells for ${coins(fishValue[fish.rarity])} more later.` : `Sells for ${coins(fishValue[fish.rarity])}.`,
+          isNew ? `📘 **New fishdex entry!** (${speciesCaught}/${fishSpecies.length})` : null,
+          ...rewards.map((r) => `🏆 **Fishdex ${r.percent}% complete!** +${coins(r.coins)}`),
           equipped(after, 'rod').broken ? '🔨 **Your rod broke!** `/tools` to repair it.' : null,
           levelUpText(levelUp),
         ].filter(Boolean).join('\n');

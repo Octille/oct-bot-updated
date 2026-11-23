@@ -75,6 +75,18 @@ describe('tools', () => {
   });
 });
 
+describe('addToSet', () => {
+  it('adds each value once, and a where guard stops double claims', async () => {
+    await eco.loadProfile('u1');
+    const claim = () => eco.apply('u1', { wallet: 100, addToSet: { fishdexRewards: [25] }, where: { fishdexRewards: { $nin: [25] } } }, { source: 'fishdex' });
+    const results = await Promise.allSettled([claim(), claim(), claim()]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const u = (await User.findById('u1').lean())!;
+    expect(u.fishdexRewards).toEqual([25]);
+    expect(u.wallet).toBe(1_100);
+  });
+});
+
 describe('apply guards', () => {
   it('refuses inc/set paths that would bypass the wallet guard', async () => {
     await expect(eco.apply('u1', { inc: { wallet: 1_000_000 } }, { source: 'hack' })).rejects.toThrow(/Unsafe/);

@@ -25,6 +25,8 @@ export interface Change {
   set?: Record<string, unknown>;
   /** Fields to $max in the same update. */
   max?: Record<string, number>;
+  /** Values to add to array fields (no duplicates). */
+  addToSet?: Record<string, unknown[]>;
   /** Extra conditions that must hold, e.g. the tool hasn't changed since we read it. */
   where?: Record<string, unknown>;
 }
@@ -182,6 +184,7 @@ export async function apply(userId: string, change: Change, opts: ApplyOptions):
     ...Object.keys(change.inc ?? {}),
     ...Object.keys(change.set ?? {}),
     ...Object.keys(change.max ?? {}),
+    ...Object.keys(change.addToSet ?? {}),
     ...Object.keys(change.where ?? {}),
   ]);
   for (const [path, value] of Object.entries(change.inc ?? {})) {
@@ -194,6 +197,8 @@ export async function apply(userId: string, change: Change, opts: ApplyOptions):
   if (Object.keys(inc).length) update.$inc = inc;
   if (change.set && Object.keys(change.set).length) update.$set = change.set;
   if (change.max && Object.keys(change.max).length) update.$max = change.max;
+  const addToSet = Object.entries(change.addToSet ?? {}).filter(([, values]) => values.length);
+  if (addToSet.length) update.$addToSet = Object.fromEntries(addToSet.map(([path, values]) => [path, { $each: values }]));
 
   await ensureUser(userId, opts.session);
   if (Object.keys(update).length === 0) return getProfile(userId, opts.session);
