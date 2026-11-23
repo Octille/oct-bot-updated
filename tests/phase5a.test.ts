@@ -141,3 +141,73 @@ describe('leaderboards (database)', () => {
     expect(srv.rows.map((r) => r.userId)).toEqual(['l3', 'l1']);
   });
 });
+
+describe('review fixes (database)', () => {
+  useTestDatabase();
+
+  it('reminds old profiles that have no reminders field, and a late-hour player never blocks others', async () => {
+    const at19 = new Date('2026-11-24T19:00:00Z');
+    // Raw documents, like profiles created before reminders existed
+    await User.collection.insertOne({ _id: 'old1' as never, settings: { dmReminders: true }, streak: { count: 2, lastDaily: new Date('2026-11-23T09:00:00Z') } });
+    await User.collection.insertOne({ _id: 'late' as never, settings: { dmReminders: true }, streak: { count: 1, lastDaily: new Date('2026-11-23T23:00:00Z') } });
+    const due = await claimDueReminders(at19);
+    expect(due.filter((d) => d.kind === 'daily').map((d) => d.userId)).toEqual(['old1']);
+  });
+
+  it('hands out quests to a raw old profile with no quests field', async () => {
+    await User.collection.insertOne({ _id: 'rawq' as never, wallet: 5, account: { level: 4, xp: totalXpForLevel(4) } });
+    const p = await ensureQuests(await getProfile('rawq'), new Date('2026-11-24T10:00:00Z'));
+    expect(questSet(p, 'daily').list).toHaveLength(3);
+    expect(questSet(p, 'weekly').list).toHaveLength(3);
+  });
+
+  it('selling shop items does not advance sell quests (fish only)', async () => {
+    const { sell } = await import('../src/services/items.js');
+    await User.create({ _id: 'sq', inventory: { scratch_card: 10, fish_carp: 2 } });
+    await sell('sq', { scratch_card: 10 });
+    expect((await getProfile('sq')).stats?.fishSold ?? 0).toBe(0);
+    await sell('sq', { fish_carp: 2 });
+    expect((await getProfile('sq')).stats?.fishSold).toBe(2);
+  });
+
+  it('messages count once a minute across all servers', async () => {
+    const { awardChatXp } = await import('../src/services/levels.js');
+    await User.create({ _id: 'chatty' });
+    const t = new Date('2026-11-24T12:00:00Z');
+    await awardChatXp('gA', 'chatty', 1, t);
+    await awardChatXp('gB', 'chatty', 1, new Date(t.getTime() + 1_000));
+    await awardChatXp('gC', 'chatty', 1, new Date(t.getTime() + 2_000));
+    expect((await getProfile('chatty')).stats?.messages).toBe(1);
+  });
+
+  it('daily and weekly claims do not count as activity earnings', async () => {
+    await User.create({ _id: 'earn2' });
+    await grant('earn2', { wallet: 7_500 }, { source: 'daily', countEarned: false });
+    expect((await getProfile('earn2')).stats?.earned ?? 0).toBe(0);
+  });
+
+  it('net worth includes items; ties rank like the list; global boards are shared across servers', async () => {
+    clearLeaderboardCache();
+    await User.create({ _id: 'n1', wallet: 1_000, inventory: { gem_ruby: 1 } });
+    await User.create({ _id: 'n2', wallet: 1_000 });
+    await User.create({ _id: 'n3', wallet: 1_000 });
+    const b = await board('coins', 0, { guildId: 'x', members: null });
+    expect(b.rows[0]!.userId).toBe('n1');
+    expect(b.rows[0]!.value).toBeGreaterThan(1_000);
+    // n2 and n3 tie: n2 is listed first, and their footer ranks agree with the list
+    expect(b.rows.map((r) => r.userId)).toEqual(['n1', 'n2', 'n3']);
+    expect((await rankOf('coins', 'n2', { guildId: 'x', members: null }))?.rank).toBe(2);
+    expect((await rankOf('coins', 'n3', { guildId: 'x', members: null }))?.rank).toBe(3);
+    // The same global page from another server comes from the cache (same result even after a change)
+    await User.updateOne({ _id: 'n3' }, { $set: { wallet: 99_999 } });
+    expect((await board('coins', 0, { guildId: 'y', members: null })).rows[0]!.userId).toBe('n1');
+  });
+
+  it('gambling winnings board lists only players who are ahead', async () => {
+    clearLeaderboardCache();
+    await User.create({ _id: 'gw1', stats: { gambling: { wagered: 1_000, paidOut: 5_000 } } });
+    await User.create({ _id: 'gw2', stats: { gambling: { wagered: 5_000, paidOut: 1_000 } } });
+    const b = await board('gambling', 0, { guildId: null, members: null });
+    expect(b.rows.map((r) => [r.userId, r.value])).toEqual([['gw1', 4_000]]);
+  });
+});

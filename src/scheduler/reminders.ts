@@ -29,8 +29,9 @@ export const remindersJob: Job = {
         });
         sent++;
       } catch (err) {
-        // DMs closed (50007): stop trying
-        if ((err as { code?: number }).code === 50007) await setReminders(r.userId, false);
+        // DMs closed (50007) or the account is gone (10013): stop trying
+        const code = (err as { code?: number }).code;
+        if (code === 50007 || code === 10013) await setReminders(r.userId, false);
         else logError('dm reminder', err);
       }
     }

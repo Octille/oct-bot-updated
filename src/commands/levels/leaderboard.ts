@@ -1,4 +1,5 @@
-import { ButtonStyle, SlashCommandBuilder, type Guild } from 'discord.js';
+import { ButtonStyle, escapeMarkdown, GatewayIntentBits, SlashCommandBuilder, type Guild } from 'discord.js';
+import { MemberLevel } from '../../models/MemberLevel';
 import { defineCommand } from '../../framework/types';
 import { achievements } from '../../content/achievements';
 import { getCosmetic } from '../../content/cosmetics';
@@ -16,7 +17,8 @@ import { board, metrics, PER_PAGE, rankOf, type Metric, type Row } from '../../s
 import { row, select } from '../../ui/kit';
 
 const LABEL: Record<Metric, string> = {
-  coins: 'Coins (wallet + bank)', level: 'Level', server: 'Server level', fishdex: 'Fishdex', streak: 'Daily streak', achievements: 'Achievements',
+  coins: 'Net worth', server: 'Server level', level: 'Account level', fish: 'Fish caught', gambling: 'Gambling winnings',
+  streak: 'Daily streak', fishdex: 'Fishdex', achievements: 'Achievements',
 };
 
 function valueText(metric: Metric, r: Pick<Row, 'value' | 'prestige' | 'level'>): string {
@@ -25,6 +27,8 @@ function valueText(metric: Metric, r: Pick<Row, 'value' | 'prestige' | 'level'>)
     case 'level': return `${r.prestige ? `P${prestigeNumerals[r.prestige] ?? r.prestige} · ` : ''}Lv ${r.level}`;
     case 'server': return `Lv ${serverLevelFromXp(r.value).level} · ${num(r.value)} XP`;
     case 'fishdex': return `${r.value} / ${fishSpecies.length}`;
+    case 'fish': return `${num(r.value)} fish`;
+    case 'gambling': return `+${coins(r.value)}`;
     case 'streak': return `${num(r.value)} day${r.value === 1 ? '' : 's'}`;
     case 'achievements': return `${r.value} / ${achievements.length}`;
   }
@@ -44,13 +48,23 @@ async function memberIds(guild: Guild): Promise<string[]> {
   const hit = memberLists.get(guild.id);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.ids;
   let ids: string[];
-  try {
-    ids = [...(await guild.members.fetch()).filter((m) => !m.user.bot).keys()];
-  } catch {
-    ids = [...guild.members.cache.filter((m) => !m.user.bot).keys()];
+  if (guild.client.options.intents.has(GatewayIntentBits.GuildMembers)) {
+    try {
+      ids = [...(await guild.members.fetch({ time: 10_000 })).filter((m) => !m.user.bot).keys()];
+    } catch {
+      ids = await activeHere(guild);
+    }
+  } else {
+    // Without the Server Members intent: everyone who has earned XP here, plus the cached members
+    ids = await activeHere(guild);
   }
   memberLists.set(guild.id, { at: Date.now(), ids });
   return ids;
+}
+
+async function activeHere(guild: Guild): Promise<string[]> {
+  const rows = await MemberLevel.find({ guildId: guild.id }, { userId: 1 }, { lean: true });
+  return [...new Set([...rows.map((r) => r.userId), ...guild.members.cache.filter((m) => !m.user.bot).keys()])];
 }
 
 async function nameOf(guild: Guild | null, userId: string, client: Guild['client']): Promise<string> {
@@ -62,12 +76,14 @@ async function nameOf(guild: Guild | null, userId: string, client: Guild['client
     const user = member?.user ?? (await client.users.fetch(userId));
     name = member?.displayName ?? user.globalName ?? user.username;
   } catch { /* deleted account */ }
+  // Names are shown in bold lists: escape markdown so a name can't break the layout or mask a link
+  name = escapeMarkdown(name);
   names.set(userId, { at: Date.now(), name });
   return name;
 }
 
 export default defineCommand({
-  data: new SlashCommandBuilder().setName('leaderboard').setDescription('Top players by coins, level, server level, fishdex, streak or achievements')
+  data: new SlashCommandBuilder().setName('leaderboard').setDescription('Top players: net worth, levels, fish, gambling, streaks and more')
     .addStringOption((o) => o.setName('board').setDescription('Which leaderboard').addChoices(...metrics.map((m) => ({ name: LABEL[m], value: m }))))
     .addStringOption((o) => o.setName('scope').setDescription('This server or everyone').addChoices({ name: 'This server', value: 'server' }, { name: 'Global', value: 'global' })),
   category: 'levels',

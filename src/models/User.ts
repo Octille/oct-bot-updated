@@ -161,6 +161,9 @@ const userSchema = new Schema(
       voiceMinutes: { type: Number, default: 0 },
       /** Coins earned from activities (for quests). */
       earned: { type: Number, default: 0 },
+      fishSold: { type: Number, default: 0 },
+      /** Last message that counted for stats.messages (one per minute across all servers). */
+      lastMessageAt: { type: Date, default: null },
       questsDone: { type: Number, default: 0 },
       robsWon: { type: Number, default: 0 },
       robsFailed: { type: Number, default: 0 },
@@ -200,6 +203,9 @@ const userSchema = new Schema(
   },
   { collection: 'players', timestamps: true, versionKey: false },
 );
+
+// Only players who opted in to DM reminders (the hourly job reads these)
+userSchema.index({ 'settings.dmReminders': 1 }, { partialFilterExpression: { 'settings.dmReminders': true } });
 
 export type UserData = InferSchemaType<typeof userSchema>;
 export type UserDoc = HydratedDocument<UserData>;

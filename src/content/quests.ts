@@ -33,7 +33,8 @@ export const questDefs: readonly QuestDef[] = [
   { id: 'beg', label: 'Beg {n} times', stat: 'begged', daily: [4, 8], activity: 'beg' },
   { id: 'search', label: 'Search {n} times', stat: 'searched', daily: [3, 6], activity: 'search' },
   { id: 'crime', label: 'Commit {n} crimes', stat: 'crimes', daily: [2, 3], weekly: [12, 18], activity: 'crime', needs: 'crime' },
-  { id: 'sell', label: 'Sell {n} items', stat: 'itemsSold', daily: [5, 15], weekly: [40, 60] },
+  // Fish only: shop items sell back below cost, so an "any item" sell quest could be bought outright
+  { id: 'sell', label: 'Sell {n} fish', stat: 'fishSold', daily: [3, 8], weekly: [25, 40], activity: 'fish' },
   { id: 'earn', label: 'Earn {n} coins from activities', stat: 'earned', scaled: { daily: [5_000, 1_500], weekly: [40_000, 12_000] } },
   { id: 'chat', label: 'Send {n} messages that earn XP', stat: 'messages', daily: [10, 20] },
   { id: 'dailies', label: 'Finish {n} daily quests', stat: 'questsDone', weekly: [10, 15] },

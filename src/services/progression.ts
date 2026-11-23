@@ -75,7 +75,7 @@ export interface GrantResult {
 export async function grant(
   userId: string,
   change: Change,
-  opts: { source: string; xp?: XpSource; meta?: Record<string, unknown>; rng?: Rng; profile?: PerkSource },
+  opts: { source: string; xp?: XpSource; meta?: Record<string, unknown>; rng?: Rng; profile?: PerkSource; /** false for claims (daily/weekly) that aren't activity earnings */ countEarned?: boolean },
 ): Promise<GrantResult> {
   const xp = opts.xp ? rollXp(opts.xp, opts.rng, opts.profile ? xpMultiplier(opts.profile) : 1) : 0;
   const profile = await apply(
@@ -86,7 +86,7 @@ export async function grant(
         ...change.inc,
         ...(xp ? { 'account.xp': xp } : {}),
         // Coins earned from activities, for "Earn ₪X" quests
-        ...(change.wallet && change.wallet > 0 ? { 'stats.earned': change.wallet } : {}),
+        ...(change.wallet && change.wallet > 0 && opts.countEarned !== false ? { 'stats.earned': change.wallet } : {}),
       },
     },
     { source: opts.source, meta: opts.meta },

@@ -41,7 +41,7 @@ export default defineCommand({
         set: { 'streak.count': result.streak, 'streak.best': result.best, 'streak.lastDaily': now, 'streak.days': result.days },
         // Only succeeds if nobody claimed since we read the profile
         where: { 'streak.lastDaily': state.lastDaily },
-      }, { source: 'daily', xp: 'daily', profile, meta: { streak: result.streak } });
+      }, { source: 'daily', xp: 'daily', profile, meta: { streak: result.streak }, countEarned: false });
     } catch (err) {
       if (err instanceof EconomyError && err.code === 'CONFLICT') throw new UserError("You've already claimed today's daily.");
       throw err;

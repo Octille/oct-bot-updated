@@ -18,32 +18,36 @@ export function remindHour(lastDaily: Date | null | undefined): number {
 
 /**
  * Finds players to remind and marks each reminder as sent first (one conditional update), so a
- * reminder can't go out twice even if two runs overlap.
+ * reminder can't go out twice even if two runs overlap. Walks every opted-in player with a cursor
+ * (no batch cap, so players whose hour hasn't come can't crowd out the rest).
+ *
+ * "Not yet reminded" is `{ $not: { $gte: period } }`, which also matches profiles that have no
+ * `reminders` field at all (anyone created before reminders existed).
  */
-export async function claimDueReminders(now = new Date(), limit = 500): Promise<DueReminder[]> {
+export async function claimDueReminders(now = new Date()): Promise<DueReminder[]> {
   const today = dayNumber(now);
   const week = weekNumber(now);
   const startOfToday = new Date(today * DAY);
   const due: DueReminder[] = [];
 
-  const daily = await User.find({
+  const daily = User.find({
     'settings.dmReminders': true,
-    'reminders.dailyDay': { $lt: today },
-    $or: [{ 'streak.lastDaily': null }, { 'streak.lastDaily': { $lt: startOfToday } }],
-  }, { streak: 1 }, { lean: true, limit });
-  for (const u of daily) {
+    'reminders.dailyDay': { $not: { $gte: today } },
+    'streak.lastDaily': { $not: { $gte: startOfToday } },
+  }, { streak: 1 }, { lean: true }).cursor();
+  for await (const u of daily) {
     if (now.getUTCHours() < remindHour(u.streak?.lastDaily)) continue;
-    const res = await User.updateOne({ _id: u._id, 'reminders.dailyDay': { $lt: today } }, { $set: { 'reminders.dailyDay': today } });
+    const res = await User.updateOne({ _id: u._id, 'reminders.dailyDay': { $not: { $gte: today } } }, { $set: { 'reminders.dailyDay': today } });
     if (res.modifiedCount) due.push({ userId: String(u._id), kind: 'daily', streak: u.streak?.count ?? 0 });
   }
 
-  const weekly = await User.find({
+  const weekly = User.find({
     'settings.dmReminders': true,
-    'reminders.weeklyWeek': { $lt: week },
-    $or: [{ 'streak.lastWeekly': null }, { 'streak.lastWeekly': { $lte: new Date(now.getTime() - 7 * DAY) } }],
-  }, { _id: 1 }, { lean: true, limit });
-  for (const u of weekly) {
-    const res = await User.updateOne({ _id: u._id, 'reminders.weeklyWeek': { $lt: week } }, { $set: { 'reminders.weeklyWeek': week } });
+    'reminders.weeklyWeek': { $not: { $gte: week } },
+    'streak.lastWeekly': { $not: { $gt: new Date(now.getTime() - 7 * DAY) } },
+  }, { _id: 1 }, { lean: true }).cursor();
+  for await (const u of weekly) {
+    const res = await User.updateOne({ _id: u._id, 'reminders.weeklyWeek': { $not: { $gte: week } } }, { $set: { 'reminders.weeklyWeek': week } });
     if (res.modifiedCount) due.push({ userId: String(u._id), kind: 'weekly', streak: 0 });
   }
   return due;

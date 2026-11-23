@@ -94,8 +94,12 @@ export async function awardChatXp(guildId: string, userId: string, mult: number,
     if ((err as { code?: number }).code === DUPLICATE_KEY) return undefined;
     throw err;
   }
-  // Global stat for achievements; only for people who already play (never creates a profile)
-  await User.updateOne({ _id: userId }, { $inc: { 'stats.messages': 1 } });
+  // Global stat for achievements and quests: once a minute across ALL servers (so being in many
+  // servers doesn't multiply it), and only for people who already play (never creates a profile)
+  await User.updateOne(
+    { _id: userId, 'stats.lastMessageAt': { $not: { $gt: new Date(now.getTime() - windowMs) } } },
+    { $inc: { 'stats.messages': 1 }, $set: { 'stats.lastMessageAt': now } },
+  );
   return syncServerLevel(guildId, userId, doc!.xp, doc!.level, xp);
 }
 

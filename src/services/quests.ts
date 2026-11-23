@@ -105,8 +105,8 @@ export async function ensureQuests(p: Profile, now = new Date()): Promise<Profil
     { _id: p._id, $or: [{ 'quests.daily.day': { $ne: day } }, { 'quests.weekly.week': { $ne: week } }] },
     // Only reset the sets that are actually stale (the filter above lets either through)
     [{ $set: {
-      'quests.daily': { $cond: [{ $eq: ['$quests.daily.day', day] }, '$quests.daily', set['quests.daily'] ?? '$quests.daily'] },
-      'quests.weekly': { $cond: [{ $eq: ['$quests.weekly.week', week] }, '$quests.weekly', set['quests.weekly'] ?? '$quests.weekly'] },
+      'quests.daily': { $cond: [{ $eq: ['$quests.daily.day', day] }, '$quests.daily', set['quests.daily'] ? { $literal: set['quests.daily'] } : '$quests.daily'] },
+      'quests.weekly': { $cond: [{ $eq: ['$quests.weekly.week', week] }, '$quests.weekly', set['quests.weekly'] ? { $literal: set['quests.weekly'] } : '$quests.weekly'] },
     } }],
     { new: true, lean: true },
   );

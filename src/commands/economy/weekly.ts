@@ -25,7 +25,7 @@ export default defineCommand({
         wallet: result.coins,
         set: { 'streak.weeklyCount': result.streak, 'streak.lastWeekly': now },
         where: { 'streak.lastWeekly': last },
-      }, { source: 'weekly', xp: 'weekly', profile });
+      }, { source: 'weekly', xp: 'weekly', profile, countEarned: false });
     } catch (err) {
       if (err instanceof EconomyError && err.code === 'CONFLICT') throw new UserError("You've already claimed this week's reward.");
       throw err;

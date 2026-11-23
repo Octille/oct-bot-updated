@@ -169,16 +169,19 @@ export async function sell(userId: string, toSell: Inventory): Promise<Sale> {
   if (!entries.length) throw new UserError('Nothing to sell.');
   let total = 0;
   let count = 0;
+  let fish = 0;
   for (const [id, qty] of entries) {
     const item = getItem(id);
     if (!item || item.sellPrice <= 0) throw new UserError(`${itemLabel(id)} can't be sold.`);
     total += item.sellPrice * qty;
     count += qty;
+    if (item.type === 'fish') fish += qty;
   }
   const profile = await apply(userId, {
     wallet: total,
     items: Object.fromEntries(entries.map(([id, q]) => [id, -q])),
-    inc: { 'stats.itemsSold': count },
+    // fishSold drives "sell fish" quests: fish only come from fishing, so they can't be bought to resell
+    inc: { 'stats.itemsSold': count, ...(fish ? { 'stats.fishSold': fish } : {}) },
   }, { source: 'sell', meta: { count } });
   return { items: Object.fromEntries(entries), total, profile };
 }
