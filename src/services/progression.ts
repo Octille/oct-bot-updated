@@ -1,7 +1,7 @@
 import { accountXp, levelFromXp, prestigeIncomeBonus, type XpSource } from '../content/levels';
 import { boostEffect } from '../content/consumables';
 import { levelCrate } from '../content/crates';
-import { itemLabel } from '../content/items';
+import { itemName } from '../content/items';
 import { isActive } from '../game/boosts';
 import { jobs } from '../content/jobs';
 import { pickaxes, rods } from '../content/tools';
@@ -35,9 +35,9 @@ export function rollXp(source: XpSource, rng: Rng = defaultRng, mult = 1): numbe
 export function unlocksBetween(from: number, to: number): string[] {
   const inRange = (level: number) => level > from && level <= to;
   return [
-    ...jobs.filter((j) => inRange(j.level)).map((j) => `${j.emoji} **${j.name}** job (\`/job\`)`),
-    ...pickaxes.filter((t) => inRange(t.level)).map((t) => `${t.emoji} **${t.name}** (\`/tools\`)`),
-    ...rods.filter((t) => inRange(t.level)).map((t) => `${t.emoji} **${t.name}** (\`/tools\`)`),
+    ...jobs.filter((j) => inRange(j.level)).map((j) => `${j.name} job`),
+    ...pickaxes.filter((t) => inRange(t.level)).map((t) => t.name),
+    ...rods.filter((t) => inRange(t.level)).map((t) => t.name),
   ];
 }
 
@@ -98,6 +98,6 @@ export async function syncLevel(profile: Profile): Promise<LevelUp | null> {
     for (const c of crates) items[c] = (items[c] ?? 0) + 1;
     await apply(profile._id, { items }, { source: 'level.crate', meta: { from, to: level } });
   }
-  const crateUnlocks = crates.map((c) => `${itemLabel(c)} reward`);
+  const crateUnlocks = crates.map((c) => `a free ${itemName(c)}`);
   return { from, to: level, unlocks: [...unlocksBetween(from, level), ...crateUnlocks], crates };
 }

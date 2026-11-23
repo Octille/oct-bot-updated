@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { coins } from '../../lib/format';
@@ -51,6 +52,6 @@ export default defineCommand({
     const parsed = parseAmount(amount, owned);
     if (!parsed.ok) throw new UserError(parsed.reason);
     const sale = await sell(interaction.user.id, { [id]: parsed.value });
-    await replyWithScreen(interaction, `inv.item.${id}.all.0`, sale.profile, `💰 Sold ${itemLabel(id, parsed.value)} for **${coins(sale.total)}**. Wallet: ${coins(sale.profile.wallet)}`);
+    await replyWithScreen(interaction, `inv.item.${id}.all.0`, sale.profile, `${icon('success')} Sold ${itemLabel(id, parsed.value)} for **${coins(sale.total)}**. Wallet ${coins(sale.profile.wallet)}`);
   },
 });

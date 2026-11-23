@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -31,11 +32,11 @@ export default defineCommand({
     }
 
     const lines = [
-      `📦 **+${coins(result.coins)}**${result.multiplier > 1 ? ` (${result.multiplier.toFixed(1)}× for ${result.streak} weeks in a row)` : ''}`,
+      `${icon('success')} **+${coins(result.coins)}**${result.multiplier > 1 ? ` (${result.multiplier.toFixed(1)}× for ${result.streak} weeks in a row)` : ''}`,
       `Next one ${relative(now.getTime() + 7 * 86_400_000)} — claim within a week of that to keep the bonus growing.`,
       levelUpText(granted.levelUp),
     ];
     const next = await afterAction(interaction.user.id, 'weekly');
-    await interaction.reply({ embeds: [embed('economy').setTitle('📦 Weekly').setDescription([...lines, next.note].filter(Boolean).join('\n')).setFooter({ text: `+${granted.xp} XP` })], components: [next.row] });
+    await interaction.reply({ embeds: [embed('economy').setTitle(`${icon('weekly')} Weekly`).setDescription([...lines, next.note].filter(Boolean).join('\n')).setFooter({ text: `+${granted.xp} XP` })], components: [next.row] });
   },
 });

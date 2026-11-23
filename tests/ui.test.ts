@@ -11,6 +11,7 @@ import { cosmetics } from '../src/content/cosmetics';
 import { totalXpForLevel } from '../src/content/levels';
 import { hubExpired, hubStamp } from '../src/ui/screens/hub';
 import { statusOf } from '../src/ui/activities';
+import { iconDefs } from '../src/content/icons';
 import { firstSteps } from '../src/services/onboarding';
 import type { Profile } from '../src/services/economy';
 
@@ -104,7 +105,15 @@ describe('every menu screen', () => {
                 expect(c.custom_id.length, where).toBeLessThanOrEqual(100);
                 customIds.push(c.custom_id);
               }
-              if (c.type === ComponentType.Button && 'label' in c && c.label) expect(c.label.length, `${where}: "${c.label}"`).toBeLessThanOrEqual(MAX_LABEL);
+              if (c.type === ComponentType.Button && 'label' in c && c.label) {
+                expect(c.label.length, `${where}: "${c.label}"`).toBeLessThanOrEqual(MAX_LABEL);
+                // Icons only on main actions (green) and hub activity buttons; never on navigation
+                if ('emoji' in c && c.emoji) {
+                  const isHubActivity = path.startsWith('hub') && !/^(Shop|Inventory|Balance|Help|Refresh)$/.test(c.label);
+                  expect(isHubActivity || c.style === ButtonStyle.Success, `${where}: icon on "${c.label}"`).toBe(true);
+                }
+                if (/^(Back|Menu|Prev|Next|Cancel|Refresh)$/.test(c.label)) expect('emoji' in c && c.emoji, `${where}: icon on ${c.label}`).toBeFalsy();
+              }
               if (c.type === ComponentType.StringSelect) {
                 expect(c.options.length, where).toBeGreaterThan(0);
                 expect(c.options.length, where).toBeLessThanOrEqual(MAX_OPTIONS);
@@ -130,6 +139,29 @@ describe('every menu screen', () => {
     for (const name of Object.keys(screens)) expect(visited, name).toContain(name);
   });
 
+  it('never shows a negative wallet-after when something is unaffordable', () => {
+    for (const path of ['shop.tools.pickaxe', 'shop.tools.weapon', 'shop.item.coin_boost.cons', 'jail']) {
+      const text = render(path, { owner: OWNER, origin: 'c', profile: players.jailed!, userName: 'Oct' }).embeds[0]!.toJSON().description ?? '';
+      expect(text, path).not.toMatch(/wallet after ₪ -/);
+    }
+  });
+
+  it('screen text stays plain: no decorative emoji in descriptions of menu screens', () => {
+    const emoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+    for (const [who, p] of Object.entries(players)) {
+      for (const path of ['hub', 'shop', 'shop.tools', 'shop.cons', 'inv.all.0', 'bal', 'job', 'help', 'wardrobe']) {
+        const json = render(path, { owner: OWNER, origin: 'c', profile: p, userName: 'Oct' }).embeds[0]!.toJSON();
+        // With no icons uploaded in tests, icon() returns fallbacks, so strip known fallbacks first
+        const fallbacks = Object.values(iconDefs).map((d) => d.fallback);
+        let text = `${json.title ?? ''}\n${json.description ?? ''}\n${(json.fields ?? []).map((f) => `${f.name} ${f.value}`).join('\n')}`;
+        for (const f of fallbacks) text = text.split(f).join('');
+        text = text.split('🧪').join(''); // the test-version notice
+        text = text.replace(/[✓★☆]/g, ''); // plain text glyphs, not emoji
+        expect(emoji.test(text), `${who} ${path}: ${text.match(emoji)?.[0]}`).toBe(false);
+      }
+    }
+  });
+
   it('unaffordable buy buttons are disabled and say how much more is needed', () => {
     const payload = render('shop.tools.pickaxe', { owner: OWNER, origin: 'c', profile: players.newbie!, userName: 'Oct' });
     const buy = payload.components.flatMap((r) => r.toJSON().components).find((c) => 'label' in c && /Need|Buy/.test(c.label ?? ''));
@@ -148,8 +180,8 @@ describe('every menu screen', () => {
 describe('hub', () => {
   it('missing tools link to the shop instead of a dead end', () => {
     const payload = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' });
-    const hunt = payload.components.flatMap((r) => r.toJSON().components).find((c) => 'label' in c && c.label?.startsWith('Hunt'));
-    expect(hunt && 'label' in hunt && hunt.label).toBe('Hunt — get Slingshot');
+    const hunt = payload.components.flatMap((r) => r.toJSON().components).find((c) => 'label' in c && c.label === 'Get Slingshot');
+    expect(hunt && 'label' in hunt && hunt.label).toBe('Get Slingshot');
     expect(hunt && 'disabled' in hunt && hunt.disabled).toBeFalsy();
     expect(hunt && 'custom_id' in hunt && parseId(hunt.custom_id).args[1]).toBe('shop.tools.weapon');
   });
@@ -171,7 +203,7 @@ describe('hub', () => {
   it('activity status reflects cooldowns, tools, level and jail', () => {
     expect(statusOf('mine', players.mid!).state).toBe('cooldown');
     expect(statusOf('hunt', players.newbie!)).toMatchObject({ state: 'needs', fix: 'shop.tools.weapon' });
-    expect(statusOf('hunt', players.mid!)).toMatchObject({ state: 'needs', label: 'Hunt — repair tool' });
+    expect(statusOf('hunt', players.mid!)).toMatchObject({ state: 'needs', label: 'Repair Slingshot' });
     expect(statusOf('crime', players.newbie!).state).toBe('locked');
     expect(statusOf('daily', players.jailed!).state).toBe('locked');
     expect(statusOf('fish', players.newbie!).state).toBe('ready'); // starter rod is free
@@ -180,5 +212,30 @@ describe('hub', () => {
   it('first steps: daily, a shift, a tool', () => {
     expect(firstSteps(players.newbie!).map((s) => s.done)).toEqual([false, false, false]);
     expect(firstSteps(players.mid!)[2]!.done).toBe(true);
+  });
+});
+
+describe('with real application emojis loaded', () => {
+  it('every screen still fits Discord limits when icons are long custom-emoji strings', async () => {
+    const { setLoadedIconsForTest } = await import('../src/lib/icons.js');
+    setLoadedIconsForTest(Object.fromEntries(Object.keys(iconDefs).map((k, i) => [k, { id: `1234567890123456${String(i).padStart(3, '0')}`, name: `oi_${k}_abc123` }])));
+    try {
+      for (const p of Object.values(players)) {
+        for (const e of ENTRY) {
+          for (const { path, payload } of crawl(e, p, 'h')) {
+            for (const em of payload.embeds) {
+              const json = em.toJSON();
+              expect((json.title ?? '').length, path).toBeLessThanOrEqual(256);
+              expect((json.description ?? '').length, path).toBeLessThanOrEqual(4096);
+              for (const f of json.fields ?? []) expect(f.value.length, `${path} ${f.name}`).toBeLessThanOrEqual(1024);
+            }
+            for (const r of payload.components) r.toJSON();
+          }
+        }
+      }
+      expect(render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' }).embeds[0]!.toJSON().title).toMatch(/^<:oi_menu_abc123:\d+> Menu$/);
+    } finally {
+      setLoadedIconsForTest({});
+    }
   });
 });

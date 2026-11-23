@@ -15,7 +15,7 @@ export default defineCommand({
     await interaction.reply({
       embeds: [
         embed('utility')
-          .setTitle('🏓 Pong!')
+          .setTitle('Pong!')
           .addFields(
             { name: 'Round trip', value: `${roundTrip}ms`, inline: true },
             { name: 'Gateway', value: `${Math.round(client.ws.ping)}ms`, inline: true },

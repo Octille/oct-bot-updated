@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { embed } from '../../lib/embeds';
 import { bar, coins, num, relative } from '../../lib/format';
@@ -20,14 +21,14 @@ export function balanceCard(profile: Profile, name: string, avatar: string | nul
   const items = inventoryValue(inventoryOf(profile));
   const active = (Object.keys(boosts) as (keyof typeof boosts)[])
     .filter((k) => isActive(profile.boosts, k))
-    .map((k) => `${boosts[k].emoji} ${boosts[k].label} until ${relative(profile.boosts![k]!)}`);
+    .map((k) => `${boosts[k].label} until ${relative(profile.boosts![k]!)}`);
   const e = embed('economy')
-    .setTitle(`👛 ${titled(name, profile)}`)
+    .setTitle(`${icon('wallet')} ${titled(name, profile)}`)
     .addFields(
-      { name: '👛 Wallet', value: coins(profile.wallet), inline: true },
-      { name: '🏦 Bank', value: `${coins(profile.bank)} / ${num(cap)}`, inline: true },
-      { name: '💰 Net worth', value: `${coins(profile.wallet + profile.bank + items)}\n-# incl. ${coins(items)} of items`, inline: true },
-      { name: `⭐ Account Level ${level}`, value: `${bar(into, needed)} ${num(into)} / ${num(needed)} XP` },
+      { name: 'Wallet', value: `${icon('currency')} ${coins(profile.wallet)}`, inline: true },
+      { name: 'Bank', value: `${coins(profile.bank)} / ${num(cap)}`, inline: true },
+      { name: 'Net worth', value: `${icon('currency')} ${coins(profile.wallet + profile.bank + items)}\n-# incl. ${coins(items)} of items`, inline: true },
+      { name: `Account level ${level}`, value: `${bar(into, needed)} ${num(into)} / ${num(needed)} XP` },
     )
     .setFooter({ text: [testNotice(), 'Wallet coins can be robbed. Bank coins are safe.'].filter(Boolean).join('\n') });
   if (avatar) e.setThumbnail(avatar);
@@ -66,10 +67,10 @@ export const balance: ScreenModule = {
       embeds: [balanceCard(p, ctx.userName, null, lines || undefined)],
       components: [row(
         back(ctx, null),
-        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'wdall'), p.bank > 0 ? `Withdraw all — ${coins(p.bank)}` : 'Bank is empty', NAV, { emoji: '👛', disabled: p.bank <= 0 }),
-        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'wdamt'), 'Withdraw amount', NAV, { emoji: '✏️', disabled: p.bank <= 0 }),
-        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'depamt'), 'Deposit amount', NAV, { emoji: '✏️', disabled: !!depReason }),
-        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'depall'), depReason ?? `Deposit all — ${coins(depositable)}`, MAIN, { emoji: '🏦', disabled: !!depReason }),
+        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'wdall'), p.bank > 0 ? `Withdraw all · ${coins(p.bank)}` : 'Bank is empty', NAV, { disabled: p.bank <= 0 }),
+        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'wdamt'), 'Withdraw amount', NAV, { disabled: p.bank <= 0 }),
+        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'depamt'), 'Deposit amount', NAV, { disabled: !!depReason }),
+        btn(ids.act(ctx.owner, ctx.origin, 'bal', 'depall'), depReason ?? `Deposit all · ${coins(depositable)}`, MAIN, { disabled: !!depReason }),
       )],
     };
   },
@@ -83,11 +84,11 @@ export const balance: ScreenModule = {
           return { handled: true };
         case 'depall': {
           const { amount, profile } = await deposit(ctx.owner, 'all');
-          return { path: 'bal', note: `🏦 Deposited **${coins(amount)}**. Bank: ${coins(profile.bank)}` };
+          return { path: 'bal', note: `${icon('success')} Deposited **${coins(amount)}**. Bank ${coins(profile.bank)}` };
         }
         case 'wdall': {
           const { amount } = await withdraw(ctx.owner, 'all');
-          return { path: 'bal', note: `👛 Withdrew **${coins(amount)}**.` };
+          return { path: 'bal', note: `${icon('success')} Withdrew **${coins(amount)}**.` };
         }
         case 'depsub':
         case 'wdsub': {
@@ -99,11 +100,11 @@ export const balance: ScreenModule = {
           if (parsed && !parsed.ok) throw new UserError(parsed.reason);
           const request = parsed ? parsed.value : 'all';
           const { amount } = dep ? await deposit(ctx.owner, request) : await withdraw(ctx.owner, request);
-          return { path: 'bal', note: dep ? `🏦 Deposited **${coins(amount)}**.` : `👛 Withdrew **${coins(amount)}**.` };
+          return { path: 'bal', note: dep ? `${icon('success')} Deposited **${coins(amount)}**.` : `${icon('success')} Withdrew **${coins(amount)}**.` };
         }
       }
     } catch (err) {
-      if (err instanceof UserError || err instanceof EconomyError) return { path: 'bal', note: `❌ ${err.message}` };
+      if (err instanceof UserError || err instanceof EconomyError) return { path: 'bal', note: `${icon('error')} ${err.message}` };
       throw err;
     }
     return { path: 'bal' };

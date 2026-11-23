@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -17,12 +18,12 @@ export default defineCommand({
     const alive = last !== null && today - last <= 1;
     const current = alive ? s?.count ?? 0 : 0;
     const status = last === today
-      ? `✅ Claimed today. Next daily ${relative(nextUtcMidnight(now))}.`
-      : alive ? '⏰ Not claimed yet today — `/daily` before 00:00 UTC to keep it!' : '`/daily` to start a streak.';
+      ? `${icon('success')} Claimed today. Next daily ${relative(nextUtcMidnight(now))}.`
+      : alive ? 'Not claimed yet today. Use `/daily` before 00:00 UTC to keep it.' : '`/daily` to start a streak.';
     const milestones = Object.keys(daily.milestones).map(Number).filter((m) => m > current).slice(0, 3);
 
     await interaction.reply({ embeds: [embed('economy')
-      .setTitle(`🔥 ${interaction.user.username}'s streak`)
+      .setTitle(`${icon('daily')} ${interaction.user.username}'s streak`)
       .setDescription(status)
       .addFields(
         { name: 'Current', value: `${current} day${current === 1 ? '' : 's'} (${dailyMultiplier(current)}×)`, inline: true },

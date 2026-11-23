@@ -28,6 +28,8 @@
   },
   "description": "",
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@tabler/icons": "^3.52.0",
     "@types/node": "^20.19.43",
     "mongodb-memory-server": "^11.4.0",
     "tsx": "^4.23.15",

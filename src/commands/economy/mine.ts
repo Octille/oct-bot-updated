@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -38,10 +39,10 @@ export default defineCommand({
 
     const message = await interaction.editReply({
       embeds: [embed('economy')
-        .setTitle('⛏️ Mine › Pick a tunnel')
-        .setDescription(choices.map((t) => `${t.emoji} **${t.name}** — ${t.hint}`).join('\n'))
+        .setTitle(`${icon('mine')} Mine › Pick a tunnel`)
+        .setDescription(choices.map((t) => `**${t.name}** — ${t.hint}`).join('\n'))
         .setFooter({ text: `${describeTool(pickaxe, 'pickaxe').replace(/\*\*/g, '')}${pickaxe.broken ? ' (mining bare-handed until repaired)' : ''}` })],
-      components: rows(choices.map((t, i) => button('~mine', userId, [i], t.name, ButtonStyle.Secondary, t.emoji))),
+      components: rows(choices.map((t, i) => button('~mine', userId, [i], t.name, ButtonStyle.Secondary))),
     });
 
     let chosen = false;
@@ -68,10 +69,10 @@ export default defineCommand({
 
         const toolNow = equipped(after, 'pickaxe');
         const lines = result.caveIn
-          ? [`💥 **CAVE-IN!** The ${tunnel.name} collapses. You scramble out with a few scraps.`, `💰 **+${coins(result.coins)}**`]
-          : [pick(FLAVOUR[result.ore.id] ?? FLAVOUR.coal!), `${result.ore.emoji} **${result.ore.name}** • 💰 **+${coins(result.coins)}**`];
-        if (result.gemId) lines.push(`💎 You also found a **${itemLabel(result.gemId)}**!`);
-        if (usesTool && toolNow.broken) lines.push('🔨 **Your pickaxe broke!** `/tools` to repair it.');
+          ? [`${icon('warning')} **+${coins(result.coins)}** — cave-in!`, `The ${tunnel.name} collapses. You scramble out with a few scraps.`]
+          : [`${icon('success')} **+${coins(result.coins)}** — ${result.ore.name} ${result.ore.emoji}`, pick(FLAVOUR[result.ore.id] ?? FLAVOUR.coal!)];
+        if (result.gemId) lines.push(`Also found: **${itemLabel(result.gemId)}**`);
+        if (usesTool && toolNow.broken) lines.push(`${icon('warning')} **Your pickaxe broke.** Repair it in /tools.`);
         const lvl = levelUpText(levelUp);
         if (lvl) lines.push(lvl);
         const next = await afterAction(userId, 'mine');
@@ -80,10 +81,10 @@ export default defineCommand({
         await i.update({
           embeds: [embed('economy')
             .setColor(result.caveIn ? 0x7f5539 : result.ore.color)
-            .setTitle(`⛏️ Mine › ${tunnel.emoji} ${tunnel.name}`)
+            .setTitle(`${icon('mine')} Mine › ${tunnel.name}`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: `+${xp} XP • ${describeTool(toolNow, 'pickaxe').replace(/\*\*/g, '')}` })],
-          components: [...rows(choices.map((t, n) => button('~mine', userId, [n], t.name, t.id === tunnel.id ? ButtonStyle.Primary : ButtonStyle.Secondary, t.emoji, true))), next.row],
+          components: [...rows(choices.map((t, n) => button('~mine', userId, [n], t.name, t.id === tunnel.id ? ButtonStyle.Primary : ButtonStyle.Secondary, undefined, true))), next.row],
         });
       })().catch((err) => logError('mine', err));
     });
@@ -91,7 +92,7 @@ export default defineCommand({
       if (chosen) return;
       // Nobody picked: give the cooldown back
       cooldownService.release(userId, 'mine').catch(() => undefined);
-      interaction.editReply({ content: '⌛ You stood at the entrance too long. Your cooldown was refunded.', components: [] }).catch(() => undefined);
+      interaction.editReply({ content: 'You stood at the entrance too long. Your cooldown was refunded.', components: [] }).catch(() => undefined);
     });
   },
 });

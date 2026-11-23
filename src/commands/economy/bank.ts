@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { coins } from '../../lib/format';
@@ -25,6 +26,6 @@ export default defineCommand({
       request = parsed.value;
     }
     const { amount, profile: after } = dep ? await deposit(interaction.user.id, request) : await withdraw(interaction.user.id, request);
-    await replyWithScreen(interaction, 'bal', after, dep ? `🏦 Deposited **${coins(amount)}**.` : `👛 Withdrew **${coins(amount)}**.`);
+    await replyWithScreen(interaction, 'bal', after, dep ? `${icon('success')} Deposited **${coins(amount)}**.` : `${icon('success')} Withdrew **${coins(amount)}**.`);
   },
 });

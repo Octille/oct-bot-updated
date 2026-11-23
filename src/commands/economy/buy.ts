@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { coins } from '../../lib/format';
@@ -38,6 +39,6 @@ export default defineCommand({
     const id = interaction.options.getString('item', true);
     const p = await buy(interaction.user.id, id, interaction.options.getInteger('amount') ?? 1);
     const where = findEntry(id) ? `shop.item.${id}.${sectionOf(id)}` : 'shop';
-    await replyWithScreen(interaction, where, p.profile, `✅ Bought ${p.qty > 1 ? `${p.qty}× ` : ''}${p.label} for **${coins(p.total)}**. Wallet: ${coins(p.profile.wallet)}`);
+    await replyWithScreen(interaction, where, p.profile, `${icon('success')} Bought ${p.qty > 1 ? `${p.qty}× ` : ''}**${p.label}** for ${coins(p.total)}. Wallet ${coins(p.profile.wallet)}`);
   },
 });

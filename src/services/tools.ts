@@ -75,9 +75,9 @@ export async function repair(userId: string, slot: ToolSlot): Promise<{ tool: To
 }
 
 export function describeTool(e: Equipped, slot: ToolSlot): string {
-  if (!e.tool) return { pickaxe: '✋ Bare hands', rod: 'No rod', weapon: 'No weapon', shovel: 'No shovel' }[slot];
-  const state = e.broken ? ' — **BROKEN** 🔧' : '';
-  return `${e.tool.emoji} ${e.tool.name} (${e.durability}/${e.tool.durability})${state}`;
+  if (!e.tool) return { pickaxe: 'Bare hands', rod: 'No rod', weapon: 'No weapon', shovel: 'No shovel' }[slot];
+  const state = e.broken ? ' — **broken**' : '';
+  return `${e.tool.name} (${e.durability}/${e.tool.durability})${state}`;
 }
 
 export { coins };

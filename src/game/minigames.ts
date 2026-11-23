@@ -53,7 +53,7 @@ export function unscramble(job: Job, rng: Rng = defaultRng): Minigame {
   const options = shuffle([word, ...decoys], rng);
   return {
     kind: 'unscramble',
-    title: '🔤 Unscramble',
+    title: 'Unscramble',
     prompt: `Which word is **\`${scrambled.toUpperCase()}\`** unscrambled?`,
     buttons: options.map((label) => ({ label, style: grey })),
     solution: [options.indexOf(word)],
@@ -91,7 +91,7 @@ export function quickMath(job: Job, rng: Rng = defaultRng): Minigame {
   const shuffled = shuffle([...options], rng);
   return {
     kind: 'math',
-    title: '🧮 Quick Maths',
+    title: 'Quick Maths',
     prompt: `What's **${text}**?`,
     buttons: shuffled.map((n) => ({ label: String(n), style: grey })),
     solution: [shuffled.indexOf(answer)],
@@ -110,7 +110,7 @@ export function memory(job: Job, rng: Rng = defaultRng): Minigame {
   const buttons = shuffle([...sequence, ...decoys], rng);
   return {
     kind: 'memory',
-    title: '🧠 Memory',
+    title: 'Memory',
     prompt: 'Press them back **in order**!',
     preview: { text: `Remember this:\n# ${sequence.join(' ')}`, ms: 2_600 - job.difficulty * 150 },
     buttons: buttons.map((emoji) => ({ label: '​', emoji, style: grey })),
@@ -141,7 +141,7 @@ export function colourClick(job: Job, rng: Rng = defaultRng): Minigame {
     : buttons.findIndex((b) => b.style === target.style);
   return {
     kind: 'colour',
-    title: '🎨 Colour Click',
+    title: 'Colour Click',
     prompt: byLabel ? `Click the button that **SAYS** ${target.name}` : `Click the button that **IS** ${target.name.toLowerCase()}`,
     buttons,
     solution: [answer],

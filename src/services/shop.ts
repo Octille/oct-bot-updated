@@ -1,6 +1,6 @@
 import { basics, rotationPool, rotationSize, type RotationEntry, type ShopEntry } from '../content/shop';
 import { getCosmetic } from '../content/cosmetics';
-import { getItem, itemLabel } from '../content/items';
+import { getItem, itemName } from '../content/items';
 import { seededRng, shuffle } from '../lib/rng';
 import { EconomyError, UserError } from '../lib/errors';
 import { dayNumber } from '../game/streaks';
@@ -22,12 +22,13 @@ export function boughtToday(profile: Pick<Profile, 'rotation'>, id: string, day:
   return (profile.rotation.bought as Record<string, number> | undefined)?.[id] ?? 0;
 }
 
+/** Plain name for shop listings: "Luck Potion", "Ocean (theme)". */
 export function displayName(entry: Pick<ShopEntry, 'id' | 'kind'>): string {
   if (entry.kind === 'cosmetic') {
     const c = getCosmetic(entry.id);
-    return c ? `${c.kind === 'title' ? '🏷️' : '🎨'} ${c.name} (${c.kind})` : entry.id;
+    return c ? `${c.name} (${c.kind})` : entry.id;
   }
-  return itemLabel(entry.id);
+  return itemName(entry.id);
 }
 
 /** Basics, today's rotation and non-rotation cosmetics, by id. */

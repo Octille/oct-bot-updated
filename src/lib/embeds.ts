@@ -1,4 +1,5 @@
 import { EmbedBuilder, type ColorResolvable } from 'discord.js';
+import { icon } from './icons';
 
 export const palette = {
   economy: 0xf1c40f,
@@ -21,13 +22,13 @@ export function embed(category: Category = 'utility'): EmbedBuilder {
 }
 
 export function successEmbed(description: string): EmbedBuilder {
-  return embed('success').setDescription(`✅ ${description}`);
+  return embed('success').setDescription(`${icon('success')} ${description}`);
 }
 
 export function errorEmbed(description: string): EmbedBuilder {
-  return embed('error').setDescription(`❌ ${description}`);
+  return embed('error').setDescription(`${icon('error')} ${description}`);
 }
 
 export function warningEmbed(description: string): EmbedBuilder {
-  return embed('warning').setDescription(`⚠️ ${description}`);
+  return embed('warning').setDescription(`${icon('warning')} ${description}`);
 }

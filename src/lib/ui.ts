@@ -2,11 +2,11 @@ import { ActionRowBuilder, ButtonBuilder, type ButtonStyle } from 'discord.js';
 import type { LevelUp } from '../services/progression';
 import { makeId } from './customId';
 
-/** "🎉 Account Level 5!" plus what it unlocked, or null. */
+/** "Level 5! Unlocked: …" or null. */
 export function levelUpText(levelUp: LevelUp | null): string | null {
   if (!levelUp) return null;
-  const unlocks = levelUp.unlocks.length ? `\nUnlocked: ${levelUp.unlocks.join(', ')}` : '';
-  return `🎉 **Account Level ${levelUp.to}!**${unlocks}`;
+  const unlocks = levelUp.unlocks.length ? ` Unlocked: ${levelUp.unlocks.join(', ')}.` : '';
+  return `**Level ${levelUp.to}!**${unlocks}`;
 }
 
 export function button(prefix: string, ownerId: string, args: (string | number)[], label: string, style: ButtonStyle, emoji?: string, disabled = false): ButtonBuilder {

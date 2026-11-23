@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { themeColor, titled } from '../../lib/theme';
 import { UserError } from '../../lib/errors';
@@ -15,7 +16,7 @@ export const wardrobe: ScreenModule = {
     const title = p.cosmetics?.title ? getCosmetic(p.cosmetics.title) : undefined;
     const theme = p.cosmetics?.theme ? getCosmetic(p.cosmetics.theme) : undefined;
 
-    const e = embed('economy').setTitle('🎨 Wardrobe')
+    const e = embed('economy').setTitle(`${icon('wardrobe')} Wardrobe`)
       .setDescription([
         ctx.note,
         `Shows as: **${titled(ctx.userName, p)}**`,
@@ -29,17 +30,17 @@ export const wardrobe: ScreenModule = {
     const components: Row[] = [];
     if (titles.length) {
       components.push(select(ids.act(ctx.owner, ctx.origin, 'wardrobe', 'equip', 'title'), 'Equip a title', [
-        { label: 'No title', value: 'none', emoji: '➖', description: 'Show just your name', default: !title },
-        ...titles.slice(0, 9).map((c) => ({ label: c.name, value: c.id, emoji: '🏷️', description: `Shows as: ${ctx.userName} • ${c.value}`, default: c.id === title?.id })),
+        { label: 'No title', value: 'none', description: 'Show just your name', default: !title },
+        ...titles.slice(0, 9).map((c) => ({ label: c.name, value: c.id, description: `Shows as: ${ctx.userName} • ${c.value}`, default: c.id === title?.id })),
       ]));
     }
     if (themes.length) {
       components.push(select(ids.act(ctx.owner, ctx.origin, 'wardrobe', 'equip', 'theme'), 'Equip a theme', [
-        { label: 'Default colours', value: 'none', emoji: '➖', description: 'Each menu uses its own colour', default: !theme },
-        ...themes.slice(0, 9).map((c) => ({ label: c.name, value: c.id, emoji: '🎨', description: `Colours your menus #${(c.value as number).toString(16).padStart(6, '0')}`, default: c.id === theme?.id })),
+        { label: 'Default colours', value: 'none', description: 'Each menu uses its own colour', default: !theme },
+        ...themes.slice(0, 9).map((c) => ({ label: c.name, value: c.id, description: `Colours your menus #${(c.value as number).toString(16).padStart(6, '0')}`, default: c.id === theme?.id })),
       ]));
     }
-    components.push(row(back(ctx, null), btn(ids.nav(ctx.owner, ctx.origin, 'shop.cos'), 'Browse cosmetics', NAV, { emoji: '🛒' })));
+    components.push(row(back(ctx, null), btn(ids.nav(ctx.owner, ctx.origin, 'shop.cos'), 'Browse cosmetics', NAV)));
     return { embeds: [e], components };
   },
 
@@ -49,6 +50,6 @@ export const wardrobe: ScreenModule = {
     const value = interaction.values[0]!;
     if (value !== 'none' && !(ctx.profile.cosmetics?.owned ?? []).includes(value)) throw new UserError("You don't own that.");
     await apply(ctx.owner, { set: { [`cosmetics.${kind}`]: value === 'none' ? null : value } }, { source: 'cosmetics.equip' });
-    return { path: 'wardrobe', note: value === 'none' ? `Removed your ${kind}.` : `✨ Equipped **${getCosmetic(value)?.name}**.` };
+    return { path: 'wardrobe', note: value === 'none' ? `Removed your ${kind}.` : `${icon('success')} Equipped **${getCosmetic(value)?.name}**.` };
   },
 };

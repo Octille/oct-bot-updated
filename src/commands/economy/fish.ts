@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -35,10 +36,10 @@ export default defineCommand({
     const windowMs = reelWindow(catchRoll.species.rarity, rod.tool.windowBonusMs ?? 0);
     const id = (label: string, style: ButtonStyle, emoji?: string, disabled = false) =>
       rows([button('~fish', userId, ['go'], label, style, emoji, disabled)]);
-    const scene = (text: string) => embed('economy').setTitle('🎣 Fish').setDescription(text)
+    const scene = (text: string) => embed('economy').setTitle(`${icon('fish')} Fish`).setDescription(text)
       .setFooter({ text: describeTool(rod, 'rod').replace(/\*\*/g, '') });
 
-    const message = await interaction.editReply({ embeds: [scene('The water is calm. Ready when you are.')], components: id('Cast line', ButtonStyle.Success, '🎣') });
+    const message = await interaction.editReply({ embeds: [scene('The water is calm. Ready when you are.')], components: id('Cast line', ButtonStyle.Success) });
 
     let phase: Phase = 'ready';
     let biteShownAt = 0;
@@ -77,25 +78,25 @@ export default defineCommand({
           where: { ...where, ...(rewards.length ? { fishdexRewards: { $nin: rewards.map((r) => r.percent) } } : {}) },
         }, { source: 'fish', xp: 'fish', profile, meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
         text = [
-          `${info.emoji} **${fish.emoji} ${fish.name}** — ${num(catchRoll.kg)} kg (${info.label})`,
+          `${icon('success')} Caught a **${fish.emoji} ${fish.name}** · ${num(catchRoll.kg)} kg · ${icon(fish.rarity)} ${info.label}`,
           `Reeled in ${((reactionMs ?? 0) / 1000).toFixed(2)}s after the bite.`,
-          bonus > 0 ? `🏷️ Fresh-catch bonus **+${coins(bonus)}** (size + rod). It sells for ${coins(fishValue[fish.rarity])} more later.` : `Sells for ${coins(fishValue[fish.rarity])}.`,
-          isNew ? `📘 **New fishdex entry!** (${speciesCaught}/${fishSpecies.length})` : null,
-          ...rewards.map((r) => `🏆 **Fishdex ${r.percent}% complete!** +${coins(r.coins)}`),
-          equipped(after, 'rod').broken ? '🔨 **Your rod broke!** `/tools` to repair it.' : null,
+          bonus > 0 ? `Fresh-catch bonus **+${coins(bonus)}** (size + rod). It sells for ${coins(fishValue[fish.rarity])} more later.` : `Sells for ${coins(fishValue[fish.rarity])}.`,
+          isNew ? `**New fishdex entry!** (${speciesCaught}/${fishSpecies.length})` : null,
+          ...rewards.map((r) => `${icon('success')} **Fishdex ${r.percent}% complete!** +${coins(r.coins)}`),
+          equipped(after, 'rod').broken ? `${icon('warning')} **Your rod broke.** Repair it in /tools.` : null,
           levelUpText(levelUp),
         ].filter(Boolean).join('\n');
         footerXp = `+${xp} XP`;
       } else {
         await apply(userId, { inc: { ...durability, 'stats.fishLost': 1 }, where }, { source: 'fish' });
         text = outcome === 'early'
-          ? '💦 Too early! You yanked the line and scared everything away.'
-          : `🐟 It got away... something ${info.label.toLowerCase()} was on the line.`;
+          ? 'Too early! You yanked the line and scared everything away.'
+          : `It got away... something ${info.label.toLowerCase()} was on the line.`;
       }
 
       const next = await afterAction(userId, 'fish');
       const payload = {
-        embeds: [embed('economy').setColor(outcome === 'caught' ? info.color : 0x95a5a6).setTitle(`🎣 Fish › ${outcome === 'caught' ? 'Caught!' : 'Got away'}`)
+        embeds: [embed('economy').setColor(outcome === 'caught' ? info.color : 0x95a5a6).setTitle(`${icon('fish')} Fish › ${outcome === 'caught' ? 'Caught!' : 'Got away'}`)
           .setDescription([text, next.note].filter(Boolean).join('\n'))
           .setFooter({ text: [footerXp, '/fishdex to see your collection'].filter(Boolean).join(' • ') })],
         components: [next.row],
@@ -108,12 +109,12 @@ export default defineCommand({
       phase = 'waiting';
       if (plan.nibbleAtMs !== null) {
         timers.push(setTimeout(() => {
-          if (phase === 'waiting') interaction.editReply({ embeds: [scene('🌊 ... *nibble?* ...')] }).catch(() => undefined);
+          if (phase === 'waiting') interaction.editReply({ embeds: [scene('... *nibble?* ...')] }).catch(() => undefined);
         }, plan.nibbleAtMs));
       }
       timers.push(setTimeout(() => {
         if (phase !== 'waiting') return;
-        interaction.editReply({ embeds: [scene('❗❗ **BITE!** ❗❗')], components: id('Reel in!', ButtonStyle.Success, '🎣') })
+        interaction.editReply({ embeds: [scene('**BITE!**')], components: id('Reel in!', ButtonStyle.Success) })
           .then(() => {
             if (phase !== 'waiting') return;
             phase = 'bite';
@@ -128,7 +129,7 @@ export default defineCommand({
     collector.on('collect', (i) => {
       (async () => {
         if (phase === 'ready') {
-          await i.update({ embeds: [scene('🌊 Line in the water... wait for it...')], components: id('Wait for it…', ButtonStyle.Secondary, '🎣') });
+          await i.update({ embeds: [scene('Line in the water... wait for it...')], components: id('Wait for it…', ButtonStyle.Secondary) });
           return startWaiting();
         }
         if (phase === 'waiting') return end('early', i);

@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -18,9 +19,9 @@ import { describeTool, equipped } from '../../services/tools';
 import * as cooldownService from '../../services/cooldowns';
 
 const HINTS = {
-  hot: "🔥 **Hot!** It's right next to this one.",
-  warm: '🌡️ **Warm.** Same row or column.',
-  cold: '❄️ Cold.',
+  hot: "**Hot!** It's right next to this one.",
+  warm: '**Warm.** Same row or column.',
+  cold: 'Cold.',
 } as const;
 
 function squareFace(sq: Square): { emoji: string; label: string; style: ButtonStyle } {
@@ -41,7 +42,7 @@ export default defineCommand({
   async execute({ interaction, profile }) {
     const userId = interaction.user.id;
     const shovel = equipped(profile, 'shovel');
-    if (!shovel.tool) throw new UserError('You need a shovel. Buy a 🥄 Trowel in `/tools`.');
+    if (!shovel.tool) throw new UserError('You need a shovel. Buy a Trowel in `/tools`.');
     if (shovel.broken) throw new UserError(`Your ${shovel.tool.name} is broken. \`/tools\` to repair it.`);
 
     const incomeMult = incomeMultiplier(profile);
@@ -56,10 +57,10 @@ export default defineCommand({
       const face = squareFace(sq);
       return button('~dig', userId, [i], face.label, dug.includes(i) ? face.style : ButtonStyle.Secondary, face.emoji, true);
     }));
-    const status = (extra?: string) => embed('economy').setTitle('🪏 Dig')
+    const status = (extra?: string) => embed('economy').setTitle(`${icon('dig')} Dig`)
       .setDescription([
         `Somewhere in this plot is buried treasure. You have **${maxDigs - dug.length}** dig${maxDigs - dug.length === 1 ? '' : 's'} left.`,
-        hints.length ? hints.join('\n') : 'Pick a square. Each dig gives a hint: **🔥 hot** (treasure is next to it), **🌡️ warm** (same row or column) or **❄️ cold**.',
+        hints.length ? hints.join('\n') : 'Pick a square. Each dig gives a hint: **hot** (treasure is next to it), **warm** (same row or column) or **cold**.',
         extra,
       ].filter(Boolean).join('\n\n'))
       .setFooter({ text: describeTool(shovel, 'shovel').replace(/\*\*/g, '') });
@@ -73,7 +74,7 @@ export default defineCommand({
       collector.stop('done');
       if (dug.length === 0) {
         await cooldownService.release(userId, 'dig');
-        await interaction.editReply({ embeds: [status('⌛ You never broke ground. Cooldown refunded.')], components: grid(true) });
+        await interaction.editReply({ embeds: [status('You never broke ground. Cooldown refunded.')], components: grid(true) });
         return;
       }
       let wallet = 0;
@@ -90,10 +91,10 @@ export default defineCommand({
           wallet += bonus;
           items[sq.treasure.id] = (items[sq.treasure.id] ?? 0) + 1;
           const info = rarityInfo[sq.treasure.rarity];
-          lines.push(`${info.emoji} **TREASURE! ${sq.treasure.emoji} ${sq.treasure.name}** (${info.label}) — sells for ${coins(treasureValue[sq.treasure.rarity])}${bonus ? `, plus **+${coins(bonus)}** appraisal bonus` : ''}`);
+          lines.push(`${icon(sq.treasure.rarity)} **Treasure! ${sq.treasure.emoji} ${sq.treasure.name}** (${info.label}) — sells for ${coins(treasureValue[sq.treasure.rarity])}${bonus ? `, plus **+${coins(bonus)}** appraisal bonus` : ''}`);
         }
       }
-      if (wallet) lines.push(`🪙 **+${coins(wallet)}** total`);
+      if (wallet) lines.unshift(`${icon('success')} **+${coins(wallet)}** total`);
       const junk = dug.map((idx) => plot.squares[idx]!).filter((sq): sq is Extract<Square, { kind: 'junk' }> => sq.kind === 'junk');
       if (junk.length) lines.push(`Also dug up: ${junk.map((sq) => itemLabel(sq.itemId)).join(', ')}`);
       const hidden = plot.squares[plot.treasureAt] as Extract<Square, { kind: 'treasure' }>;
@@ -110,7 +111,7 @@ export default defineCommand({
 
       const next = await afterAction(userId, 'dig');
       if (next.note) lines.push(next.note);
-      const payload = { embeds: [status(lines.join('\n')).setTitle(`🪏 Dig › ${foundTreasure ? 'Treasure!' : 'Done'}`).setFooter({ text: `+${xp} XP` })], components: [...grid(true), next.row] };
+      const payload = { embeds: [status(lines.join('\n')).setTitle(`${icon('dig')} Dig › ${foundTreasure ? 'Treasure!' : 'Done'}`).setFooter({ text: `+${xp} XP` })], components: [...grid(true), next.row] };
       if (i) await i.update(payload);
       else await interaction.editReply(payload);
     };
@@ -122,7 +123,7 @@ export default defineCommand({
         if (dug.includes(index) || finished) return i.deferUpdate();
         dug.push(index);
         const sq = plot.squares[index]!;
-        if (sq.kind === 'treasure') hints.push(`Dig ${dug.length}: 💎 **Treasure!**`);
+        if (sq.kind === 'treasure') hints.push(`Dig ${dug.length}: **Treasure!**`);
         else hints.push(`Dig ${dug.length}: ${HINTS[warmth(index, plot.treasureAt)]}`);
         if (dug.length >= maxDigs) return finish(i);
         await i.update({ embeds: [status()], components: grid() });

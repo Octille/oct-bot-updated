@@ -1,6 +1,7 @@
 import { cooldowns, moreCooldowns } from '../content/earning';
 import { crimeUnlockLevel } from '../content/crime';
 import { duration } from '../lib/format';
+import { icon } from '../lib/icons';
 import { dayNumber } from '../game/streaks';
 import { isJailed } from '../services/jail';
 import { equipped } from '../services/tools';
@@ -9,18 +10,18 @@ import type { ToolSlot } from '../content/tools';
 
 /** Everything the hub can start, in display order. `command` is the slash command it runs. */
 export const activities = [
-  { id: 'daily', emoji: '☀️', name: 'Daily', ready: 'Claim Daily', command: 'daily' },
-  { id: 'weekly', emoji: '📦', name: 'Weekly', ready: 'Claim Weekly', command: 'weekly' },
-  { id: 'work', emoji: '💼', name: 'Work', ready: 'Work', command: 'work', cooldown: cooldowns.work },
-  { id: 'mine', emoji: '⛏️', name: 'Mine', ready: 'Mine', command: 'mine', cooldown: cooldowns.mine },
-  { id: 'fish', emoji: '🎣', name: 'Fish', ready: 'Fish', command: 'fish', cooldown: cooldowns.fish, tool: 'rod' },
-  { id: 'beg', emoji: '🙏', name: 'Beg', ready: 'Beg', command: 'beg', cooldown: cooldowns.beg },
-  { id: 'search', emoji: '🔍', name: 'Search', ready: 'Search', command: 'search', cooldown: cooldowns.search },
-  { id: 'hunt', emoji: '🏹', name: 'Hunt', ready: 'Hunt', command: 'hunt', cooldown: moreCooldowns.hunt, tool: 'weapon', toolName: 'Slingshot' },
-  { id: 'dig', emoji: '🪏', name: 'Dig', ready: 'Dig', command: 'dig', cooldown: moreCooldowns.dig, tool: 'shovel', toolName: 'Trowel' },
-  { id: 'crime', emoji: '🦹', name: 'Crime', ready: 'Crime', command: 'crime', cooldown: moreCooldowns.crime, level: crimeUnlockLevel },
+  { id: 'daily', name: 'Daily', ready: 'Claim Daily', command: 'daily' },
+  { id: 'weekly', name: 'Weekly', ready: 'Claim Weekly', command: 'weekly' },
+  { id: 'work', name: 'Work', ready: 'Work', command: 'work', cooldown: cooldowns.work },
+  { id: 'mine', name: 'Mine', ready: 'Mine', command: 'mine', cooldown: cooldowns.mine },
+  { id: 'fish', name: 'Fish', ready: 'Fish', command: 'fish', cooldown: cooldowns.fish, tool: 'rod' },
+  { id: 'beg', name: 'Beg', ready: 'Beg', command: 'beg', cooldown: cooldowns.beg },
+  { id: 'search', name: 'Search', ready: 'Search', command: 'search', cooldown: cooldowns.search },
+  { id: 'hunt', name: 'Hunt', ready: 'Hunt', command: 'hunt', cooldown: moreCooldowns.hunt, tool: 'weapon', toolName: 'Slingshot' },
+  { id: 'dig', name: 'Dig', ready: 'Dig', command: 'dig', cooldown: moreCooldowns.dig, tool: 'shovel', toolName: 'Trowel' },
+  { id: 'crime', name: 'Crime', ready: 'Crime', command: 'crime', cooldown: moreCooldowns.crime, level: crimeUnlockLevel },
 ] as const satisfies readonly {
-  id: string; emoji: string; name: string; ready: string; command: string;
+  id: string; name: string; ready: string; command: string;
   cooldown?: number; tool?: ToolSlot; toolName?: string; level?: number;
 }[];
 
@@ -39,18 +40,18 @@ const DAY = 86_400_000;
 export function statusOf(id: ActivityId, profile: Profile, now = new Date()): Status {
   const a = activities.find((x) => x.id === id)!;
   if (isJailed(profile.jailUntil, now.getTime())) {
-    return { state: 'locked', reason: 'You are in jail', label: `${a.name} — in jail` };
+    return { state: 'locked', reason: 'In jail', label: 'In jail' };
   }
   if ('level' in a && (profile.account?.level ?? 0) < a.level) {
-    return { state: 'locked', reason: `Unlocks at level ${a.level}`, label: `${a.name} — level ${a.level}` };
+    return { state: 'locked', reason: `Level ${a.level}`, label: `Level ${a.level}` };
   }
   if ('tool' in a) {
     const eq = equipped(profile, a.tool);
     // The starter rod is handed out on the first /fish, so a missing rod is fine
     if (!eq.tool && a.tool !== 'rod') {
-      return { state: 'needs', reason: `Needs a ${a.toolName} from the shop`, label: `${a.name} — get ${a.toolName}`, fix: `shop.tools.${a.tool}` };
+      return { state: 'needs', reason: `Needs a ${a.toolName}`, label: `Get ${a.toolName}`, fix: `shop.tools.${a.tool}` };
     }
-    if (eq.broken) return { state: 'needs', reason: `Your ${eq.tool!.name} is broken`, label: `${a.name} — repair tool`, fix: `shop.tools.${a.tool}` };
+    if (eq.broken) return { state: 'needs', reason: `${eq.tool!.name} is broken`, label: `Repair ${eq.tool!.name}`, fix: `shop.tools.${a.tool}` };
   }
   if (id === 'daily') {
     const last = profile.streak?.lastDaily;
@@ -67,13 +68,13 @@ export function statusOf(id: ActivityId, profile: Profile, now = new Date()): St
   return { state: 'ready' };
 }
 
-/** "✅ Ready", "⏳ 4m", "🧰 Needs a Slingshot"... */
+/** "ready", "<cooldown icon> 4m", "needs a Slingshot", "<locked icon> level 3": icons only on cooldown/locked. */
 export function statusText(status: Status, now = new Date()): string {
   switch (status.state) {
-    case 'ready': return '✅ ready';
-    case 'cooldown': return `⏳ ${duration(status.readyAt.getTime() - now.getTime())}`;
-    case 'needs': return `🧰 ${status.reason.toLowerCase()}`;
-    case 'locked': return `🔒 ${status.reason.toLowerCase()}`;
+    case 'ready': return '**ready**';
+    case 'cooldown': return `${icon('cooldown')} ${duration(status.readyAt.getTime() - now.getTime())}`;
+    case 'needs': return status.reason.toLowerCase();
+    case 'locked': return `${icon('locked')} ${status.reason.toLowerCase()}`;
   }
 }
 

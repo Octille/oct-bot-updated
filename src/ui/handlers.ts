@@ -2,7 +2,8 @@ import { MessageFlags, type User } from 'discord.js';
 import { defineComponent, type ComponentHandler } from '../framework/types';
 import { getProfile, type Profile } from '../services/economy';
 import { claimOnboardingReward } from '../services/onboarding';
-import { itemLabel } from '../content/items';
+import { itemName } from '../content/items';
+import { icon } from '../lib/icons';
 import { launchCommand } from '../framework/launch';
 import { activities } from './activities';
 import { hubExpired } from './screens/hub';
@@ -17,14 +18,14 @@ function ctxFor(user: User, origin: Origin, profile: Profile, note?: string): Sc
 async function hubPayload(user: User, profile: Profile, note?: string): Promise<Payload> {
   if (await claimOnboardingReward(profile)) {
     profile = await getProfile(user.id);
-    note = [note, `🎉 **First steps complete!** You got a ${itemLabel('crate_common')}.`].filter(Boolean).join('\n');
+    note = [note, `${icon('success')} **First steps complete!** You got a free ${itemName('crate_common')}.`].filter(Boolean).join('\n');
   }
   return render('hub', ctxFor(user, 'h', profile, note));
 }
 
 /** The private welcome shown after a brand-new player's first command. */
 export async function welcomeHub(user: User): Promise<Payload> {
-  return hubPayload(user, await getProfile(user.id), '👋 **Welcome to OctBot!** This is your menu — it shows what you can do right now. Open it any time with `/menu`.');
+  return hubPayload(user, await getProfile(user.id), '**Welcome to OctBot!** This is your menu. It shows what you can do right now; open it any time with `/menu`.');
 }
 
 export async function openHub(user: User): Promise<Payload> {
@@ -79,7 +80,7 @@ const go = defineComponent({
       return;
     }
     if (hubExpired(stamp)) {
-      await interaction.reply({ content: '⌛ This menu has expired. Run `/menu` again for an up-to-date one.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `${icon('warning')} This menu has expired. Run \`/menu\` again for an up-to-date one.`, flags: MessageFlags.Ephemeral });
       return;
     }
     const activity = activities.find((a) => a.id === target);

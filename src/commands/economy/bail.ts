@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { coins } from '../../lib/format';
@@ -10,6 +11,6 @@ export default defineCommand({
   category: 'economy',
   async execute({ interaction }) {
     const cost = await payBail(interaction.user.id);
-    await replyWithScreen(interaction, 'jail', await getProfile(interaction.user.id), `💸 You paid ${coins(cost)} bail and walked out. Try not to come back.`);
+    await replyWithScreen(interaction, 'jail', await getProfile(interaction.user.id), `${icon('success')} You paid ${coins(cost)} bail and walked out. Try not to come back.`);
   },
 });

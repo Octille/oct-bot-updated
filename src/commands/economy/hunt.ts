@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -27,7 +28,7 @@ export default defineCommand({
   async execute({ interaction, profile }) {
     const userId = interaction.user.id;
     const weapon = equipped(profile, 'weapon');
-    if (!weapon.tool) throw new UserError('You need something to hunt with. Buy a 🪃 Slingshot in `/tools`.');
+    if (!weapon.tool) throw new UserError('You need something to hunt with. Buy a Slingshot in `/tools`.');
     if (weapon.broken) throw new UserError(`Your ${weapon.tool.name} is broken. \`/tools\` to repair it.`);
 
     const hunt = planHunt((weapon.tool.luck ?? 0) + luckBonus(profile), weapon.tool.valueMult ?? 1);
@@ -40,7 +41,7 @@ export default defineCommand({
     }));
 
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle('🏹 Hunt').setDescription('🌲 You crouch in the long grass. Stay still... watch the bushes.').setFooter({ text: footer })],
+      embeds: [embed('economy').setTitle(`${icon('hunt')} Hunt`).setDescription('You crouch in the long grass. Stay still... watch the bushes.').setFooter({ text: footer })],
       components: bushes(),
     });
 
@@ -68,24 +69,24 @@ export default defineCommand({
           where,
         }, { source: 'hunt', xp: 'hunt', profile, meta: { animal: hunt.animal.id } });
         text = [
-          `${info.emoji} **${hunt.animal.emoji} ${hunt.animal.name}** (${info.label}) — got it in ${((reactionMs ?? 0) / 1000).toFixed(2)}s!`,
-          bonus > 0 ? `🏷️ Trophy bonus **+${coins(bonus)}**. The trophy sells for ${coins(animalValue[hunt.animal.rarity])} more later.` : `The trophy sells for ${coins(animalValue[hunt.animal.rarity])}.`,
-          equipped(after, 'weapon').broken ? '🔨 **Your weapon broke!** `/tools` to repair it.' : null,
+          `${icon('success')} Got a **${hunt.animal.emoji} ${hunt.animal.name}** in ${((reactionMs ?? 0) / 1000).toFixed(2)}s · ${icon(hunt.animal.rarity)} ${info.label}`,
+          bonus > 0 ? `Trophy bonus **+${coins(bonus)}**. The trophy sells for ${coins(animalValue[hunt.animal.rarity])} more later.` : `The trophy sells for ${coins(animalValue[hunt.animal.rarity])}.`,
+          equipped(after, 'weapon').broken ? `${icon('warning')} **Your weapon broke.** Repair it in /tools.` : null,
           levelUpText(levelUp),
         ].filter(Boolean).join('\n');
         footerText = `+${xp} XP`;
       } else {
         await apply(userId, { inc: { ...wear, 'stats.missedHunts': 1 }, where }, { source: 'hunt' });
         text = {
-          early: '🍃 You fired at a leaf. Everything for a mile heard that.',
-          wrong: `💨 Wrong bush! A ${hunt.animal.name.toLowerCase()} darts away behind you.`,
-          late: `💨 Too slow — the ${hunt.animal.name.toLowerCase()} vanished into the trees.`,
+          early: 'You fired at a leaf. Everything for a mile heard that.',
+          wrong: `Wrong bush! A ${hunt.animal.name.toLowerCase()} darts away behind you.`,
+          late: `Too slow. The ${hunt.animal.name.toLowerCase()} vanished into the trees.`,
           hit: '',
         }[outcome];
       }
       const next = await afterAction(userId, 'hunt');
       const payload = {
-        embeds: [embed('economy').setColor(outcome === 'hit' ? info.color : 0x95a5a6).setTitle(`🏹 Hunt › ${outcome === 'hit' ? 'Got it!' : 'Missed'}`)
+        embeds: [embed('economy').setColor(outcome === 'hit' ? info.color : 0x95a5a6).setTitle(`${icon('hunt')} Hunt › ${outcome === 'hit' ? 'Got it!' : 'Missed'}`)
           .setDescription([text, next.note].filter(Boolean).join('\n')).setFooter({ text: footerText || footer })],
         components: [...bushes({ animalAt: outcome === 'early' ? undefined : hunt.bush, picked, disabled: true }), next.row],
       };
@@ -95,7 +96,7 @@ export default defineCommand({
 
     timers.push(setTimeout(() => {
       if (phase !== 'waiting') return;
-      interaction.editReply({ embeds: [embed('economy').setTitle('🏹 Hunt').setDescription(`❗ **THERE!** ${hunt.animal.emoji}`).setFooter({ text: footer })], components: bushes({ animalAt: hunt.bush }) })
+      interaction.editReply({ embeds: [embed('economy').setTitle(`${icon('hunt')} Hunt`).setDescription(`**THERE!** ${hunt.animal.emoji}`).setFooter({ text: footer })], components: bushes({ animalAt: hunt.bush }) })
         .then(() => {
           if (phase !== 'waiting') return;
           phase = 'shown';

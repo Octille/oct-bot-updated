@@ -13,7 +13,8 @@ import type { Profile } from '../services/economy';
  * Menu building blocks. Every menu screen is a pure function of (path, profile) → Payload, and the
  * path lives in the button's custom ID, so menus survive restarts and Back is just the parent path.
  *
- * Button order everywhere: [⬅️ Back] (grey) → other navigation (grey) → main action (green) → cancel (red).
+ * Button order everywhere: [Back] (grey) → other navigation (grey) → main action (green) → cancel (red).
+ * Buttons are text only; an icon is allowed only on main actions and hub activities (never on Back/Menu/Prev/Next).
  */
 
 export type Row = ActionRowBuilder<MessageActionRowComponentBuilder>;
@@ -83,7 +84,7 @@ export function select(customId: string, placeholder: string, options: Option[])
       label: fit(o.label, 100),
       value: o.value,
       description: o.description ? fit(o.description, 100) : undefined,
-      emoji: o.emoji,
+      emoji: o.emoji ? parseEmoji(o.emoji) : undefined,
       default: o.default,
     })),
   );
@@ -92,10 +93,16 @@ export function select(customId: string, placeholder: string, options: Option[])
 
 /**
  * The Back button: to the parent screen, or for top-level screens back to the hub
- * (when opened from it) or a 🏠 Menu button that opens the hub.
+ * (when opened from it) or a Menu button that opens the hub.
  */
 export function back(ctx: Pick<ScreenCtx, 'owner' | 'origin'>, parent: string | null): ButtonBuilder {
-  if (parent) return btn(ids.nav(ctx.owner, ctx.origin, parent), 'Back', NAV, { emoji: '⬅️' });
-  if (ctx.origin === 'h') return btn(ids.nav(ctx.owner, 'h', 'hub'), 'Back', NAV, { emoji: '⬅️' });
-  return btn(ids.go(ctx.owner, 'menu'), 'Menu', NAV, { emoji: '🏠' });
+  if (parent) return btn(ids.nav(ctx.owner, ctx.origin, parent), 'Back', NAV);
+  if (ctx.origin === 'h') return btn(ids.nav(ctx.owner, 'h', 'hub'), 'Back', NAV);
+  return btn(ids.go(ctx.owner, 'menu'), 'Menu', NAV);
+}
+
+/** `<:name:id>` → { id, name }; anything else is a unicode emoji. */
+export function parseEmoji(emoji: string): { id: string; name: string } | { name: string } {
+  const m = /^<a?:(\w+):(\d+)>$/.exec(emoji);
+  return m ? { name: m[1]!, id: m[2]! } : { name: emoji };
 }

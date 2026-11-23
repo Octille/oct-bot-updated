@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { bar, coins, num } from '../../lib/format';
 import { fishdexRewards, fishSpecies } from '../../content/fishing';
@@ -14,11 +15,11 @@ export function fishdexEmbed(profile: Profile, name: string, filter: Rarity | 'a
   const nextNeed = next ? Math.ceil((next.percent / 100) * fishSpecies.length) - found : 0;
 
   const e = embed('economy')
-    .setTitle(`📘 Fishdex${filter === 'all' ? '' : ` › ${rarityInfo[filter].label}`}`)
+    .setTitle(`${icon('fishdex')} Fishdex${filter === 'all' ? '' : ` › ${rarityInfo[filter].label}`}`)
     .setDescription([
       note,
       `**${name}** — ${found}/${fishSpecies.length} species ${bar(found, fishSpecies.length, 12)}`,
-      next ? `Next reward: **${coins(next.coins)}** at ${next.percent}% (${nextNeed} more species)` : '🏆 Fishdex complete!',
+      next ? `Next reward: **${coins(next.coins)}** at ${next.percent}% (${nextNeed} more species)` : `${icon('success')} Fishdex complete!`,
     ].filter(Boolean).join('\n'))
     .setFooter({ text: `${num(profile.stats?.fishCaught ?? 0)} fish caught in total` });
 
@@ -27,8 +28,8 @@ export function fishdexEmbed(profile: Profile, name: string, filter: Rarity | 'a
     const species = fishSpecies.filter((f) => f.rarity === rarity);
     const have = species.filter((f) => (dex[f.id]?.caught ?? 0) > 0).length;
     e.addFields({
-      name: `${rarityInfo[rarity].emoji} ${rarityInfo[rarity].label} ${have}/${species.length}`,
-      value: species.map((f) => (dex[f.id]?.caught ? `${f.emoji} **${f.name}** ×${num(dex[f.id]!.caught)} • best ${num(dex[f.id]!.biggest)} kg` : '❔ ???')).join('\n'),
+      name: `${rarityInfo[rarity].label} ${have}/${species.length}`,
+      value: species.map((f) => (dex[f.id]?.caught ? `**${f.name}** ×${num(dex[f.id]!.caught)} · best ${num(dex[f.id]!.biggest)} kg` : '???')).join('\n'),
       inline: filter === 'all',
     });
   }
@@ -42,10 +43,10 @@ export const fishdex: ScreenModule = {
       embeds: [fishdexEmbed(ctx.profile, ctx.userName, filter, ctx.note)],
       components: [
         select(ids.pick(ctx.owner, ctx.origin, 'dex'), 'Filter by rarity', [
-          { label: 'All rarities', value: 'all', emoji: '📘', description: 'Every species', default: filter === 'all' },
-          ...rarities.map((r) => ({ label: rarityInfo[r].label, value: r, emoji: rarityInfo[r].emoji, description: `${fishSpecies.filter((f) => f.rarity === r).length} species`, default: filter === r })),
+          { label: 'All rarities', value: 'all', description: 'Every species', default: filter === 'all' },
+          ...rarities.map((r) => ({ label: rarityInfo[r].label, value: r, emoji: icon(r), description: `${fishSpecies.filter((f) => f.rarity === r).length} species`, default: filter === r })),
         ]),
-        row(back(ctx, null), btn(ids.go(ctx.owner, 'fish'), 'Go fishing', NAV, { emoji: '🎣' })),
+        row(back(ctx, null), btn(ids.go(ctx.owner, 'fish'), 'Go fishing', NAV)),
       ],
     };
   },

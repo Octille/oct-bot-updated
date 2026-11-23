@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -24,8 +25,8 @@ export default defineCommand({
     const userId = interaction.user.id;
     const spots = rollSpots();
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle('🔍 Search › Pick a spot').setDescription('Most spots have something. Some have... consequences.')],
-      components: rows(spots.map((s, i) => button('~search', userId, [i], s.name, ButtonStyle.Secondary, s.emoji))),
+      embeds: [embed('economy').setTitle(`${icon('search')} Search › Pick a spot`).setDescription('Most spots have something. Some have... consequences.')],
+      components: rows(spots.map((s, i) => button('~search', userId, [i], s.name, ButtonStyle.Secondary))),
     });
 
     let chosen = false;
@@ -39,33 +40,33 @@ export default defineCommand({
         let change = {};
         if (result.kind === 'coins') {
           change = { wallet: result.coins };
-          text = `You searched the **${spot.name}** and found **${coins(result.coins)}**!`;
+          text = `${icon('success')} **+${coins(result.coins)}** — you searched the ${spot.name}.`;
         } else if (result.kind === 'item') {
           change = { items: { [result.itemId]: 1 } };
-          text = `You searched the **${spot.name}** and found a **${itemLabel(result.itemId)}**!`;
+          text = `${icon('success')} You searched the ${spot.name} and found a **${itemLabel(result.itemId)}**!`;
         } else if (result.kind === 'mishap') {
           // Can't lose more than you're carrying
           const wallet = (await getProfile(userId)).wallet;
           const loss = Math.min(result.loss, wallet);
           change = loss > 0 ? { wallet: -loss } : {};
-          text = loss > 0 ? `${spot.emoji} ${result.line} **${coins(loss)}**.` : `${spot.emoji} ${result.line}... nothing, because your wallet is empty. Lucky?`;
+          text = loss > 0 ? `${icon('warning')} ${result.line} **${coins(loss)}**.` : `${result.line}... nothing, because your wallet is empty. Lucky?`;
         } else {
-          text = `${spot.emoji} **${spot.name}**: ${result.line}`;
+          text = `**${spot.name}**: ${result.line}`;
         }
 
         const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', profile, meta: { spot: spot.name, outcome: result.kind } });
         const next = await afterAction(userId, 'search');
         await i.update({
-          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`🔍 Search › ${spot.emoji} ${spot.name}`)
+          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`${icon('search')} Search › ${spot.name}`)
             .setDescription([text, levelUpText(levelUp), next.note].filter(Boolean).join('\n')).setFooter({ text: `+${xp} XP` })],
-          components: [...rows(spots.map((s, n) => button('~search', userId, [n], s.name, s === spot ? ButtonStyle.Primary : ButtonStyle.Secondary, s.emoji, true))), next.row],
+          components: [...rows(spots.map((s, n) => button('~search', userId, [n], s.name, s === spot ? ButtonStyle.Primary : ButtonStyle.Secondary, undefined, true))), next.row],
         });
       })().catch((err) => logError('search', err));
     });
     collector.on('end', () => {
       if (chosen) return;
       cooldownService.release(userId, 'search').catch(() => undefined);
-      interaction.editReply({ content: '⌛ You wandered off. Cooldown refunded.', embeds: [], components: [] }).catch(() => undefined);
+      interaction.editReply({ content: 'You wandered off. Cooldown refunded.', embeds: [], components: [] }).catch(() => undefined);
     });
   },
 });

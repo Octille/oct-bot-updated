@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -46,8 +47,8 @@ export default defineCommand({
     const game = randomMinigame(job, undefined, lastGame.get(userId));
     lastGame.set(userId, game.kind);
 
-    const header = `${job.emoji} **${rank.title} ${job.name}** — shift #${num(shifts + 1)} • ⏱️ ${game.timeLimitMs / 1000}s`;
-    const title = `💼 Work › ${job.name} › ${game.title}`;
+    const header = `**${rank.title} ${job.name}** · shift #${num(shifts + 1)} · ${game.timeLimitMs / 1000}s`;
+    const title = `${icon('work')} Work › ${job.name} › ${game.title}`;
 
     if (game.preview) {
       await interaction.editReply({ embeds: [embed('economy').setTitle(title).setDescription(`${header}\n\n${game.preview.text}`)] });
@@ -76,11 +77,11 @@ export default defineCommand({
         inc: { 'stats.worked': 1, [`job.shifts.${job.id}`]: 1, ...(perfect ? { 'stats.perfectShifts': 1 } : {}) },
       }, { source: 'work', xp: 'work', profile, meta: { job: job.id, game: game.kind, success } });
 
-      const promoted = rankFor(shifts + 1).title !== rank.title ? `\n📈 **Promoted to ${rankFor(shifts + 1).title} ${job.name}!** Shifts pay more now.` : '';
+      const promoted = rankFor(shifts + 1).title !== rank.title ? `\n**Promoted to ${rankFor(shifts + 1).title} ${job.name}!** Shifts pay more now.` : '';
       const next = nextRank(shifts + 1);
       const verdict = !success
-        ? i ? '❌ Wrong! Your manager sighs.' : '⌛ Too slow! You stood there blinking.'
-        : perfect ? `⚡ **Perfect shift!** ${(elapsed / 1000).toFixed(1)}s (+${Math.round((PERFECT_BONUS - 1) * 100)}% bonus)` : `✅ Done in ${(elapsed / 1000).toFixed(1)}s`;
+        ? i ? `${icon('error')} Wrong! Your manager sighs.` : `${icon('warning')} Too slow! You stood there blinking.`
+        : perfect ? `${icon('success')} **Perfect shift!** ${(elapsed / 1000).toFixed(1)}s (+${Math.round((PERFECT_BONUS - 1) * 100)}% bonus)` : `${icon('success')} Done in ${(elapsed / 1000).toFixed(1)}s`;
       const result = embed(success ? 'economy' : 'warning')
         .setTitle(title)
         .setDescription([
@@ -88,7 +89,7 @@ export default defineCommand({
           '',
           game.prompt,
           verdict,
-          `💰 **+${coins(pay)}**${success ? '' : ' (pity pay)'}`,
+          `**+${coins(pay)}**${success ? '' : ' (pity pay)'}`,
           promoted || null,
           levelUpText(levelUp),
         ].filter((l) => l !== null).join('\n'))

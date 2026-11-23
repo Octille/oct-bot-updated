@@ -37,9 +37,9 @@ export function makePlot(luck: number, valueMult: number, rng: Rng = defaultRng)
 export type Warmth = 'hot' | 'warm' | 'cold';
 
 /**
- * 🔥 hot: the treasure is in a neighbouring square (diagonals count).
- * 🌡️ warm: not next to it, but in the same row or column.
- * ❄️ cold: anywhere else.
+ * hot: the treasure is in a neighbouring square (diagonals count).
+ * warm: not next to it, but in the same row or column.
+ * cold: anywhere else.
  */
 export function warmth(index: number, treasureAt: number): Warmth {
   const [r1, c1] = [Math.floor(index / gridSize), index % gridSize];

@@ -91,6 +91,13 @@ export function getItem(id: string): Item | undefined {
   return byId.get(id);
 }
 
+/** Plain item name for lists and buttons (no emoji). */
+export function itemName(id: string, qty?: number): string {
+  const name = byId.get(id)?.name ?? id;
+  return qty === undefined ? name : `${name} ×${qty.toLocaleString('en-US')}`;
+}
+
+/** Item name with its emoji — for flavour moments (a catch, a drop, crate loot). */
 export function itemLabel(id: string, qty?: number): string {
   const item = byId.get(id);
   const name = item ? `${item.emoji} ${item.name}` : `\`${id}\``;

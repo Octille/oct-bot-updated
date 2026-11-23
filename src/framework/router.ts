@@ -10,6 +10,7 @@ import * as cooldowns from '../services/cooldowns';
 import { commandRegistry, componentRegistry } from './registry';
 import { setCommandRunner } from './commandList';
 import { respondError } from './respond';
+import { icon } from '../lib/icons';
 import type { ComponentInteraction } from './types';
 
 /** How long to wait before telling someone a collector-managed button has expired. */
@@ -44,13 +45,13 @@ export async function runCommand(interaction: ChatInputCommandInteraction, comma
     if (created) newPlayers.add(interaction.user.id);
 
     if (command.blockedInJail && profile.jailUntil && profile.jailUntil.getTime() > Date.now()) {
-      throw new UserError(`🚔 You're in jail. You'll be released ${relative(profile.jailUntil)} — or pay your way out with \`/bail\`.`);
+      throw new UserError(`You're in jail. You'll be released ${relative(profile.jailUntil)}, or pay your way out with \`/bail\`.`);
     }
 
     if (command.cooldown) {
       const result = await cooldowns.claim(interaction.user.id, command.cooldown.key, command.cooldown.seconds * 1000);
       if (!result.ok) {
-        throw new UserError(`⏳ \`/${command.data.name}\` is on cooldown for **${duration(result.remainingMs)}** (${relative(result.expiresAt)}).`);
+        throw new UserError(`\`/${command.data.name}\` is ready again in **${duration(result.remainingMs)}** (${relative(result.expiresAt)}).`);
       }
       claimedCooldown = true;
     }
@@ -82,7 +83,7 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
   const id = parseId(interaction.customId);
 
   if (id.ownerId !== ANYONE && id.ownerId !== interaction.user.id) {
-    await interaction.reply({ content: "🚫 This isn't yours.", flags: MessageFlags.Ephemeral }).catch(() => undefined);
+    await interaction.reply({ content: `${icon('error')} This isn't yours — run the command yourself.`, flags: MessageFlags.Ephemeral }).catch(() => undefined);
     return;
   }
 
@@ -92,7 +93,7 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
     setTimeout(() => {
       if (interaction.replied || interaction.deferred) return;
       interaction
-        .reply({ content: '⌛ This has expired. Run the command again.', flags: MessageFlags.Ephemeral })
+        .reply({ content: `${icon('warning')} This has expired. Run the command again.`, flags: MessageFlags.Ephemeral })
         .catch(() => undefined);
     }, EXPIRED_GRACE_MS);
     return;
@@ -100,7 +101,7 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
 
   const handler = componentRegistry.get(id.prefix);
   if (!handler) {
-    await interaction.reply({ content: '⌛ This has expired.', flags: MessageFlags.Ephemeral }).catch(() => undefined);
+    await interaction.reply({ content: `${icon('warning')} This has expired.`, flags: MessageFlags.Ephemeral }).catch(() => undefined);
     return;
   }
 

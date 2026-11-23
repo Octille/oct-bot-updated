@@ -1,3 +1,4 @@
+import { icon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -7,7 +8,7 @@ import { UserError, EconomyError } from '../../lib/errors';
 import { levelUpText } from '../../lib/ui';
 import { daily } from '../../content/earning';
 import { streakCrates } from '../../content/crates';
-import { itemLabel } from '../../content/items';
+import { itemName } from '../../content/items';
 import { claimDaily, streakCalendar } from '../../game/streaks';
 import { grant, incomeMultiplier } from '../../services/progression';
 
@@ -48,17 +49,17 @@ export default defineCommand({
 
     const nextTier = daily.multipliers.slice().reverse().find(([min]) => min > result.streak);
     const lines = [
-      `☀️ **+${coins(result.coins)}**${result.multiplier > 1 ? ` (${result.multiplier}× streak bonus)` : ''}`,
-      result.milestoneBonus ? `🏆 **${result.streak}-day milestone!** +${coins(result.milestoneBonus)}${streakCrates[result.streak] ? ` and a **${itemLabel(streakCrates[result.streak]!)}**` : ''}` : null,
-      result.freezesUsed ? `🧊 Used ${result.freezesUsed} streak freeze${result.freezesUsed > 1 ? 's' : ''} to save your streak!` : null,
-      result.broken ? `💔 Your streak reset. It was ${state.count} days.` : null,
-      `🔥 Streak: **${result.streak}** day${result.streak === 1 ? '' : 's'}${nextTier ? ` — ${nextTier[0] - result.streak} more for ${nextTier[1]}×` : ''}`,
+      `${icon('success')} **+${coins(result.coins)}**${result.multiplier > 1 ? ` (${result.multiplier}× streak bonus)` : ''}`,
+      result.milestoneBonus ? `**${result.streak}-day milestone!** +${coins(result.milestoneBonus)}${streakCrates[result.streak] ? ` and a free ${itemName(streakCrates[result.streak]!)}` : ''}` : null,
+      result.freezesUsed ? `Used ${result.freezesUsed} streak freeze${result.freezesUsed > 1 ? 's' : ''} to save your streak!` : null,
+      result.broken ? `${icon('warning')} Your streak reset. It was ${state.count} days.` : null,
+      `Streak: **${result.streak}** day${result.streak === 1 ? '' : 's'}${nextTier ? ` · ${nextTier[0] - result.streak} more for ${nextTier[1]}×` : ''}`,
       levelUpText(granted.levelUp),
     ];
     const next = await afterAction(interaction.user.id, 'daily');
 
     await interaction.reply({ embeds: [embed('economy')
-      .setTitle('☀️ Daily')
+      .setTitle(`${icon('daily')} Daily`)
       .setDescription([...lines, next.note].filter(Boolean).join('\n'))
       .addFields({ name: 'Last two weeks', value: streakCalendar(result.days, now) })
       .setFooter({ text: `+${granted.xp} XP • Resets at 00:00 UTC` })], components: [next.row] });

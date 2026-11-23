@@ -1,7 +1,9 @@
 import { embed } from '../../lib/embeds';
 import { coins, relative } from '../../lib/format';
 import { testNotice } from '../../lib/testMode';
-import { itemLabel } from '../../content/items';
+import { itemName } from '../../content/items';
+import { icon } from '../../lib/icons';
+import type { IconKey } from '../../content/icons';
 import { bailCost, isJailed, payBail } from '../../services/jail';
 import { capacityOf } from '../../services/economy';
 import { firstSteps, ONBOARDING_REWARD, onboardingVisible } from '../../services/onboarding';
@@ -31,48 +33,53 @@ export const hub: ScreenModule = {
     const jailed = isJailed(p.jailUntil, now.getTime());
     const { level } = levelFromXp(p.account?.xp ?? 0);
 
+    const half = Math.ceil(activities.length / 2);
+    const statusLine = (a: (typeof activities)[number]) => `${a.name} · ${statusText(statusOf(a.id, p, now), now)}`;
     const e = embed('economy')
-      .setTitle('🏠 Menu')
+      .setTitle(`${icon('menu')} Menu`)
       .setDescription([
         ctx.note,
-        `👛 **${coins(p.wallet)}** • 🏦 ${coins(p.bank)} / ${coins(capacityOf(p)).replace('₪ ', '')} • ⭐ Level ${level}`,
-        jailed ? `🚔 **You're in jail** — free ${relative(p.jailUntil!)}, or pay bail below.` : null,
+        `${icon('currency')} **${coins(p.wallet)}** wallet · ${coins(p.bank)} / ${coins(capacityOf(p)).replace('₪ ', '')} bank · Level ${level}`,
+        jailed ? `${icon('jail')} **You're in jail** until ${relative(p.jailUntil!)}. Pay bail below to get out now.` : null,
         testNotice(),
       ].filter(Boolean).join('\n'))
-      .addFields({
-        name: 'Activities',
-        value: activities.map((a) => `${a.emoji} ${a.name} — ${statusText(statusOf(a.id, p, now), now)}`).join('\n'),
-      })
-      .setFooter({ text: 'Tip: green buttons are ready right now. This menu refreshes with 🔄.' });
+      .addFields(
+        { name: 'Activities', value: activities.slice(0, half).map(statusLine).join('\n'), inline: true },
+        { name: '\u200b', value: activities.slice(half).map(statusLine).join('\n'), inline: true },
+      )
+      .setFooter({ text: 'Tip: green buttons are ready now. Refresh to update the timers.' });
 
     if (onboardingVisible(p)) {
       const steps = firstSteps(p);
       e.addFields({
-        name: '🧭 First steps',
-        value: steps.map((s, n) => `${s.done ? '✅' : '⬜'} ${n + 1}. ${s.label}`).join('\n') +
-          `\nFinish all three for a free ${itemLabel(ONBOARDING_REWARD)}.`,
+        name: `First steps ${steps.filter((s) => s.done).length}/${steps.length}`,
+        value: steps.map((s) => (s.done ? `~~${s.label}~~ ✓` : s.label)).join(' · ') +
+          `\nFinish all three for a free ${itemName(ONBOARDING_REWARD)}.`,
       });
     }
 
     const activityButtons = activities.map((a) => {
       const s = statusOf(a.id, p, now);
       switch (s.state) {
-        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, MAIN, { emoji: a.emoji });
-        case 'cooldown': return btn(ids.go(ctx.owner, a.id, stamp), `${a.name} — ${relativeShort(s.readyAt, now)}`, NAV, { emoji: a.emoji, disabled: true });
+        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, MAIN, { emoji: icon(a.id as IconKey) });
+        case 'cooldown': return btn(ids.go(ctx.owner, a.id, stamp), `${a.name} · ${relativeShort(s.readyAt, now)}`, NAV, { emoji: icon(a.id as IconKey), disabled: true });
         // Clickable: takes you to the fix (e.g. Shop › Tools › Weapon)
-        case 'needs': return btn(ids.nav(ctx.owner, 'h', s.fix), s.label, NAV, { emoji: a.emoji });
-        case 'locked': return btn(ids.go(ctx.owner, a.id, stamp), s.label, NAV, { emoji: a.emoji, disabled: true });
+        case 'needs': return btn(ids.nav(ctx.owner, 'h', s.fix), s.label, NAV, { emoji: icon(a.id as IconKey) });
+        case 'locked': return btn(ids.go(ctx.owner, a.id, stamp), s.label, NAV, { emoji: icon(a.id as IconKey), disabled: true });
       }
     });
 
     const rows = [row(...activityButtons.slice(0, 5)), row(...activityButtons.slice(5, 10))];
-    if (jailed) rows.push(row(btn(ids.act(ctx.owner, 'h', 'hub', 'bail'), `Pay bail — ${coins(bailCost(p.jailUntil!))}`, MAIN, { emoji: '💸', disabled: p.wallet < bailCost(p.jailUntil!) })));
+    if (jailed) {
+      const cost = bailCost(p.jailUntil!);
+      rows.push(row(btn(ids.act(ctx.owner, 'h', 'hub', 'bail'), p.wallet >= cost ? `Pay bail · ${coins(cost)}` : `Need ${coins(cost - p.wallet)} more`, MAIN, { disabled: p.wallet < cost })));
+    }
     rows.push(row(
-      btn(ids.nav(ctx.owner, 'h', 'shop'), 'Shop', NAV, { emoji: '🛒' }),
-      btn(ids.nav(ctx.owner, 'h', 'inv.all.0'), 'Inventory', NAV, { emoji: '🎒' }),
-      btn(ids.nav(ctx.owner, 'h', 'bal'), 'Balance', NAV, { emoji: '👛' }),
-      btn(ids.nav(ctx.owner, 'h', 'help'), 'Help', NAV, { emoji: '📖' }),
-      btn(ids.nav(ctx.owner, 'h', 'hub'), 'Refresh', NAV, { emoji: '🔄' }),
+      btn(ids.nav(ctx.owner, 'h', 'shop'), 'Shop', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'inv.all.0'), 'Inventory', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'bal'), 'Balance', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'help'), 'Help', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'hub'), 'Refresh', NAV),
     ));
     return { embeds: [e], components: rows };
   },
@@ -80,7 +87,7 @@ export const hub: ScreenModule = {
   async act(_path, action, _args, _i, ctx) {
     if (action === 'bail') {
       const cost = await payBail(ctx.owner);
-      return { path: 'hub', note: `🔓 You paid ${coins(cost)} bail. You're free.` };
+      return { path: 'hub', note: `${icon('success')} You paid ${coins(cost)} bail. You're free.` };
     }
     return { path: 'hub' };
   },
