@@ -57,7 +57,7 @@ export default defineCommand({
 
     let phase: 'invite' | 'waiting' | 'draw' | 'done' = 'invite';
     let drawTs = 0;
-    const invite = collect(message, { time: duelRules.acceptSeconds * 1000, max: 1 });
+    const invite = collect(message, { time: duelRules.acceptSeconds * 1000, max: 1 , disableOnEnd: false });
     invite.on('collect', (i) => {
       (async () => {
         if (i.customId.endsWith('decline')) {
@@ -107,7 +107,7 @@ export default defineCommand({
     };
 
     const fight = async () => {
-      const shots = collect(message, { time: duelRules.drawDelayMs[1] + duelRules.drawWindowMs + 5_000 });
+      const shots = collect(message, { time: duelRules.drawDelayMs[1] + duelRules.drawWindowMs + 5_000 , disableOnEnd: false });
       shots.on('collect', (i) => {
         (async () => {
           if (i.user.id !== a && i.user.id !== b) return i.reply({ content: "This isn't your duel.", flags: MessageFlags.Ephemeral });

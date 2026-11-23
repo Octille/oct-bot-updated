@@ -30,7 +30,8 @@ export default defineCommand({
     const bet = parseBet(interaction.options.getString('bet', true), profile, 'crash');
     // Never pay past the per-round cap: cashing out there is automatic
     const capAt = Math.floor((MAX_PAYOUT / bet) * 100) / 100;
-    const auto = Math.min(interaction.options.getNumber('auto') ?? Infinity, capAt);
+    const chosenAuto = interaction.options.getNumber('auto');
+    const auto = Math.min(chosenAuto ?? Infinity, capAt);
     await takeBet(userId, 'crash', bet);
     const point = crashPoint(defaultRng);
     const crashMs = crashTimeFor(point);
@@ -38,14 +39,15 @@ export default defineCommand({
     const live = (m: number) => ({
       embeds: [embed('economy').setTitle(`${titleIcon('crash')} Crash`).setDescription([
         `# ${m.toFixed(2)}×`,
-        `Cash out now: **${coins(Math.floor(bet * m))}**${Number.isFinite(auto) ? ` · auto at ${auto}×` : ''}`,
+        `Cash out now: **${coins(Math.floor(bet * m))}**${chosenAuto ? ` · auto at ${Math.min(chosenAuto, capAt)}×` : ''}`,
       ].join('\n'))],
       components: rows([button('~crash', userId, ['cash'], `Cash out · ${coins(Math.floor(bet * m))}`, ButtonStyle.Success)]),
     });
 
     const message = await interaction.editReply(live(1));
     // Round time is measured on Discord's clock: from this message to the click
-    const startTs = message.editedTimestamp ?? message.createdTimestamp;
+    // (createdTimestamp would be the earlier defer, which would credit cash-outs too high)
+    const startTs = message.editedTimestamp ?? Date.now();
     const localStart = Date.now();
     let settled = false;
 
@@ -65,7 +67,7 @@ export default defineCommand({
       };
     };
 
-    const collector = collect(message, { time: crashMs + 60_000 });
+    const collector = collect(message, { time: crashMs + 60_000 , disableOnEnd: false });
     collector.on('collect', (i) => {
       (async () => {
         if (settled) return i.deferUpdate();

@@ -49,13 +49,15 @@ export function parseBet(input: string, profile: Profile, game: GameId, roulette
 }
 
 /** Takes the bet (atomically: fails if the wallet can't cover it) and counts the round. */
-export async function takeBet(userId: string, game: GameId, bet: number): Promise<Profile> {
+export async function takeBet(userId: string, game: GameId, bet: number, opts: { extraStake?: boolean } = {}): Promise<Profile> {
+  // A blackjack double adds to the wager but isn't another round
+  const rounds = opts.extraStake ? 0 : 1;
   return apply(userId, {
     wallet: -bet,
     inc: {
-      'stats.gambling.played': 1,
+      'stats.gambling.played': rounds,
       'stats.gambling.wagered': bet,
-      [`stats.gambling.byGame.${game}.played`]: 1,
+      [`stats.gambling.byGame.${game}.played`]: rounds,
       [`stats.gambling.byGame.${game}.wagered`]: bet,
     },
   }, { source: `gamble.${game}.bet`, meta: { bet } });

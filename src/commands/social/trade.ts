@@ -65,7 +65,7 @@ export default defineCommand({
 
     await interaction.reply(view());
     const message = await interaction.fetchReply();
-    const collector = collect(message, { time: 30 * 60_000, idle: tradeRules.idleMinutes * 60_000 });
+    const collector = collect(message, { time: 30 * 60_000, idle: tradeRules.idleMinutes * 60_000 , disableOnEnd: false });
 
     const askModal = async (i: ButtonInteraction, kind: 'item' | 'coins') => {
       const id = `~tm:${i.user.id}:${++nonce}`;

@@ -47,7 +47,7 @@ export default defineCommand({
 
     const message = await interaction.editReply(lobby());
     let started = false;
-    const collector = collect(message, { time: heistRules.lobbySeconds * 1000 });
+    const collector = collect(message, { time: heistRules.lobbySeconds * 1000 , disableOnEnd: false });
 
     const start = async () => {
       if (started) return;

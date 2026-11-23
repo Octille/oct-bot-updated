@@ -62,7 +62,7 @@ export default defineCommand({
 
     const message = await interaction.editReply(playing());
     let finished = false;
-    const collector = collect(message, { time: 600_000, idle: 60_000 });
+    const collector = collect(message, { time: 600_000, idle: 60_000 , disableOnEnd: false });
     collector.on('collect', (i) => {
       (async () => {
         if (finished) return i.deferUpdate();

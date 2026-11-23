@@ -66,7 +66,7 @@ export default defineCommand({
     const message = await interaction.editReply(await view());
     if (s.done) return;
     let finished = false;
-    const collector = collect(message, { time: 300_000, idle: 60_000 });
+    const collector = collect(message, { time: 300_000, idle: 60_000 , disableOnEnd: false });
     collector.on('collect', (i) => {
       (async () => {
         if (finished) return i.deferUpdate();
@@ -76,7 +76,7 @@ export default defineCommand({
         else if (move === 'stand') stand(s);
         else if (move === 'double' && canDouble(s)) {
           try {
-            wallet = (await takeBet(userId, 'blackjack', bet)).wallet;
+            wallet = (await takeBet(userId, 'blackjack', bet, { extraStake: true })).wallet;
             double(s);
           } catch (err) {
             if (!(err instanceof EconomyError)) throw err;
