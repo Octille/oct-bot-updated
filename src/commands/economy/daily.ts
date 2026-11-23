@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -58,8 +58,8 @@ export default defineCommand({
     ];
     const next = await afterAction(interaction.user.id, 'daily');
 
-    await interaction.reply({ embeds: [embed('economy')
-      .setTitle(`${icon('daily')} Daily`)
+    await interaction.reply({ embeds: [embed('success')
+      .setTitle(`${titleIcon('daily')} Daily`)
       .setDescription([...lines, next.note].filter(Boolean).join('\n'))
       .addFields({ name: 'Last two weeks', value: streakCalendar(result.days, now) })
       .setFooter({ text: `+${granted.xp} XP • Resets at 00:00 UTC` })], components: [next.row] });

@@ -1,8 +1,8 @@
 import { embed } from '../../lib/embeds';
-import { coins, relative } from '../../lib/format';
+import { coins, duration, relative } from '../../lib/format';
 import { testNotice } from '../../lib/testMode';
 import { itemName } from '../../content/items';
-import { icon } from '../../lib/icons';
+import { buttonIcon, icon, titleIcon } from '../../lib/icons';
 import type { IconKey } from '../../content/icons';
 import { bailCost, isJailed, payBail } from '../../services/jail';
 import { capacityOf } from '../../services/economy';
@@ -36,7 +36,7 @@ export const hub: ScreenModule = {
     const half = Math.ceil(activities.length / 2);
     const statusLine = (a: (typeof activities)[number]) => `${a.name} · ${statusText(statusOf(a.id, p, now), now)}`;
     const e = embed('economy')
-      .setTitle(`${icon('menu')} Menu`)
+      .setTitle(`${titleIcon('menu')} Menu`)
       .setDescription([
         ctx.note,
         `${icon('currency')} **${coins(p.wallet)}** wallet · ${coins(p.bank)} / ${coins(capacityOf(p)).replace('₪ ', '')} bank · Level ${level}`,
@@ -61,11 +61,11 @@ export const hub: ScreenModule = {
     const activityButtons = activities.map((a) => {
       const s = statusOf(a.id, p, now);
       switch (s.state) {
-        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, MAIN, { emoji: icon(a.id as IconKey) });
-        case 'cooldown': return btn(ids.go(ctx.owner, a.id, stamp), `${a.name} · ${relativeShort(s.readyAt, now)}`, NAV, { emoji: icon(a.id as IconKey), disabled: true });
+        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, MAIN, { emoji: buttonIcon(a.id as IconKey) });
+        case 'cooldown': return btn(ids.go(ctx.owner, a.id, stamp), `${a.name} · ${duration(s.readyAt.getTime() - now.getTime())}`, NAV, { disabled: true });
         // Clickable: takes you to the fix (e.g. Shop › Tools › Weapon)
-        case 'needs': return btn(ids.nav(ctx.owner, 'h', s.fix), s.label, NAV, { emoji: icon(a.id as IconKey) });
-        case 'locked': return btn(ids.go(ctx.owner, a.id, stamp), s.label, NAV, { emoji: icon(a.id as IconKey), disabled: true });
+        case 'needs': return btn(ids.nav(ctx.owner, 'h', s.fix), s.label, NAV);
+        case 'locked': return btn(ids.go(ctx.owner, a.id, stamp), s.label, NAV, { disabled: true });
       }
     });
 
@@ -92,12 +92,4 @@ export const hub: ScreenModule = {
     return { path: 'hub' };
   },
 };
-
-/** "4m", "2h 5m" for button labels. */
-function relativeShort(at: Date, now: Date): string {
-  const s = Math.max(0, Math.ceil((at.getTime() - now.getTime()) / 1000));
-  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
-  if (s >= 60) return `${Math.ceil(s / 60)}m`;
-  return `${s}s`;
-}
 

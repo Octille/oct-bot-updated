@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { coins, num } from '../../lib/format';
 import { UserError } from '../../lib/errors';
@@ -58,7 +58,7 @@ function list(ctx: ScreenCtx, code: string, pageArg: number) {
   const slice = all.slice(page * MAX_OPTIONS, (page + 1) * MAX_OPTIONS);
   const lock = locked(ctx);
   const e = embed('economy')
-    .setTitle(`${icon('inventory')} Inventory › ${f.label}`)
+    .setTitle(`${titleIcon('inventory')} Inventory › ${f.label}`)
     .setDescription([
       ctx.note,
       slice.length
@@ -102,8 +102,8 @@ function itemScreen(ctx: ScreenCtx, id: string, code: string, page: string) {
   const info = rarityInfo[item.rarity];
   const usable = !!consumableUses[id] && id !== 'streak_freeze';
 
-  const e = embed('economy').setColor(info.color)
-    .setTitle(`${icon('inventory')} Inventory › ${item.name}`)
+  const e = embed('economy')
+    .setTitle(`${titleIcon('inventory')} Inventory › ${item.name}`)
     .setDescription([
       ctx.note,
       ctx.note ? '' : null,
@@ -145,7 +145,7 @@ function bulkConfirm(ctx: ScreenCtx, code: string, includeRare: boolean, returnT
   const rareCount = Object.keys(sel.skippedRare).length;
   const lockedCount = Object.keys(sel.skippedLocked).length;
 
-  const e = embed('economy').setTitle(`${icon('inventory')} Inventory › Sell ${bulkName(code)}`)
+  const e = embed('economy').setTitle(`${titleIcon('inventory')} Inventory › Sell ${bulkName(code)}`)
     .setDescription([
       ctx.note,
       count ? `You'll sell **${num(count)} item${count === 1 ? '' : 's'}** for ${icon('currency')} **${coins(total)}** → wallet after ${coins(ctx.profile.wallet + total)}` : 'Nothing to sell with these settings.',
@@ -171,7 +171,7 @@ function itemSellConfirm(ctx: ScreenCtx, id: string, code: string, page: string)
   const qty = inventoryOf(ctx.profile)[id] ?? 0;
   const parent = `inv.item.${id}.${code}.${page}`;
   const total = (item?.sellPrice ?? 0) * qty;
-  const e = embed('economy').setTitle(`${icon('inventory')} Inventory › Sell all ${item?.name ?? id}`)
+  const e = embed('economy').setTitle(`${titleIcon('inventory')} Inventory › Sell all ${item?.name ?? id}`)
     .setDescription([
       ctx.note,
       qty ? `Sell **${itemName(id, qty)}** for ${icon('currency')} **${coins(total)}** → wallet after ${coins(ctx.profile.wallet + total)}` : "You don't have any left.",
@@ -209,7 +209,7 @@ export const inventory: ScreenModule = {
             const spin = ['⚪', '🟢', '🔵', '🟣', '🟠', '🔴'];
             for (let step = 0; step < 3; step++) {
               const reel = Array.from({ length: 5 }, (_, k) => spin[(step * 2 + k) % spin.length]).join(' ');
-              await interaction.editReply({ embeds: [embed('economy').setColor(rarityInfo[item.rarity].color).setTitle(`${item.emoji} Opening ${item.name}...`).setDescription(`# ${reel}`)], components: [] });
+              await interaction.editReply({ embeds: [embed('success').setTitle(`${item.emoji} Opening ${item.name}...`).setDescription(`# ${reel}`)], components: [] });
               await new Promise((r) => setTimeout(r, 600));
             }
           }

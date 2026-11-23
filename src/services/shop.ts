@@ -39,7 +39,7 @@ export function findEntry(id: string): { entry: ShopEntry; rotation: RotationEnt
   const basic = basics.find((b) => b.id === id);
   if (basic) return { entry: basic, rotation: null, day };
   const cosmetic = getCosmetic(id);
-  if (cosmetic && !cosmetic.rotationOnly) return { entry: { id, kind: 'cosmetic', price: cosmetic.price }, rotation: null, day };
+  if (cosmetic && !cosmetic.rotationOnly && !cosmetic.exclusive) return { entry: { id, kind: 'cosmetic', price: cosmetic.price }, rotation: null, day };
   return null;
 }
 

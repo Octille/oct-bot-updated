@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -23,7 +23,7 @@ export default defineCommand({
     const milestones = Object.keys(daily.milestones).map(Number).filter((m) => m > current).slice(0, 3);
 
     await interaction.reply({ embeds: [embed('economy')
-      .setTitle(`${icon('daily')} ${interaction.user.username}'s streak`)
+      .setTitle(`${titleIcon('daily')} ${interaction.user.username}'s streak`)
       .setDescription(status)
       .addFields(
         { name: 'Current', value: `${current} day${current === 1 ? '' : 's'} (${dailyMultiplier(current)}×)`, inline: true },

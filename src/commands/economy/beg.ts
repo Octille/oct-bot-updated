@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -25,8 +25,8 @@ export default defineCommand({
       ? result.line
       : `${icon('success')} ${result.line} **${coins(result.coins)}**.`;
     const next = await afterAction(interaction.user.id, 'beg');
-    await interaction.reply({ embeds: [embed('economy')
-      .setTitle(`${icon('beg')} Beg`)
+    await interaction.reply({ embeds: [embed(result.kind === 'nothing' ? 'warning' : 'success')
+      .setTitle(`${titleIcon('beg')} Beg`)
       .setDescription([text, levelUpText(levelUp), next.note].filter(Boolean).join('\n'))
       .setFooter({ text: `+${xp} XP` })], components: [next.row] });
   },

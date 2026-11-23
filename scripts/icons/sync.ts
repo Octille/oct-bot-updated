@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REST, Routes } from 'discord.js';
 import { env, isTestBot } from '../../src/config/env';
-import { EMOJI_PREFIX, iconDefs } from '../../src/content/icons';
+import { EMOJI_PREFIX, iconImages, VARIANT_CODE } from '../../src/content/icons';
 
 interface AppEmoji { id: string; name: string }
 
@@ -24,15 +24,15 @@ async function main(): Promise<void> {
   const existing = ((await rest.get(Routes.applicationEmojis(env.CLIENT_ID))) as { items: AppEmoji[] }).items;
   const ours = existing.filter((e) => e.name.startsWith(EMOJI_PREFIX));
 
-  const wanted = new Map(Object.keys(iconDefs).map((key) => [`${EMOJI_PREFIX}${key}_${manifest[key]}`, key]));
+  const wanted = new Map(iconImages().map(({ key, variant }) => [`${EMOJI_PREFIX}${key}_${VARIANT_CODE[variant]}_${manifest[`${key}.${variant}`]}`, `${key}.${variant}`]));
   const toUpload = [...wanted].filter(([name]) => !ours.some((e) => e.name === name));
   const toDelete = ours.filter((e) => !wanted.has(e.name));
 
   console.log(`${ours.length} icon emojis on the app • ${toUpload.length} to upload • ${toDelete.length} stale to remove${dry ? ' (dry run)' : ''}`);
   if (dry) return;
 
-  for (const [name, key] of toUpload) {
-    const image = `data:image/png;base64,${readFileSync(join(dir, `${key}.png`)).toString('base64')}`;
+  for (const [name, file] of toUpload) {
+    const image = `data:image/png;base64,${readFileSync(join(dir, `${file}.png`)).toString('base64')}`;
     await rest.post(Routes.applicationEmojis(env.CLIENT_ID), { body: { name, image } });
     console.log(`  ↑ ${name}`);
   }

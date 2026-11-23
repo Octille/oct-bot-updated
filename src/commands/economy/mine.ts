@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -39,7 +39,7 @@ export default defineCommand({
 
     const message = await interaction.editReply({
       embeds: [embed('economy')
-        .setTitle(`${icon('mine')} Mine › Pick a tunnel`)
+        .setTitle(`${titleIcon('mine')} Mine › Pick a tunnel`)
         .setDescription(choices.map((t) => `**${t.name}** — ${t.hint}`).join('\n'))
         .setFooter({ text: `${describeTool(pickaxe, 'pickaxe').replace(/\*\*/g, '')}${pickaxe.broken ? ' (mining bare-handed until repaired)' : ''}` })],
       components: rows(choices.map((t, i) => button('~mine', userId, [i], t.name, ButtonStyle.Secondary))),
@@ -79,9 +79,8 @@ export default defineCommand({
         if (next.note) lines.push(next.note);
 
         await i.update({
-          embeds: [embed('economy')
-            .setColor(result.caveIn ? 0x7f5539 : result.ore.color)
-            .setTitle(`${icon('mine')} Mine › ${tunnel.name}`)
+          embeds: [embed(result.caveIn ? 'warning' : 'success')
+            .setTitle(`${titleIcon('mine')} Mine › ${tunnel.name}`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: `+${xp} XP • ${describeTool(toolNow, 'pickaxe').replace(/\*\*/g, '')}` })],
           components: [...rows(choices.map((t, n) => button('~mine', userId, [n], t.name, t.id === tunnel.id ? ButtonStyle.Primary : ButtonStyle.Secondary, undefined, true))), next.row],

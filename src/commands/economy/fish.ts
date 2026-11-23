@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -36,7 +36,7 @@ export default defineCommand({
     const windowMs = reelWindow(catchRoll.species.rarity, rod.tool.windowBonusMs ?? 0);
     const id = (label: string, style: ButtonStyle, emoji?: string, disabled = false) =>
       rows([button('~fish', userId, ['go'], label, style, emoji, disabled)]);
-    const scene = (text: string) => embed('economy').setTitle(`${icon('fish')} Fish`).setDescription(text)
+    const scene = (text: string) => embed('economy').setTitle(`${titleIcon('fish')} Fish`).setDescription(text)
       .setFooter({ text: describeTool(rod, 'rod').replace(/\*\*/g, '') });
 
     const message = await interaction.editReply({ embeds: [scene('The water is calm. Ready when you are.')], components: id('Cast line', ButtonStyle.Success) });
@@ -96,7 +96,7 @@ export default defineCommand({
 
       const next = await afterAction(userId, 'fish');
       const payload = {
-        embeds: [embed('economy').setColor(outcome === 'caught' ? info.color : 0x95a5a6).setTitle(`${icon('fish')} Fish › ${outcome === 'caught' ? 'Caught!' : 'Got away'}`)
+        embeds: [embed(outcome === 'caught' ? 'success' : 'warning').setTitle(`${titleIcon('fish')} Fish › ${outcome === 'caught' ? 'Caught!' : 'Got away'}`)
           .setDescription([text, next.note].filter(Boolean).join('\n'))
           .setFooter({ text: [footerXp, '/fishdex to see your collection'].filter(Boolean).join(' • ') })],
         components: [next.row],

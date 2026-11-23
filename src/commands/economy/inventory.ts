@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -28,7 +28,7 @@ export default defineCommand({
       .sort((a, b) => rarities.indexOf(b.item!.rarity) - rarities.indexOf(a.item!.rarity))
       .slice(0, 20);
     await interaction.reply({ embeds: [embed('economy')
-      .setTitle(`${icon('inventory')} ${titled(target.globalName ?? target.username, other)}'s inventory`)
+      .setTitle(`${titleIcon('inventory')} ${titled(target.globalName ?? target.username, other)}'s inventory`)
       .setDescription(list.map(({ qty, item }) => `${icon(item!.rarity)} ${item!.name} ×${num(qty)}`).join('\n') || 'Empty.')
       .setFooter({ text: `Total value ${coins(inventoryValue(inventoryOf(other)))}` })] });
   },

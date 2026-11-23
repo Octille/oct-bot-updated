@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -48,7 +48,7 @@ export default defineCommand({
     lastGame.set(userId, game.kind);
 
     const header = `**${rank.title} ${job.name}** · shift #${num(shifts + 1)} · ${game.timeLimitMs / 1000}s`;
-    const title = `${icon('work')} Work › ${job.name} › ${game.title}`;
+    const title = `${titleIcon('work')} Work › ${job.name} › ${game.title}`;
 
     if (game.preview) {
       await interaction.editReply({ embeds: [embed('economy').setTitle(title).setDescription(`${header}\n\n${game.preview.text}`)] });
@@ -82,7 +82,7 @@ export default defineCommand({
       const verdict = !success
         ? i ? `${icon('error')} Wrong! Your manager sighs.` : `${icon('warning')} Too slow! You stood there blinking.`
         : perfect ? `${icon('success')} **Perfect shift!** ${(elapsed / 1000).toFixed(1)}s (+${Math.round((PERFECT_BONUS - 1) * 100)}% bonus)` : `${icon('success')} Done in ${(elapsed / 1000).toFixed(1)}s`;
-      const result = embed(success ? 'economy' : 'warning')
+      const result = embed(success ? 'success' : 'warning')
         .setTitle(title)
         .setDescription([
           header,

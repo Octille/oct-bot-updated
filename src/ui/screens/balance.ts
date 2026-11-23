@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { embed } from '../../lib/embeds';
 import { bar, coins, num, relative } from '../../lib/format';
@@ -23,7 +23,7 @@ export function balanceCard(profile: Profile, name: string, avatar: string | nul
     .filter((k) => isActive(profile.boosts, k))
     .map((k) => `${boosts[k].label} until ${relative(profile.boosts![k]!)}`);
   const e = embed('economy')
-    .setTitle(`${icon('wallet')} ${titled(name, profile)}`)
+    .setTitle(`${titleIcon('wallet')} ${titled(name, profile)}`)
     .addFields(
       { name: 'Wallet', value: `${icon('currency')} ${coins(profile.wallet)}`, inline: true },
       { name: 'Bank', value: `${coins(profile.bank)} / ${num(cap)}`, inline: true },

@@ -1,10 +1,10 @@
 import { embed } from '../../lib/embeds';
 import { bar, coins } from '../../lib/format';
-import { icon, rarityTag } from '../../lib/icons';
+import { icon, rarityTag, titleIcon } from '../../lib/icons';
 import { UserError } from '../../lib/errors';
 import { nextTool, repairCost, type Tool, type ToolSlot } from '../../content/tools';
 import { basics } from '../../content/shop';
-import { cosmetics, getCosmetic } from '../../content/cosmetics';
+import { getCosmetic, shopCosmetics } from '../../content/cosmetics';
 import { consumableUses } from '../../content/consumables';
 import { getItem } from '../../content/items';
 import { boughtToday, buy, displayName, getRotation } from '../../services/shop';
@@ -48,7 +48,7 @@ function sectionListings(section: SectionId): Listing[] {
       ...stock.filter((s) => getItem(s.id)?.type === 'crate'),
     ];
     case 'deals': return stock;
-    case 'cos': return cosmetics.filter((c) => !c.rotationOnly).map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price }));
+    case 'cos': return shopCosmetics().map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price }));
     default: return [];
   }
 }
@@ -71,7 +71,7 @@ function priceLine(label: string, cost: number, wallet: number): string {
 }
 
 function title(...parts: string[]): string {
-  return [`${icon('shop')} Shop`, ...parts].join(' › ');
+  return [`${titleIcon('shop')} Shop`, ...parts].join(' › ');
 }
 
 function root(ctx: ScreenCtx) {
@@ -197,7 +197,7 @@ function itemScreen(ctx: ScreenCtx, id: string, section: SectionId) {
   const lines = [
     ctx.note,
     ctx.note ? '' : null,
-    item ? `${rarityTag(item.rarity)} · ${item.type}` : cosmetic?.kind === 'title' ? `Title · shows as "${ctx.userName} • ${cosmetic.value}"` : 'Colour theme for your menus',
+    item ? `${rarityTag(item.rarity)} · ${item.type}` : cosmetic?.kind === 'title' ? `Title · shows as "${ctx.userName} • ${cosmetic.value}"` : cosmetic?.kind === 'badge' ? 'Badge shown next to your name' : 'Colour theme for your menus',
     item?.description ?? null,
     '',
     ownsCosmetic ? 'You own this.' : priceLine('Price', listing.price, p.wallet),

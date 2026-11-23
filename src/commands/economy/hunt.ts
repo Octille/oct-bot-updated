@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -41,7 +41,7 @@ export default defineCommand({
     }));
 
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle(`${icon('hunt')} Hunt`).setDescription('You crouch in the long grass. Stay still... watch the bushes.').setFooter({ text: footer })],
+      embeds: [embed('economy').setTitle(`${titleIcon('hunt')} Hunt`).setDescription('You crouch in the long grass. Stay still... watch the bushes.').setFooter({ text: footer })],
       components: bushes(),
     });
 
@@ -86,7 +86,7 @@ export default defineCommand({
       }
       const next = await afterAction(userId, 'hunt');
       const payload = {
-        embeds: [embed('economy').setColor(outcome === 'hit' ? info.color : 0x95a5a6).setTitle(`${icon('hunt')} Hunt › ${outcome === 'hit' ? 'Got it!' : 'Missed'}`)
+        embeds: [embed(outcome === 'hit' ? 'success' : 'warning').setTitle(`${titleIcon('hunt')} Hunt › ${outcome === 'hit' ? 'Got it!' : 'Missed'}`)
           .setDescription([text, next.note].filter(Boolean).join('\n')).setFooter({ text: footerText || footer })],
         components: [...bushes({ animalAt: outcome === 'early' ? undefined : hunt.bush, picked, disabled: true }), next.row],
       };
@@ -96,7 +96,7 @@ export default defineCommand({
 
     timers.push(setTimeout(() => {
       if (phase !== 'waiting') return;
-      interaction.editReply({ embeds: [embed('economy').setTitle(`${icon('hunt')} Hunt`).setDescription(`**THERE!** ${hunt.animal.emoji}`).setFooter({ text: footer })], components: bushes({ animalAt: hunt.bush }) })
+      interaction.editReply({ embeds: [embed('economy').setTitle(`${titleIcon('hunt')} Hunt`).setDescription(`**THERE!** ${hunt.animal.emoji}`).setFooter({ text: footer })], components: bushes({ animalAt: hunt.bush }) })
         .then(() => {
           if (phase !== 'waiting') return;
           phase = 'shown';

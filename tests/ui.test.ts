@@ -11,7 +11,9 @@ import { cosmetics } from '../src/content/cosmetics';
 import { totalXpForLevel } from '../src/content/levels';
 import { hubExpired, hubStamp } from '../src/ui/screens/hub';
 import { statusOf } from '../src/ui/activities';
-import { iconDefs } from '../src/content/icons';
+import { BRAND, iconDefs } from '../src/content/icons';
+import { palette } from '../src/lib/embeds';
+import { themeColor } from '../src/lib/theme';
 import { firstSteps } from '../src/services/onboarding';
 import type { Profile } from '../src/services/economy';
 
@@ -107,12 +109,13 @@ describe('every menu screen', () => {
               }
               if (c.type === ComponentType.Button && 'label' in c && c.label) {
                 expect(c.label.length, `${where}: "${c.label}"`).toBeLessThanOrEqual(MAX_LABEL);
-                // Icons only on main actions (green) and hub activity buttons; never on navigation
+                // Icons only on green/blue buttons; grey buttons (cooldowns, locked, navigation) never get one
                 if ('emoji' in c && c.emoji) {
-                  const isHubActivity = path.startsWith('hub') && !/^(Shop|Inventory|Balance|Help|Refresh)$/.test(c.label);
-                  expect(isHubActivity || c.style === ButtonStyle.Success, `${where}: icon on "${c.label}"`).toBe(true);
+                  expect(c.style === ButtonStyle.Success || c.style === ButtonStyle.Primary, `${where}: icon on grey "${c.label}"`).toBe(true);
                 }
                 if (/^(Back|Menu|Prev|Next|Cancel|Refresh)$/.test(c.label)) expect('emoji' in c && c.emoji, `${where}: icon on ${c.label}`).toBeFalsy();
+                // Same time format as the embed ("6d 23h"), never "167h 43m"
+                for (const [, h] of c.label.matchAll(/(\d+)h\b/g)) expect(Number(h), `${where}: "${c.label}"`).toBeLessThan(24);
               }
               if (c.type === ComponentType.StringSelect) {
                 expect(c.options.length, where).toBeGreaterThan(0);
@@ -216,9 +219,14 @@ describe('hub', () => {
 });
 
 describe('with real application emojis loaded', () => {
-  it('every screen still fits Discord limits when icons are long custom-emoji strings', async () => {
+  // Every key in every variant: oi_<key>_<b|w|g|c>_abc123
+  const fake = Object.fromEntries(Object.keys(iconDefs).flatMap((k, i) => ['b', 'w', 'g', 'c'].map((v, j) =>
+    [`${k}.${v}`, { id: `12345678901234${String(i).padStart(3, '0')}${j}`, name: `oi_${k}_${v}_abc123` }])));
+  const variants = (text: string) => [...text.matchAll(/<:oi_[a-z_]+?_([bwgc])_abc123:\d+>/g)].map((m) => m[1]);
+
+  it('uses the right icon colour everywhere and fits Discord limits', async () => {
     const { setLoadedIconsForTest } = await import('../src/lib/icons.js');
-    setLoadedIconsForTest(Object.fromEntries(Object.keys(iconDefs).map((k, i) => [k, { id: `1234567890123456${String(i).padStart(3, '0')}`, name: `oi_${k}_abc123` }])));
+    setLoadedIconsForTest(fake);
     try {
       for (const p of Object.values(players)) {
         for (const e of ENTRY) {
@@ -228,14 +236,40 @@ describe('with real application emojis loaded', () => {
               expect((json.title ?? '').length, path).toBeLessThanOrEqual(256);
               expect((json.description ?? '').length, path).toBeLessThanOrEqual(4096);
               for (const f of json.fields ?? []) expect(f.value.length, `${path} ${f.name}`).toBeLessThanOrEqual(1024);
+              // Brand side colour on every menu screen (an equipped colour theme may recolour your own screens)
+              expect([BRAND, themeColor(p)], `${path}: side colour`).toContain(json.color);
+              // Title: the first icon is brand blue; anything after it (badges, rarity) keeps its fixed colour
+              const [first, ...rest] = variants(json.title ?? '');
+              if (first) expect(first, `${path}: title icon`).toBe('b');
+              for (const v of rest) expect(v, `${path}: title`).toBe('c');
+              // Embed text: grey or fixed colour only
+              const body = [json.description, json.footer?.text, ...(json.fields ?? []).flatMap((f) => [f.name, f.value])].join('\n');
+              for (const v of variants(body)) expect(['g', 'c'], `${path}: inline icon`).toContain(v);
             }
-            for (const r of payload.components) r.toJSON();
+            for (const r of payload.components) {
+              for (const c of r.toJSON().components) {
+                if (c.type !== ComponentType.Button || !('emoji' in c) || !c.emoji?.name) continue;
+                const v = /^oi_[a-z_]+?_([bwgc])_abc123$/.exec(c.emoji.name)?.[1];
+                // White on green/blue buttons (rarity icons keep their colour)
+                if (v) expect(['w', 'c'], `${path}: "${c.label}" icon`).toContain(v);
+              }
+            }
           }
         }
       }
-      expect(render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' }).embeds[0]!.toJSON().title).toMatch(/^<:oi_menu_abc123:\d+> Menu$/);
+      const hub = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' });
+      expect(hub.embeds[0]!.toJSON().title).toMatch(/^<:oi_menu_b_abc123:\d+> Menu$/);
+      const ready = hub.components.flatMap((r) => r.toJSON().components).find((c) => c.type === ComponentType.Button && c.style === ButtonStyle.Success);
+      expect(ready && 'emoji' in ready ? ready.emoji?.name : undefined).toMatch(/^oi_[a-z]+_w_abc123$/);
     } finally {
       setLoadedIconsForTest({});
     }
+  });
+
+  it('result embeds use green / amber / red, everything else the brand colour', () => {
+    expect(palette.success).toBe(0x23a55a);
+    expect(palette.warning).toBe(0xf0b232);
+    expect(palette.error).toBe(0xf23f43);
+    for (const [k, v] of Object.entries(palette)) if (!['success', 'warning', 'error'].includes(k)) expect(v, k).toBe(BRAND);
   });
 });

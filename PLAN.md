@@ -203,10 +203,13 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - beg, search, crime/jail; item system, inventory (paginated with filter), use, sell (incl. by rarity), iteminfo
   - shop with daily rotation, buy, crates with reveal animation, consumables, cosmetics.
 - [x] **UX pass (between 2b and 3):** /menu hub with First steps, one Shop (tools inside), Inventory with item screens, sell confirmations, item locks, Wardrobe, Balance with amount boxes, Jobs, Fishdex, Help, Jail; breadcrumb titles and next-step rows on every activity. Menu screens are pure functions of (path, profile) with the path in the button ID; a crawler test checks every reachable screen against Discord limits and the menu rules.
+- [x] **Icon pass:** Tabler icon set as application emojis (`scripts/icons/*`, `src/content/icons.ts`), three colour versions: brand blue for screen titles, white on green/blue buttons, grey inline; rarity and veteran badges in fixed colours. Embed side colour is the brand #6066AE everywhere except success/warning/error results. Contact sheet: `docs/icons-sheet.png`.
+- [ ] **Veteran set** (see §9): cosmetics, badges and the badge slot now; rank card frames in Phase 3; awarding and the welcome-back message in Phase 7.
 - [ ] **3. Levels:** (includes crime achievements and titles: e.g. *Light Fingers* for 50 pickpockets, *Master Hacker* for 25 ATM hacks, *Art Thief* for stealing The Mona Octa, *Repeat Offender* for 25 arrests — stats are already tracked in `stats.crimeWins`, `stats.crimeLoot`, `stats.crimesFailed`)
   - chat and voice XP, level rewards, announcements and level-up card, rank card, profile card
   - account levels and unlocks, prestige 0–10 with badges and a prestige shop
   - 40+ achievements, some hidden.
+  - Veteran rank card frames/backgrounds (one per tier); badge and title on rank cards, leaderboards and level-up messages.
 - [ ] **4. Gambling + social:**
   - blackjack, slots, coinflip, high-low, roulette, crash, gambling stats
   - rob with counterplay, multiplayer heist lobby, duel, trade window, give (tax), gift.
@@ -221,6 +224,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - afk, avatar, serverinfo, userinfo, ping, poll, interactive help, `/settings` dashboard.
 - [ ] **7. Polish:**
   - `migrate-v2-to-v3.ts` (idempotent, `--dry-run`, summary), `/eco` owner tools and `/eco stats`
+  - Veteran tiers awarded by the migration (counts in the dry-run summary); one-time welcome-back message on a veteran's first v3 command
   - BALANCE.md and README
   - Docker update (replset Mongo, build step), `.env.example`
   - full test pass, live run and fixes.
@@ -243,7 +247,7 @@ The script never deletes old collections. Each user doc is marked `migratedFromV
 
 ## 7. Decisions (approved)
 
-1. **Corrupt balances:** wallet, bank, items and workers are capped at a ceiling derived from the late-game numbers in BALANCE.md (not a fixed number). The **Veteran** badge goes to old accounts by account age or old level, never by balance.
+1. **Corrupt balances:** wallet, bank, items and workers are capped at a ceiling derived from the late-game numbers in BALANCE.md (not a fixed number). Veteran tiers are based on old activity, never balance (see §9).
 2. **Old reaction roles** keep working through a legacy listener; admins get a one-time nudge to move to `/rolepanel`.
 3. **Prefix notice** for 30 days after launch, at most once per channel per hour.
 4. **Gambling** has a per-server toggle, on by default.
@@ -269,3 +273,26 @@ The script never deletes old collections. Each user doc is marked `migratedFromV
 5. **Season length:** monthly, as the brief suggests?
 
 Nothing gets cut from the brief. If something turns out not to be workable, I'll tell you rather than stubbing it.
+
+## 9. Veteran set (players from the original bot)
+
+Thresholds proposed from a read-only look at the live data (77,801 profiles; 76,671 never ran a tracked command). The old bot's `level` field barely moved (only 382 profiles above 0, max level 3) and nobody prestiged, so tiers use **distinct commands used** (`commands_cooldowns`) and join date instead. **Proposed, waiting for approval.**
+
+| Tier | Rule | Count |
+|---|---|---|
+| **Veteran** | 2021–22 profile with ≥2 distinct commands, or non-default items, company workers, or a claimed top.gg vote; 2026 profiles with XP/mining/items | **445** (18 of them corrupt) |
+| **Elite Veteran** | 2021–22, ≥8 distinct commands, not corrupt | **64** |
+| **Founder** | joined before 2021-06-01, ≥5 distinct commands, not corrupt | **23** |
+
+Corrupt = wallet or bank above ₪15.4M or negative; those players get base Veteran only.
+
+Each tier includes the ones below it:
+
+| Tier | Title | Badge (Tabler) | Theme |
+|---|---|---|---|
+| Veteran | Veteran | shield | Classic Oct #6B32A8 |
+| Elite Veteran | Elite Veteran | shield-star | Elite Amethyst #8E44AD |
+| Founder | Founder | crown, gold #AF810E (3.5:1 on both themes) | Founder Gold #AF810E |
+
+Rules: never sold or tradable, never earnable after launch (`exclusive: 'veteran'` in `content/cosmetics.ts`; the shop and `/buy` skip them). The badge shows before your name on `/balance`, rank cards, leaderboards and level-up messages; players can hide it in the Wardrobe. Granted by `services/veteran.ts` during the migration only. Welcome-back message (once, on the first v3 command): thanks them, shows their tier and unlocks, with an **Equip now** button to the Wardrobe.
+

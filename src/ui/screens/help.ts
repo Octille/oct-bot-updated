@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { embed, type Category } from '../../lib/embeds';
 import { testNotice } from '../../lib/testMode';
 import { getCommandList } from '../../framework/commandList';
@@ -42,7 +42,7 @@ export const help: ScreenModule = {
 
     if (!section) {
       return {
-        embeds: [embed('utility').setTitle(`${icon('help')} Help`).setDescription([
+        embeds: [embed('utility').setTitle(`${titleIcon('help')} Help`).setDescription([
           testNotice(),
           'New here? Run **/menu** — it shows what you can do right now.',
           '',
@@ -54,7 +54,7 @@ export const help: ScreenModule = {
 
     const lines = commandsIn(section.category).map((c) => `\`/${c.name}\` — ${c.description}${EXAMPLES[c.name] ? `\n-# e.g. \`${EXAMPLES[c.name]}\`` : ''}`);
     return {
-      embeds: [embed('utility').setTitle(`${icon('help')} Help › ${section.title}`).setDescription(lines.join('\n').slice(0, 4000))],
+      embeds: [embed('utility').setTitle(`${titleIcon('help')} Help › ${section.title}`).setDescription(lines.join('\n').slice(0, 4000))],
       components: [picker, row(back(ctx, 'help'))],
     };
   },

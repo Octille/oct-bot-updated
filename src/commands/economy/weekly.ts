@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -37,6 +37,6 @@ export default defineCommand({
       levelUpText(granted.levelUp),
     ];
     const next = await afterAction(interaction.user.id, 'weekly');
-    await interaction.reply({ embeds: [embed('economy').setTitle(`${icon('weekly')} Weekly`).setDescription([...lines, next.note].filter(Boolean).join('\n')).setFooter({ text: `+${granted.xp} XP` })], components: [next.row] });
+    await interaction.reply({ embeds: [embed('success').setTitle(`${titleIcon('weekly')} Weekly`).setDescription([...lines, next.note].filter(Boolean).join('\n')).setFooter({ text: `+${granted.xp} XP` })], components: [next.row] });
   },
 });

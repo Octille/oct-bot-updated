@@ -1,18 +1,20 @@
 import { EmbedBuilder, type ColorResolvable } from 'discord.js';
 import { icon } from './icons';
+import { BRAND } from '../content/icons';
 
+/** Every screen uses the brand colour; only success / warning / error results differ. */
 export const palette = {
-  economy: 0xf1c40f,
-  gambling: 0x9b59b6,
-  social: 0xe91e63,
-  levels: 0x3498db,
-  events: 0xe67e22,
-  music: 0x1db954,
-  moderation: 0xe74c3c,
-  utility: 0x95a5a6,
-  success: 0x2ecc71,
-  error: 0xed4245,
-  warning: 0xfee75c,
+  economy: BRAND,
+  gambling: BRAND,
+  social: BRAND,
+  levels: BRAND,
+  events: BRAND,
+  music: BRAND,
+  moderation: BRAND,
+  utility: BRAND,
+  success: 0x23a55a,
+  warning: 0xf0b232,
+  error: 0xf23f43,
 } as const satisfies Record<string, ColorResolvable>;
 
 export type Category = keyof typeof palette;

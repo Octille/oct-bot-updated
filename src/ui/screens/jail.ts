@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { coins, relative } from '../../lib/format';
 import { bailCost, isJailed, payBail } from '../../services/jail';
@@ -10,14 +10,14 @@ export const jail: ScreenModule = {
     const p = ctx.profile;
     if (!isJailed(p.jailUntil)) {
       return {
-        embeds: [embed('success').setTitle(`${icon('jail')} Jail › Free`).setDescription([ctx.note, "You're not in jail. Earning commands work again."].filter(Boolean).join('\n'))],
+        embeds: [embed('economy').setTitle(`${titleIcon('jail')} Jail › Free`).setDescription([ctx.note, "You're not in jail. Earning commands work again."].filter(Boolean).join('\n'))],
         components: [row(back(ctx, null))],
       };
     }
     const cost = bailCost(p.jailUntil!);
     const short = p.wallet < cost ? `Need ${coins(cost - p.wallet)} more` : null;
     return {
-      embeds: [embed('moderation').setTitle(`${icon('jail')} Jail`).setDescription([
+      embeds: [embed('moderation').setTitle(`${titleIcon('jail')} Jail`).setDescription([
         ctx.note,
         `You're free ${relative(p.jailUntil!)}.`,
         p.wallet >= cost ? `Bail **${coins(cost)}** → wallet after ${coins(p.wallet - cost)}` : `Bail **${coins(cost)}**`,

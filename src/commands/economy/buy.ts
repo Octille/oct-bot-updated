@@ -28,7 +28,7 @@ export default defineCommand({
     const all = [
       ...basics,
       ...stock,
-      ...cosmetics.filter((c) => !c.rotationOnly).map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price })),
+      ...cosmetics.filter((c) => !c.rotationOnly && !c.exclusive).map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price })),
     ];
     await interaction.respond(all
       .map((e) => ({ name: `${displayName(e).replace(/^\S+ /, '')} — ${coins(e.price)}`.slice(0, 100), value: e.id }))

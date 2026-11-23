@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { coins, num } from '../../lib/format';
 import { UserError } from '../../lib/errors';
@@ -32,7 +32,7 @@ export const job: ScreenModule = {
       const shifts = shiftsIn(p.job?.shifts, current.id);
       const next = nextRank(shifts);
       return {
-        embeds: [embed('economy').setTitle(`${icon('jobs')} Jobs`).setDescription([
+        embeds: [embed('economy').setTitle(`${titleIcon('jobs')} Jobs`).setDescription([
           ctx.note,
           `You work as a **${rankFor(shifts).title} ${current.name}** (${num(shifts)} shifts).`,
           next ? `${next.shifts - shifts} more shift(s) until **${next.title}** (${next.mult}× pay).` : "You're at the top rank.",
@@ -49,7 +49,7 @@ export const job: ScreenModule = {
     const isCurrent = j.id === current.id;
     const locked = j.level > level;
     return {
-      embeds: [embed('economy').setTitle(`${icon('jobs')} Jobs › ${j.name}`).setDescription([
+      embeds: [embed('economy').setTitle(`${titleIcon('jobs')} Jobs › ${j.name}`).setDescription([
         ctx.note,
         `Pay at your rank (${rank.title}): **~${coins(Math.round(j.basePay * rank.mult * incomeMultiplier(p)))}** per shift`,
         `Shifts worked here: ${num(shifts)}`,

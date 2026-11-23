@@ -1,8 +1,8 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
-import { embed } from '../../lib/embeds';
+import { embed, palette } from '../../lib/embeds';
 import { coins } from '../../lib/format';
 import { collect } from '../../lib/collect';
 import { parseId } from '../../lib/customId';
@@ -57,7 +57,7 @@ export default defineCommand({
       const face = squareFace(sq);
       return button('~dig', userId, [i], face.label, dug.includes(i) ? face.style : ButtonStyle.Secondary, face.emoji, true);
     }));
-    const status = (extra?: string) => embed('economy').setTitle(`${icon('dig')} Dig`)
+    const status = (extra?: string) => embed('economy').setTitle(`${titleIcon('dig')} Dig`)
       .setDescription([
         `Somewhere in this plot is buried treasure. You have **${maxDigs - dug.length}** dig${maxDigs - dug.length === 1 ? '' : 's'} left.`,
         hints.length ? hints.join('\n') : 'Pick a square. Each dig gives a hint: **hot** (treasure is next to it), **warm** (same row or column) or **cold**.',
@@ -111,7 +111,7 @@ export default defineCommand({
 
       const next = await afterAction(userId, 'dig');
       if (next.note) lines.push(next.note);
-      const payload = { embeds: [status(lines.join('\n')).setTitle(`${icon('dig')} Dig › ${foundTreasure ? 'Treasure!' : 'Done'}`).setFooter({ text: `+${xp} XP` })], components: [...grid(true), next.row] };
+      const payload = { embeds: [status(lines.join('\n')).setColor(palette[foundTreasure || wallet ? 'success' : 'warning']).setTitle(`${titleIcon('dig')} Dig › ${foundTreasure ? 'Treasure!' : 'Done'}`).setFooter({ text: `+${xp} XP` })], components: [...grid(true), next.row] };
       if (i) await i.update(payload);
       else await interaction.editReply(payload);
     };

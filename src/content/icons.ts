@@ -6,8 +6,19 @@ import { rarityInfo, type Rarity } from './rarity';
  * Every screen asks for icons by key; if an icon isn't uploaded, the fallback emoji is shown.
  */
 
-/** Lighter OctBot purple: 3.56:1 on light mode, 3.55:1 on dark mode. */
-export const ICON_COLOR = '#a272d5';
+/** OctBot's brand colour (the blue in the avatar): embed side colour on every screen. */
+export const BRAND = 0x6066ae;
+
+/**
+ * Icon colour variants. Each icon is rendered once per variant (except fixed-colour icons):
+ *   brand — screen title icons only (lighter brand blue: 3.56:1 on light, 3.55:1 on dark)
+ *   white — on green/blue buttons only, where the label is white too
+ *   grey  — inline in embed text (Discord's muted text colour)
+ */
+export const ICON_VARIANTS = { brand: '#7f83be', white: '#ffffff', grey: '#949ba4' } as const;
+export type IconVariant = keyof typeof ICON_VARIANTS;
+/** One-letter variant codes used in application emoji names. */
+export const VARIANT_CODE: Record<IconVariant | 'fixed', string> = { brand: 'b', white: 'w', grey: 'g', fixed: 'c' };
 export const ICON_STROKE = 2.5;
 
 export interface IconDef {
@@ -15,7 +26,7 @@ export interface IconDef {
   tabler: string;
   /** Standard emoji shown if the application emoji is missing. */
   fallback: string;
-  /** Overrides ICON_COLOR (only rarity icons use this). */
+  /** A fixed colour (rarity, badges): rendered once, used everywhere instead of the variants. */
   color?: string;
 }
 
@@ -55,6 +66,11 @@ export const iconDefs = {
   epic: rarity('epic', 'pentagon', '🟣'),
   legendary: rarity('legendary', 'hexagon', '🟠'),
   mythic: rarity('mythic', 'star', '🔴'),
+  // Veteran badges (exclusive, see content/veteran.ts)
+  badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },
+  badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },
+  // Founder gold: 3.52:1 on light mode, 3.59:1 on dark mode
+  badge_founder: { tabler: 'crown', fallback: '👑', color: '#af810e' },
   // Status
   success: { tabler: 'circle-check', fallback: '✅' },
   warning: { tabler: 'alert-triangle', fallback: '⚠️' },
@@ -65,5 +81,19 @@ export const iconDefs = {
 
 export type IconKey = keyof typeof iconDefs;
 
-/** Application emoji names: `oi_<key>_<hash>`, so changed icons are re-uploaded under a new name. */
+/** Application emoji names: `oi_<key>_<variant>_<hash>`, so changed icons are re-uploaded under a new name. */
 export const EMOJI_PREFIX = 'oi_';
+
+/** Every (key, variant) image the set needs: fixed-colour icons once, the rest in each variant. */
+export interface IconImage {
+  key: IconKey;
+  variant: IconVariant | 'fixed';
+  color: string;
+}
+
+export function iconImages(): IconImage[] {
+  return (Object.entries(iconDefs) as [IconKey, IconDef][]).flatMap(([key, def]): IconImage[] =>
+    def.color
+      ? [{ key, variant: 'fixed', color: def.color }]
+      : (Object.keys(ICON_VARIANTS) as IconVariant[]).map((variant) => ({ key, variant, color: ICON_VARIANTS[variant] })));
+}

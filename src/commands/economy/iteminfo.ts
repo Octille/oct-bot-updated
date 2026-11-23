@@ -28,7 +28,6 @@ export default defineCommand({
     const shop = basics.find((b) => b.id === id);
     const crate = getCrate(id);
     const e = embed('economy')
-      .setColor(info.color)
       .setTitle(`${item.emoji} ${item.name}`)
       .setDescription(item.description)
       .addFields(

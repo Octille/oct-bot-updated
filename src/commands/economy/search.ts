@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
@@ -25,7 +25,7 @@ export default defineCommand({
     const userId = interaction.user.id;
     const spots = rollSpots();
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle(`${icon('search')} Search › Pick a spot`).setDescription('Most spots have something. Some have... consequences.')],
+      embeds: [embed('economy').setTitle(`${titleIcon('search')} Search › Pick a spot`).setDescription('Most spots have something. Some have... consequences.')],
       components: rows(spots.map((s, i) => button('~search', userId, [i], s.name, ButtonStyle.Secondary))),
     });
 
@@ -57,7 +57,7 @@ export default defineCommand({
         const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', profile, meta: { spot: spot.name, outcome: result.kind } });
         const next = await afterAction(userId, 'search');
         await i.update({
-          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`${icon('search')} Search › ${spot.name}`)
+          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'success').setTitle(`${titleIcon('search')} Search › ${spot.name}`)
             .setDescription([text, levelUpText(levelUp), next.note].filter(Boolean).join('\n')).setFooter({ text: `+${xp} XP` })],
           components: [...rows(spots.map((s, n) => button('~search', userId, [n], s.name, s === spot ? ButtonStyle.Primary : ButtonStyle.Secondary, undefined, true))), next.row],
         });

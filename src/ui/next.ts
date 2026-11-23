@@ -1,7 +1,7 @@
 import { getProfile } from '../services/economy';
 import { claimOnboardingReward } from '../services/onboarding';
 import { itemName } from '../content/items';
-import { icon } from '../lib/icons';
+import { buttonIcon, icon } from '../lib/icons';
 import type { IconKey } from '../content/icons';
 import { activities, nextReady, statusOf, type ActivityId } from './activities';
 import { btn, ids, MAIN, NAV, row, type Row } from './kit';
@@ -28,7 +28,7 @@ export async function afterAction(userId: string, current: ActivityId): Promise<
   const next = nextReady(profile, current, now);
   if (next) {
     const a = activities.find((x) => x.id === next)!;
-    buttons.push(btn(ids.go(userId, a.id), a.ready, MAIN, { emoji: icon(a.id as IconKey) }));
+    buttons.push(btn(ids.go(userId, a.id), a.ready, MAIN, { emoji: buttonIcon(a.id as IconKey) }));
   }
   const self = activities.find((x) => x.id === current)!;
   const status = statusOf(current, profile, now);

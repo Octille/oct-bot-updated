@@ -1,14 +1,19 @@
-/** Titles and embed colour themes — pure coin sinks and status symbols. (Profile backgrounds arrive with profile cards.) */
+/**
+ * Titles, embed colour themes and badges — coin sinks and status symbols.
+ * (Profile backgrounds arrive with profile cards in Phase 3.)
+ */
 
 export interface Cosmetic {
   id: string;
-  kind: 'title' | 'theme';
+  kind: 'title' | 'theme' | 'badge';
   name: string;
-  /** Titles: text shown next to your name. Themes: embed colour. */
+  /** Titles: text shown next to your name. Themes: embed colour. Badges: icon key. */
   value: string | number;
   price: number;
   /** Only sold in the daily rotation. */
   rotationOnly?: boolean;
+  /** Never sold, never tradable, can't be earned after launch (granted by the v2 migration). */
+  exclusive?: 'veteran';
 }
 
 export const cosmetics: readonly Cosmetic[] = [
@@ -26,7 +31,24 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'theme_royal', kind: 'theme', name: 'Royal', value: 0x7b1fa2, price: 80_000 },
   { id: 'theme_aurora', kind: 'theme', name: 'Aurora', value: 0x00e5c8, price: 90_000, rotationOnly: true },
   { id: 'theme_gold', kind: 'theme', name: 'Solid Gold', value: 0xffd700, price: 150_000, rotationOnly: true },
+
+  // Veteran set — players from the original bot. See content/veteran.ts.
+  { id: 'title_veteran', kind: 'title', name: 'Veteran', value: 'Veteran', price: 0, exclusive: 'veteran' },
+  { id: 'title_elite_veteran', kind: 'title', name: 'Elite Veteran', value: 'Elite Veteran', price: 0, exclusive: 'veteran' },
+  { id: 'title_founder', kind: 'title', name: 'Founder', value: 'Founder', price: 0, exclusive: 'veteran' },
+  { id: 'badge_veteran', kind: 'badge', name: 'Veteran badge', value: 'badge_veteran', price: 0, exclusive: 'veteran' },
+  { id: 'badge_elite', kind: 'badge', name: 'Elite Veteran badge', value: 'badge_elite', price: 0, exclusive: 'veteran' },
+  { id: 'badge_founder', kind: 'badge', name: 'Founder badge', value: 'badge_founder', price: 0, exclusive: 'veteran' },
+  // The original OctBot purple, a deeper amethyst, and founder gold
+  { id: 'theme_veteran', kind: 'theme', name: 'Classic Oct', value: 0x6b32a8, price: 0, exclusive: 'veteran' },
+  { id: 'theme_elite', kind: 'theme', name: 'Elite Amethyst', value: 0x8e44ad, price: 0, exclusive: 'veteran' },
+  { id: 'theme_founder', kind: 'theme', name: 'Founder Gold', value: 0xaf810e, price: 0, exclusive: 'veteran' },
 ];
+
+/** Cosmetics anyone can buy (not rotation-only, not exclusive). */
+export function shopCosmetics(): Cosmetic[] {
+  return cosmetics.filter((c) => !c.rotationOnly && !c.exclusive);
+}
 
 export function getCosmetic(id: string): Cosmetic | undefined {
   return cosmetics.find((c) => c.id === id);

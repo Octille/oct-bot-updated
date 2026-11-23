@@ -1,4 +1,4 @@
-import { icon } from '../../lib/icons';
+import { icon, titleIcon } from '../../lib/icons';
 import { afterAction } from '../../ui/next';
 import { btn, ids, MAIN, NAV, row as uiRow } from '../../ui/kit';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
@@ -31,7 +31,7 @@ export default defineCommand({
     if ((profile.account?.level ?? 0) < crimeUnlockLevel) throw new UserError(`Crime unlocks at account level **${crimeUnlockLevel}**. Keep grinding honestly for now.`);
 
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle(`${icon('crime')} Crime › Pick your crime`).setDescription(crimes.map((c) =>
+      embeds: [embed('economy').setTitle(`${titleIcon('crime')} Crime › Pick your crime`).setDescription(crimes.map((c) =>
         `**${c.name}** — ${Math.round(c.success * 100)}% success · ${coins(c.payout[0])}–${coins(c.payout[1]).replace('₪ ', '')}\n` +
         `Caught: ${coins(c.fine)} fine + ${c.jailMinutes} min in jail`).join('\n'))],
       components: rows(crimes.map((c, i) => button('~crime', userId, [i], c.name, ButtonStyle.Secondary))),
@@ -56,7 +56,7 @@ export default defineCommand({
             ? `${icon(getItem(result.loot)!.rarity)} You also swiped a **${itemLabel(result.loot)}** (only found through crime)`
             : null;
           const next = await afterAction(userId, 'crime');
-          await i.update({ embeds: [embed('economy').setTitle(`${icon('crime')} Crime › ${crime.name}`)
+          await i.update({ embeds: [embed('success').setTitle(`${titleIcon('crime')} Crime › ${crime.name}`)
             .setDescription([`${icon('success')} **+${coins(result.coins)}**`, result.line, loot, levelUpText(levelUp), next.note].filter(Boolean).join('\n'))
             .setFooter({ text: `+${xp} XP` })], components: [...done, next.row] });
           return;
@@ -70,7 +70,7 @@ export default defineCommand({
         }, { source: 'crime.fine', meta: { crime: crime.id } });
         const bail = bailCost(jailUntil);
         const walletAfter = profile.wallet - result.fine;
-        await i.update({ embeds: [embed('moderation').setTitle(`${icon('jail')} Crime › Busted`)
+        await i.update({ embeds: [embed('error').setTitle(`${titleIcon('jail')} Crime › Busted`)
           .setDescription([
             `${icon('error')} ${result.line}`,
             result.fine ? `You paid a **${coins(result.fine)}** fine.` : 'You were too broke to fine.',

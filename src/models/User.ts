@@ -39,6 +39,15 @@ const userSchema = new Schema(
       owned: { type: [String], default: [] },
       title: { type: String, default: null },
       theme: { type: String, default: null },
+      /** Equipped badge, shown next to your name. null hides it. */
+      badge: { type: String, default: null },
+    },
+
+    /** Players from the original bot (set by the v2 migration). */
+    veteran: {
+      tier: { type: String, enum: ['veteran', 'elite', 'founder', null], default: null },
+      /** The one-time welcome-back message has been shown. */
+      welcomed: { type: Boolean, default: false },
     },
 
     /** Daily-rotation purchases for the per-player limits; reset when the day changes. */
