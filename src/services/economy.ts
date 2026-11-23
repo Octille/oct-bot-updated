@@ -19,6 +19,23 @@ export interface Change {
   bank?: number;
   /** itemId → quantity delta */
   items?: Record<string, number>;
+  /** Other numeric fields to $inc in the same update (stats, XP, durability). Not logged. */
+  inc?: Record<string, number>;
+  /** Fields to $set in the same update. */
+  set?: Record<string, unknown>;
+  /** Fields to $max in the same update. */
+  max?: Record<string, number>;
+  /** Extra conditions that must hold, e.g. the tool hasn't changed since we read it. */
+  where?: Record<string, unknown>;
+}
+
+/** Paths `inc`/`set`/`max`/`where` may not touch, because they bypass the guarded fields above. */
+const GUARDED = /^(wallet|bank|inventory)(\.|$)/;
+
+function assertSafePaths(paths: string[]): void {
+  for (const path of paths) {
+    if (path.includes('$') || GUARDED.test(path)) throw new Error(`Unsafe update path "${path}"`);
+  }
 }
 
 export interface ApplyOptions {
@@ -121,8 +138,8 @@ async function explainFailure(userId: string, change: Change, session?: ClientSe
       return new EconomyError('INSUFFICIENT_ITEMS', `You need ${-qty}× \`${itemId}\` but only have ${inventory[itemId] ?? 0}.`);
     }
   }
-  // Nothing obviously wrong: the balance changed between the update and this check.
-  return new EconomyError('INSUFFICIENT_WALLET', 'Your balance changed while that was happening. Try again.');
+  // Nothing obviously wrong: something changed between the update and this check.
+  return new EconomyError('CONFLICT', 'That changed while it was happening. Try again.');
 }
 
 /**
@@ -161,10 +178,27 @@ export async function apply(userId: string, change: Change, opts: ApplyOptions):
     rows.push({ kind: 'item', itemId, delta: qty });
   }
 
-  await ensureUser(userId, opts.session);
-  if (rows.length === 0) return getProfile(userId, opts.session);
+  assertSafePaths([
+    ...Object.keys(change.inc ?? {}),
+    ...Object.keys(change.set ?? {}),
+    ...Object.keys(change.max ?? {}),
+    ...Object.keys(change.where ?? {}),
+  ]);
+  for (const [path, value] of Object.entries(change.inc ?? {})) {
+    assertWhole(value, path);
+    if (value !== 0) inc[path] = value;
+  }
+  Object.assign(filter, change.where);
 
-  const updated = await User.findOneAndUpdate(filter, { $inc: inc }, { new: true, session: opts.session, lean: true });
+  const update: Record<string, unknown> = {};
+  if (Object.keys(inc).length) update.$inc = inc;
+  if (change.set && Object.keys(change.set).length) update.$set = change.set;
+  if (change.max && Object.keys(change.max).length) update.$max = change.max;
+
+  await ensureUser(userId, opts.session);
+  if (Object.keys(update).length === 0) return getProfile(userId, opts.session);
+
+  const updated = await User.findOneAndUpdate(filter, update, { new: true, session: opts.session, lean: true });
   if (!updated) throw await explainFailure(userId, change, opts.session);
 
   // Remove items that reached zero so inventories stay tidy
@@ -172,7 +206,7 @@ export async function apply(userId: string, change: Change, opts: ApplyOptions):
     await User.updateOne({ _id: userId, [path]: 0 }, { $unset: { [path]: '' } }, { session: opts.session });
   }
 
-  if (!opts.skipLog) {
+  if (!opts.skipLog && rows.length) {
     await Transaction.insertMany(
       rows.map((r) => ({ ...r, userId, source: opts.source, meta: opts.meta, transfer: opts.transfer ?? false })),
       { session: opts.session },

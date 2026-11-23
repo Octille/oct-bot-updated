@@ -13,7 +13,8 @@ export type EconomyErrorCode =
   | 'BANK_FULL'
   | 'INVALID_AMOUNT'
   | 'SELF_TRANSFER'
-  | 'NO_PROFILE';
+  | 'NO_PROFILE'
+  | 'CONFLICT';
 
 export class EconomyError extends UserError {
   constructor(public readonly code: EconomyErrorCode, message: string) {

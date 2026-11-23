@@ -20,6 +20,47 @@ const userSchema = new Schema(
     /** cooldown key → time it expires */
     cooldowns: { type: Map, of: Date, default: () => new Map() },
 
+    /** Equipped tools. A tool at 0 durability is broken until repaired. */
+    tools: {
+      pickaxe: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
+      rod: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
+    },
+
+    job: {
+      current: { type: String, default: 'barista' },
+      /** jobId → shifts worked in that job (keeps your rank if you switch back) */
+      shifts: { type: Map, of: Number, default: () => new Map() },
+    },
+
+    streak: {
+      count: { type: Number, default: 0 },
+      best: { type: Number, default: 0 },
+      lastDaily: { type: Date, default: null },
+      /** Day numbers (days since epoch, UTC) of recent daily claims, newest last. */
+      days: { type: [Number], default: [] },
+      weeklyCount: { type: Number, default: 0 },
+      lastWeekly: { type: Date, default: null },
+    },
+
+    /** speciesId → { caught, biggest kg } */
+    fishdex: {
+      type: Map,
+      of: new Schema({ caught: { type: Number, default: 0 }, biggest: { type: Number, default: 0 } }, { _id: false }),
+      default: () => new Map(),
+    },
+
+    stats: {
+      worked: { type: Number, default: 0 },
+      perfectShifts: { type: Number, default: 0 },
+      mined: { type: Number, default: 0 },
+      caveIns: { type: Number, default: 0 },
+      gemsFound: { type: Number, default: 0 },
+      fishCaught: { type: Number, default: 0 },
+      fishLost: { type: Number, default: 0 },
+      begged: { type: Number, default: 0 },
+      searched: { type: Number, default: 0 },
+    },
+
     jailUntil: { type: Date, default: null },
     lastActiveAt: { type: Date, default: () => new Date() },
 
