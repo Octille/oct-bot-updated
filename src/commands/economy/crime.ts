@@ -1,3 +1,5 @@
+import { afterAction } from '../../ui/next';
+import { btn, ids, MAIN, NAV, row as uiRow } from '../../ui/kit';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -28,7 +30,7 @@ export default defineCommand({
     if ((profile.account?.level ?? 0) < crimeUnlockLevel) throw new UserError(`Crime unlocks at account level **${crimeUnlockLevel}**. Keep grinding honestly for now.`);
 
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle('🦹 Pick your crime').setDescription(crimes.map((c) =>
+      embeds: [embed('economy').setTitle('🦹 Crime › Pick your crime').setDescription(crimes.map((c) =>
         `${c.emoji} **${c.name}** — ${Math.round(c.success * 100)}% success • ${coins(c.payout[0])}–${coins(c.payout[1]).replace('₪ ', '')}\n` +
         `↳ Caught: ${coins(c.fine)} fine + ${c.jailMinutes} min in jail`).join('\n'))],
       components: rows(crimes.map((c, i) => button('~crime', userId, [i], c.name, i === 2 ? ButtonStyle.Danger : ButtonStyle.Secondary, c.emoji))),
@@ -52,9 +54,10 @@ export default defineCommand({
           const loot = result.loot
             ? `${rarityInfo[getItem(result.loot)!.rarity].emoji} **You also swiped a ${itemLabel(result.loot)}!** (only found through crime)`
             : null;
-          await i.update({ embeds: [embed('economy').setTitle(`${crime.emoji} ${crime.name}`)
-            .setDescription([`😎 ${result.line}`, `💰 **+${coins(result.coins)}**`, loot, levelUpText(levelUp)].filter(Boolean).join('\n'))
-            .setFooter({ text: `+${xp} XP` })], components: done });
+          const next = await afterAction(userId, 'crime');
+          await i.update({ embeds: [embed('economy').setTitle(`🦹 Crime › ${crime.emoji} ${crime.name}`)
+            .setDescription([`😎 ${result.line}`, `💰 **+${coins(result.coins)}**`, loot, levelUpText(levelUp), next.note].filter(Boolean).join('\n'))
+            .setFooter({ text: `+${xp} XP` })], components: [...done, next.row] });
           return;
         }
 
@@ -64,13 +67,19 @@ export default defineCommand({
           set: { jailUntil },
           inc: { 'stats.crimes': 1, 'stats.crimesFailed': 1 },
         }, { source: 'crime.fine', meta: { crime: crime.id } });
-        await i.update({ embeds: [embed('moderation').setTitle(`🚔 Busted — ${crime.name}`)
+        const bail = bailCost(jailUntil);
+        const walletAfter = profile.wallet - result.fine;
+        await i.update({ embeds: [embed('moderation').setTitle(`🦹 Crime › 🚔 Busted — ${crime.name}`)
           .setDescription([
             result.line,
             result.fine ? `You paid a **${coins(result.fine)}** fine.` : 'You were too broke to fine.',
             `You're in jail until ${relative(jailUntil)}. Earning commands are locked until then.`,
-            `💸 \`/bail\` gets you out now for **${coins(bailCost(jailUntil))}**.`,
-          ].join('\n'))], components: done });
+            `💸 Bail: **${coins(bail)}** → wallet after **${coins(walletAfter - bail)}**`,
+          ].join('\n'))], components: [...done, uiRow(
+            btn(ids.go(userId, 'menu'), 'Menu', NAV, { emoji: '🏠' }),
+            btn(ids.act(userId, 'c', 'jail', 'bail'), walletAfter >= bail ? `Pay bail — ${coins(bail)}` : `Need ${coins(bail - walletAfter)} more`, MAIN, { emoji: '💸', disabled: walletAfter < bail }),
+            btn(ids.nav(userId, 'c', 'jail'), `Wait it out — ${result.jailMinutes}m`, NAV, { emoji: '⏳', disabled: true }),
+          )] });
       })().catch((err) => logError('crime', err));
     });
     collector.on('end', () => {

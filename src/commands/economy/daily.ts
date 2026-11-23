@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -53,12 +54,13 @@ export default defineCommand({
       result.broken ? `💔 Your streak reset. It was ${state.count} days.` : null,
       `🔥 Streak: **${result.streak}** day${result.streak === 1 ? '' : 's'}${nextTier ? ` — ${nextTier[0] - result.streak} more for ${nextTier[1]}×` : ''}`,
       levelUpText(granted.levelUp),
-    ].filter(Boolean);
+    ];
+    const next = await afterAction(interaction.user.id, 'daily');
 
     await interaction.reply({ embeds: [embed('economy')
-      .setTitle('Daily reward')
-      .setDescription(lines.join('\n'))
+      .setTitle('☀️ Daily')
+      .setDescription([...lines, next.note].filter(Boolean).join('\n'))
       .addFields({ name: 'Last two weeks', value: streakCalendar(result.days, now) })
-      .setFooter({ text: `+${granted.xp} XP • Resets at 00:00 UTC` })] });
+      .setFooter({ text: `+${granted.xp} XP • Resets at 00:00 UTC` })], components: [next.row] });
   },
 });

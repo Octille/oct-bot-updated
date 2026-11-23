@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+// Loads every command and handler (also fills the command list the Help screen reads)
+import '../src/framework/registry';
+import { ButtonStyle, ComponentType } from 'discord.js';
+import { render, screens } from '../src/ui/screens';
+import { MAX_LABEL, MAX_OPTIONS, type Origin, type Payload, type ScreenCtx } from '../src/ui/kit';
+import { parseId } from '../src/lib/customId';
+import { items } from '../src/content/items';
+import { pickaxes, rods, weapons, shovels } from '../src/content/tools';
+import { cosmetics } from '../src/content/cosmetics';
+import { totalXpForLevel } from '../src/content/levels';
+import { hubExpired, hubStamp } from '../src/ui/screens/hub';
+import { statusOf } from '../src/ui/activities';
+import { firstSteps } from '../src/services/onboarding';
+import type { Profile } from '../src/services/economy';
+
+const OWNER = '460509056487129090';
+
+function profile(over: Partial<Record<string, unknown>> = {}): Profile {
+  return {
+    _id: OWNER, wallet: 1_000, bank: 0, bankNotes: 0,
+    account: { xp: 0, level: 0, prestige: 0 },
+    inventory: {}, cooldowns: {}, tools: {}, job: { current: 'barista', shifts: {} },
+    streak: { count: 0, best: 0, lastDaily: null, days: [], weeklyCount: 0, lastWeekly: null },
+    fishdex: {}, fishdexRewards: [], stats: {}, boosts: {}, cosmetics: { owned: [], title: null, theme: null },
+    rotation: { day: -1, bought: {} }, lockedItems: [], onboarding: { crateClaimed: false },
+    jailUntil: null, lastActiveAt: new Date(), settings: { dmReminders: false }, migratedFromV2: false,
+    ...over,
+  } as unknown as Profile;
+}
+
+const everything = Object.fromEntries(items.map((i) => [i.id, 3]));
+const players: Record<string, Profile> = {
+  newbie: profile(),
+  mid: profile({
+    wallet: 40_000, bank: 30_000, account: { xp: totalXpForLevel(8), level: 8, prestige: 0 },
+    inventory: { fish_carp: 4, fish_bass: 2, gem_ruby: 1, crate_common: 2, xp_boost: 1, streak_freeze: 1 },
+    tools: { pickaxe: { id: 'pick_stone', durability: 3 }, rod: { id: 'rod_carbon', durability: 70 }, weapon: { id: 'weapon_slingshot', durability: 0 } },
+    cosmetics: { owned: ['title_beggar', 'theme_ocean'], title: 'title_beggar', theme: 'theme_ocean' },
+    lockedItems: ['gem_ruby'], cooldowns: { mine: new Date(Date.now() + 120_000) },
+  }),
+  maxed: profile({
+    wallet: 50_000_000, bank: 100_000, account: { xp: totalXpForLevel(40), level: 40, prestige: 0 },
+    inventory: everything,
+    tools: {
+      pickaxe: { id: pickaxes.at(-1)!.id, durability: 1 }, rod: { id: rods.at(-1)!.id, durability: 330 },
+      weapon: { id: weapons.at(-1)!.id, durability: 2 }, shovel: { id: shovels.at(-1)!.id, durability: 420 },
+    },
+    cosmetics: { owned: cosmetics.map((c) => c.id), title: 'title_tycoon', theme: 'theme_gold' },
+    onboarding: { crateClaimed: true },
+  }),
+  jailed: profile({ wallet: 0, account: { xp: totalXpForLevel(4), level: 4, prestige: 0 }, jailUntil: new Date(Date.now() + 5 * 60_000) }),
+};
+
+interface Seen { path: string; payload: Payload }
+
+/** Renders a screen and follows every navigation button and select option, breadth first. */
+function crawl(start: string, p: Profile, origin: Origin): Seen[] {
+  const ctx: ScreenCtx = { owner: OWNER, origin, profile: p, userName: 'Oct' };
+  const seen = new Map<string, Payload>();
+  const queue = [start];
+  while (queue.length && seen.size < 400) {
+    const path = queue.shift()!;
+    if (seen.has(path)) continue;
+    const payload = render(path, ctx);
+    seen.set(path, payload);
+    for (const r of payload.components) {
+      for (const c of r.toJSON().components) {
+        if (!('custom_id' in c)) continue;
+        const id = parseId(c.custom_id);
+        if (id.prefix !== 'ui') continue;
+        const base = id.args[1]!;
+        if (c.type === ComponentType.StringSelect) for (const o of c.options) queue.push(`${base}.${o.value}`);
+        else if (!('disabled' in c && c.disabled)) queue.push(base);
+      }
+    }
+  }
+  return [...seen].map(([path, payload]) => ({ path, payload }));
+}
+
+const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail'];
+
+describe('every menu screen', () => {
+  for (const [who, p] of Object.entries(players)) {
+    for (const origin of ['c', 'h'] as const) {
+      it(`stays within Discord's limits and our menu rules (${who}, opened from ${origin === 'h' ? 'hub' : 'command'})`, () => {
+        const all = ENTRY.flatMap((e) => crawl(e, p, origin));
+        expect(all.length).toBeGreaterThan(20);
+        for (const { path, payload } of all) {
+          const where = `${who}/${origin} ${path}`;
+          expect(payload.components.length, where).toBeLessThanOrEqual(5);
+          const customIds: string[] = [];
+          for (const e of payload.embeds) {
+            const json = e.toJSON();
+            expect((json.description ?? '').length, where).toBeLessThanOrEqual(4096);
+            expect((json.fields ?? []).length, where).toBeLessThanOrEqual(25);
+            for (const f of json.fields ?? []) expect(f.value.length, `${where} field ${f.name}`).toBeLessThanOrEqual(1024);
+          }
+          for (const r of payload.components) {
+            const comps = r.toJSON().components;
+            expect(comps.length, where).toBeLessThanOrEqual(5);
+            for (const c of comps) {
+              if ('custom_id' in c) {
+                expect(c.custom_id.length, where).toBeLessThanOrEqual(100);
+                customIds.push(c.custom_id);
+              }
+              if (c.type === ComponentType.Button && 'label' in c && c.label) expect(c.label.length, `${where}: "${c.label}"`).toBeLessThanOrEqual(MAX_LABEL);
+              if (c.type === ComponentType.StringSelect) {
+                expect(c.options.length, where).toBeGreaterThan(0);
+                expect(c.options.length, where).toBeLessThanOrEqual(MAX_OPTIONS);
+              }
+            }
+          }
+          expect(new Set(customIds).size, `${where}: duplicate custom IDs`).toBe(customIds.length);
+
+          // Every screen except the hub itself starts its last button row with Back or Menu
+          if (!path.startsWith('hub')) {
+            const buttonRows = payload.components.map((r) => r.toJSON().components).filter((c) => c[0]?.type === ComponentType.Button);
+            const first = buttonRows.at(-1)?.[0];
+            expect(first && 'label' in first ? first.label : undefined, where).toMatch(/^(Back|Menu)$/);
+            expect(first && 'style' in first ? first.style : undefined, where).toBe(ButtonStyle.Secondary);
+          }
+        }
+      });
+    }
+  }
+
+  it('covers every screen module', () => {
+    const visited = new Set(Object.values(players).flatMap((p) => ENTRY.flatMap((e) => crawl(e, p, 'c'))).map((s) => s.path.split('.')[0]));
+    for (const name of Object.keys(screens)) expect(visited, name).toContain(name);
+  });
+
+  it('unaffordable buy buttons are disabled and say how much more is needed', () => {
+    const payload = render('shop.tools.pickaxe', { owner: OWNER, origin: 'c', profile: players.newbie!, userName: 'Oct' });
+    const buy = payload.components.flatMap((r) => r.toJSON().components).find((c) => 'label' in c && /Need|Buy/.test(c.label ?? ''));
+    expect(buy && 'label' in buy && buy.label).toMatch(/Need ₪ [\d,]+ more/);
+    expect(buy && 'disabled' in buy && buy.disabled).toBe(true);
+  });
+
+  it('bulk sell excludes Epic+ and locked items unless toggled', () => {
+    const p = players.mid!;
+    const off = render('inv.sell.all.0.all', { owner: OWNER, origin: 'c', profile: p, userName: 'Oct' }).embeds[0]!.toJSON().description!;
+    expect(off).toMatch(/Keeping 1 Epic\+ stack|Skipping 1 locked/);
+    expect(off).not.toMatch(/Ruby — /); // ruby is locked AND epic: never listed for sale
+  });
+});
+
+describe('hub', () => {
+  it('missing tools link to the shop instead of a dead end', () => {
+    const payload = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' });
+    const hunt = payload.components.flatMap((r) => r.toJSON().components).find((c) => 'label' in c && c.label?.startsWith('Hunt'));
+    expect(hunt && 'label' in hunt && hunt.label).toBe('Hunt — get Slingshot');
+    expect(hunt && 'disabled' in hunt && hunt.disabled).toBeFalsy();
+    expect(hunt && 'custom_id' in hunt && parseId(hunt.custom_id).args[1]).toBe('shop.tools.weapon');
+  });
+
+  it('shows the First steps checklist until the crate is claimed', () => {
+    const show = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' }).embeds[0]!.toJSON();
+    expect(show.fields?.some((f) => f.name.includes('First steps'))).toBe(true);
+    const hide = render('hub', { owner: OWNER, origin: 'h', profile: players.maxed!, userName: 'Oct' }).embeds[0]!.toJSON();
+    expect(hide.fields?.some((f) => f.name.includes('First steps'))).toBe(false);
+  });
+
+  it('hub activity buttons expire after 15 minutes', () => {
+    const now = Date.now();
+    expect(hubExpired(hubStamp(now), now + 14 * 60_000)).toBe(false);
+    expect(hubExpired(hubStamp(now), now + 16 * 60_000)).toBe(true);
+    expect(hubExpired(undefined)).toBe(false); // result-screen buttons never expire
+  });
+
+  it('activity status reflects cooldowns, tools, level and jail', () => {
+    expect(statusOf('mine', players.mid!).state).toBe('cooldown');
+    expect(statusOf('hunt', players.newbie!)).toMatchObject({ state: 'needs', fix: 'shop.tools.weapon' });
+    expect(statusOf('hunt', players.mid!)).toMatchObject({ state: 'needs', label: 'Hunt — repair tool' });
+    expect(statusOf('crime', players.newbie!).state).toBe('locked');
+    expect(statusOf('daily', players.jailed!).state).toBe('locked');
+    expect(statusOf('fish', players.newbie!).state).toBe('ready'); // starter rod is free
+  });
+
+  it('first steps: daily, a shift, a tool', () => {
+    expect(firstSteps(players.newbie!).map((s) => s.done)).toEqual([false, false, false]);
+    expect(firstSteps(players.mid!)[2]!.done).toBe(true);
+  });
+});

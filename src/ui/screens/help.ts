@@ -1,0 +1,60 @@
+import { embed, type Category } from '../../lib/embeds';
+import { testNotice } from '../../lib/testMode';
+import { getCommandList } from '../../framework/commandList';
+import { back, ids, row, select } from '../kit';
+import type { ScreenModule } from './types';
+
+const SECTIONS: { category: Category; title: string; emoji: string; blurb: string }[] = [
+  { category: 'economy', title: 'Economy', emoji: '💰', blurb: 'Earn, collect, upgrade and trade Octs' },
+  { category: 'gambling', title: 'Gambling', emoji: '🎲', blurb: 'Games of chance with in-game Octs' },
+  { category: 'social', title: 'Social', emoji: '🤝', blurb: 'Rob, duel and trade with others' },
+  { category: 'levels', title: 'Levels', emoji: '⭐', blurb: 'Ranks, prestige and achievements' },
+  { category: 'events', title: 'Events', emoji: '🎉', blurb: 'Raids, drops and community goals' },
+  { category: 'music', title: 'Music', emoji: '🎶', blurb: 'Play music in voice channels' },
+  { category: 'moderation', title: 'Moderation', emoji: '🛡️', blurb: 'Keep your server tidy' },
+  { category: 'utility', title: 'Utility', emoji: '🧰', blurb: 'Handy everyday commands' },
+];
+
+/** Example usages for commands with options. */
+const EXAMPLES: Record<string, string> = {
+  bank: '/bank deposit amount:half',
+  sell: '/sell bulk what:All fish',
+  buy: '/buy item:Luck Potion amount:2',
+  use: '/use item:Common Crate',
+  iteminfo: '/iteminfo item:Octite',
+  balance: '/balance user:@friend',
+  inventory: '/inventory user:@friend',
+  fishdex: '/fishdex user:@friend',
+};
+
+function commandsIn(category: Category) {
+  return getCommandList().filter((c) => c.category === category).map((c) => c.data.toJSON());
+}
+
+export const help: ScreenModule = {
+  render(path, ctx) {
+    const sections = SECTIONS.filter((s) => commandsIn(s.category).length);
+    const picker = select(ids.pick(ctx.owner, ctx.origin, 'help'), 'Pick a category', sections.map((s) => ({
+      label: s.title, value: s.category, emoji: s.emoji, description: s.blurb, default: s.category === path[1],
+    })));
+    const section = sections.find((s) => s.category === path[1]);
+
+    if (!section) {
+      return {
+        embeds: [embed('utility').setTitle('📖 Help').setDescription([
+          testNotice(),
+          'New here? Run **/menu** — it shows what you can do right now.',
+          '',
+          ...sections.map((s) => `${s.emoji} **${s.title}** — ${s.blurb} (${commandsIn(s.category).length} commands)`),
+        ].filter((l) => l !== null).join('\n')).setFooter({ text: 'Tip: pick a category to see its commands.' })],
+        components: [picker, row(back(ctx, null))],
+      };
+    }
+
+    const lines = commandsIn(section.category).map((c) => `\`/${c.name}\` — ${c.description}${EXAMPLES[c.name] ? `\n-# e.g. \`${EXAMPLES[c.name]}\`` : ''}`);
+    return {
+      embeds: [embed('utility').setTitle(`📖 Help › ${section.emoji} ${section.title}`).setDescription(lines.join('\n').slice(0, 4000))],
+      components: [picker, row(back(ctx, 'help'))],
+    };
+  },
+};

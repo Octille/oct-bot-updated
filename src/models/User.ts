@@ -70,6 +70,14 @@ const userSchema = new Schema(
       default: () => new Map(),
     },
 
+    /** Item ids the player locked; bulk sales never include them. */
+    lockedItems: { type: [String], default: [] },
+
+    /** The "First steps" checklist on the hub. */
+    onboarding: {
+      crateClaimed: { type: Boolean, default: false },
+    },
+
     /** Fishdex completion rewards already claimed (percentages). */
     fishdexRewards: { type: [Number], default: [] },
 

@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -22,8 +23,10 @@ export default defineCommand({
     const text = result.kind === 'nothing'
       ? `🙁 ${result.line}`
       : `${result.kind === 'jackpot' ? '🤑' : '🪙'} ${result.line} **${coins(result.coins)}**.`;
+    const next = await afterAction(interaction.user.id, 'beg');
     await interaction.reply({ embeds: [embed('economy')
-      .setDescription([text, levelUpText(levelUp)].filter(Boolean).join('\n'))
-      .setFooter({ text: `+${xp} XP` })] });
+      .setTitle('🙏 Beg')
+      .setDescription([text, levelUpText(levelUp), next.note].filter(Boolean).join('\n'))
+      .setFooter({ text: `+${xp} XP` })], components: [next.row] });
   },
 });

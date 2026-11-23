@@ -110,6 +110,25 @@ export async function loadProfile(userId: string): Promise<Profile> {
   return user;
 }
 
+/** Like loadProfile, but also says whether the profile was just created (a brand-new player). */
+export async function loadProfileDetailed(userId: string): Promise<{ profile: Profile; created: boolean }> {
+  const run = () =>
+    User.findOneAndUpdate(
+      { _id: userId },
+      { $setOnInsert: { _id: userId }, $set: { lastActiveAt: new Date() } },
+      { upsert: true, new: true, lean: true, includeResultMetadata: true },
+    );
+  let res;
+  try {
+    res = await run();
+  } catch (err) {
+    if (!isDuplicateKey(err)) throw err;
+    res = await run();
+  }
+  if (!res.value) throw new EconomyError('NO_PROFILE', 'Could not load your profile.');
+  return { profile: res.value as unknown as Profile, created: res.lastErrorObject?.updatedExisting === false };
+}
+
 export async function getProfile(userId: string, session?: ClientSession): Promise<Profile> {
   await ensureUser(userId, session);
   const user = await User.findById(userId, null, { session, lean: true });

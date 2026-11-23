@@ -8,6 +8,7 @@ import { coins } from '../lib/format';
 import { extendBoost } from '../game/boosts';
 import { openCrate, scratch, type CrateLoot } from '../game/crates';
 import { apply, getProfile, type Profile } from './economy';
+import { User } from '../models/User';
 
 export type Inventory = Record<string, number>;
 
@@ -90,16 +91,51 @@ export const bulkTypes: ItemType[] = ['fish', 'material', 'collectible'];
 
 export type BulkFilter = { type: ItemType } | { rarity: Rarity } | { everything: true };
 
-export function selectForSale(inventory: Inventory, filter: BulkFilter): Inventory {
-  const out: Inventory = {};
+/** Epic and rarer items are left out of bulk sales unless the player opts in. */
+export const RARE_FROM: Rarity = 'epic';
+
+export function isRareItem(id: string): boolean {
+  const item = getItem(id);
+  return !!item && rarities.indexOf(item.rarity) >= rarities.indexOf(RARE_FROM);
+}
+
+export interface BulkOptions {
+  includeRare?: boolean;
+  locked?: readonly string[];
+}
+
+export interface BulkSelection {
+  items: Inventory;
+  /** Stacks left out because they're Epic+ and includeRare is off. */
+  skippedRare: Inventory;
+  /** Stacks left out because the player locked them. */
+  skippedLocked: Inventory;
+}
+
+/** What a bulk sale would sell. Locked items are never included. */
+export function selectForSale(inventory: Inventory, filter: BulkFilter, opts: BulkOptions = {}): BulkSelection {
+  const out: BulkSelection = { items: {}, skippedRare: {}, skippedLocked: {} };
+  const locked = new Set(opts.locked ?? []);
   for (const [id, qty] of Object.entries(inventory)) {
     const item = getItem(id);
     if (!item || qty <= 0 || !bulkTypes.includes(item.type)) continue;
     if ('type' in filter && item.type !== filter.type) continue;
     if ('rarity' in filter && item.rarity !== filter.rarity) continue;
-    out[id] = qty;
+    if (locked.has(id)) out.skippedLocked[id] = qty;
+    else if (!opts.includeRare && isRareItem(id)) out.skippedRare[id] = qty;
+    else out.items[id] = qty;
   }
   return out;
+}
+
+export function saleTotal(items: Inventory): number {
+  return Object.entries(items).reduce((s, [id, q]) => s + (getItem(id)?.sellPrice ?? 0) * q, 0);
+}
+
+/** Lock or unlock an item so bulk sales skip it. */
+export async function setLocked(userId: string, itemId: string, locked: boolean): Promise<void> {
+  if (!getItem(itemId)) throw new UserError("I don't know that item.");
+  await User.updateOne({ _id: userId }, locked ? { $addToSet: { lockedItems: itemId } } : { $pull: { lockedItems: itemId } });
 }
 
 export interface Sale {

@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -23,7 +24,7 @@ export default defineCommand({
     const userId = interaction.user.id;
     const spots = rollSpots();
     const message = await interaction.editReply({
-      embeds: [embed('economy').setTitle('🔍 Where do you search?').setDescription('Most spots have something. Some have... consequences.')],
+      embeds: [embed('economy').setTitle('🔍 Search › Pick a spot').setDescription('Most spots have something. Some have... consequences.')],
       components: rows(spots.map((s, i) => button('~search', userId, [i], s.name, ButtonStyle.Secondary, s.emoji))),
     });
 
@@ -53,10 +54,11 @@ export default defineCommand({
         }
 
         const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', profile, meta: { spot: spot.name, outcome: result.kind } });
+        const next = await afterAction(userId, 'search');
         await i.update({
-          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`${spot.emoji} ${spot.name}`)
-            .setDescription([text, levelUpText(levelUp)].filter(Boolean).join('\n')).setFooter({ text: `+${xp} XP` })],
-          components: rows(spots.map((s, n) => button('~search', userId, [n], s.name, s === spot ? ButtonStyle.Primary : ButtonStyle.Secondary, s.emoji, true))),
+          embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`🔍 Search › ${spot.emoji} ${spot.name}`)
+            .setDescription([text, levelUpText(levelUp), next.note].filter(Boolean).join('\n')).setFooter({ text: `+${xp} XP` })],
+          components: [...rows(spots.map((s, n) => button('~search', userId, [n], s.name, s === spot ? ButtonStyle.Primary : ButtonStyle.Secondary, s.emoji, true))), next.row],
         });
       })().catch((err) => logError('search', err));
     });

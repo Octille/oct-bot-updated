@@ -10,6 +10,8 @@ import { grant } from '../src/services/progression';
 import { totalXpForLevel } from '../src/content/levels';
 import { basics } from '../src/content/shop';
 import { bankCapacity } from '../src/content/economy';
+import { claimOnboardingReward } from '../src/services/onboarding';
+import { setLocked } from '../src/services/items';
 
 useTestDatabase();
 
@@ -109,7 +111,7 @@ describe('items', () => {
   it('bulk sells exactly the selected stacks, not consumables', async () => {
     await eco.apply('u1', { items: { fish_carp: 3, gem_ruby: 1, xp_boost: 1 } }, { source: 'test' });
     const inv = (await user('u1'))!.inventory as Record<string, number>;
-    const selected = selectForSale(inv, { everything: true });
+    const selected = selectForSale(inv, { everything: true }, { includeRare: true }).items;
     expect(selected).toEqual({ fish_carp: 3, gem_ruby: 1 });
     const sale = await sell('u1', selected);
     expect(sale.total).toBeGreaterThan(0);
@@ -137,5 +139,28 @@ describe('level crates', () => {
     const results = await Promise.all(Array.from({ length: 6 }, () => grant('u1', {}, { source: 't', xp: 'beg' })));
     expect(results.filter((r) => r.levelUp)).toHaveLength(1);
     expect((await user('u1'))!.inventory).toEqual({ crate_rare: 1 });
+  });
+});
+
+describe('onboarding and locks', () => {
+  it('gives the First steps crate exactly once, only when all steps are done', async () => {
+    await eco.loadProfile('n1');
+    expect(await claimOnboardingReward((await user('n1'))! as never)).toBe(false);
+    await User.updateOne({ _id: 'n1' }, { $set: { 'streak.lastDaily': new Date(), 'stats.worked': 1, 'tools.pickaxe': { id: 'pick_wood', durability: 40 } } });
+    const p = (await user('n1'))! as never;
+    const results = await Promise.all([claimOnboardingReward(p), claimOnboardingReward(p), claimOnboardingReward(p)]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect((await user('n1'))!.inventory).toEqual({ crate_common: 1 });
+  });
+
+  it('locked items are never bulk-sold', async () => {
+    await eco.apply('l1', { items: { fish_carp: 2, fish_bass: 1 } }, { source: 'test' });
+    await setLocked('l1', 'fish_bass', true);
+    const p = (await user('l1'))!;
+    const sel = selectForSale(p.inventory as Record<string, number>, { type: 'fish' }, { includeRare: true, locked: p.lockedItems });
+    expect(sel.items).toEqual({ fish_carp: 2 });
+    expect(sel.skippedLocked).toEqual({ fish_bass: 1 });
+    await setLocked('l1', 'fish_bass', false);
+    expect((await user('l1'))!.lockedItems).toEqual([]);
   });
 });

@@ -1,10 +1,18 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
-import { successEmbed } from '../../lib/embeds';
 import { coins } from '../../lib/format';
 import { basics } from '../../content/shop';
 import { cosmetics } from '../../content/cosmetics';
-import { buy, displayName, getRotation } from '../../services/shop';
+import { buy, displayName, findEntry, getRotation } from '../../services/shop';
+import { replyWithScreen } from '../../ui/open';
+import { getItem } from '../../content/items';
+
+/** Which shop section an item lives in, so the result screen has the right Back. */
+function sectionOf(id: string): string {
+  if (cosmetics.some((c) => c.id === id)) return getRotation().stock.some((s) => s.id === id) ? 'deals' : 'cos';
+  if (getRotation().stock.some((s) => s.id === id)) return getItem(id)?.type === 'crate' ? 'crates' : 'deals';
+  return getItem(id)?.type === 'crate' ? 'crates' : 'cons';
+}
 
 export default defineCommand({
   data: new SlashCommandBuilder()
@@ -27,7 +35,9 @@ export default defineCommand({
       .slice(0, 25));
   },
   async execute({ interaction }) {
-    const p = await buy(interaction.user.id, interaction.options.getString('item', true), interaction.options.getInteger('amount') ?? 1);
-    await interaction.reply({ embeds: [successEmbed(`Bought ${p.qty > 1 ? `${p.qty}× ` : ''}${p.label} for **${coins(p.total)}**. Wallet: ${coins(p.profile.wallet)}`)] });
+    const id = interaction.options.getString('item', true);
+    const p = await buy(interaction.user.id, id, interaction.options.getInteger('amount') ?? 1);
+    const where = findEntry(id) ? `shop.item.${id}.${sectionOf(id)}` : 'shop';
+    await replyWithScreen(interaction, where, p.profile, `✅ Bought ${p.qty > 1 ? `${p.qty}× ` : ''}${p.label} for **${coins(p.total)}**. Wallet: ${coins(p.profile.wallet)}`);
   },
 });

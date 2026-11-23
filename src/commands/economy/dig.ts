@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -55,7 +56,7 @@ export default defineCommand({
       const face = squareFace(sq);
       return button('~dig', userId, [i], face.label, dug.includes(i) ? face.style : ButtonStyle.Secondary, face.emoji, true);
     }));
-    const status = (extra?: string) => embed('economy').setTitle('⛏️ Digging')
+    const status = (extra?: string) => embed('economy').setTitle('🪏 Dig')
       .setDescription([
         `Somewhere in this plot is buried treasure. You have **${maxDigs - dug.length}** dig${maxDigs - dug.length === 1 ? '' : 's'} left.`,
         hints.length ? hints.join('\n') : 'Pick a square. Each dig gives a hint: **🔥 hot** (treasure is next to it), **🌡️ warm** (same row or column) or **❄️ cold**.',
@@ -107,7 +108,9 @@ export default defineCommand({
       const lvl = levelUpText(levelUp);
       if (lvl) lines.push(lvl);
 
-      const payload = { embeds: [status(lines.join('\n')).setFooter({ text: `+${xp} XP` })], components: grid(true) };
+      const next = await afterAction(userId, 'dig');
+      if (next.note) lines.push(next.note);
+      const payload = { embeds: [status(lines.join('\n')).setTitle(`🪏 Dig › ${foundTreasure ? 'Treasure!' : 'Done'}`).setFooter({ text: `+${xp} XP` })], components: [...grid(true), next.row] };
       if (i) await i.update(payload);
       else await interaction.editReply(payload);
     };

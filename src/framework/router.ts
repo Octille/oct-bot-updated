@@ -4,9 +4,11 @@ import { UserError } from '../lib/errors';
 import { ANYONE, parseId } from '../lib/customId';
 import { duration, relative } from '../lib/format';
 import { logError } from '../lib/logger';
-import { loadProfile } from '../services/economy';
+import { loadProfile, loadProfileDetailed } from '../services/economy';
+import { welcomeHub } from '../ui/handlers';
 import * as cooldowns from '../services/cooldowns';
 import { commandRegistry, componentRegistry } from './registry';
+import { setCommandRunner } from './commandList';
 import { respondError } from './respond';
 import type { ComponentInteraction } from './types';
 
@@ -25,8 +27,8 @@ export async function routeInteraction(interaction: Interaction): Promise<void> 
   }
 }
 
-async function runCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-  const command = commandRegistry.get(interaction.commandName);
+/** Runs a slash command (or a button that launches one — see framework/launch.ts). */
+export async function runCommand(interaction: ChatInputCommandInteraction, command = commandRegistry.get(interaction.commandName)): Promise<void> {
   if (!command) return respondError(interaction, 'That command no longer exists.');
 
   let claimedCooldown = false;
@@ -38,7 +40,8 @@ async function runCommand(interaction: ChatInputCommandInteraction): Promise<voi
       await interaction.deferReply(command.defer === 'ephemeral' ? { flags: MessageFlags.Ephemeral } : {});
     }
 
-    const profile = await loadProfile(interaction.user.id);
+    const { profile, created } = await loadProfileDetailed(interaction.user.id);
+    if (created) newPlayers.add(interaction.user.id);
 
     if (command.blockedInJail && profile.jailUntil && profile.jailUntil.getTime() > Date.now()) {
       throw new UserError(`🚔 You're in jail. You'll be released ${relative(profile.jailUntil)} — or pay your way out with \`/bail\`.`);
@@ -53,7 +56,9 @@ async function runCommand(interaction: ChatInputCommandInteraction): Promise<voi
     }
 
     await command.execute({ interaction, client: interaction.client, profile });
+    await greetNewPlayer(interaction);
   } catch (err) {
+    await greetNewPlayer(interaction);
     if (claimedCooldown && command.cooldown) {
       await cooldowns.release(interaction.user.id, command.cooldown.key).catch(() => undefined);
     }
@@ -61,6 +66,16 @@ async function runCommand(interaction: ChatInputCommandInteraction): Promise<voi
     logError(`/${interaction.commandName}`, err);
     return respondError(interaction, 'Something went wrong running that command. It has been reported.');
   }
+}
+
+setCommandRunner((interaction, command) => runCommand(interaction, command));
+
+/** Players whose profile was created by this command; they get a private welcome hub. */
+const newPlayers = new Set<string>();
+
+async function greetNewPlayer(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!newPlayers.delete(interaction.user.id)) return;
+  await interaction.followUp({ ...(await welcomeHub(interaction.user)), flags: MessageFlags.Ephemeral }).catch(() => undefined);
 }
 
 async function runComponent(interaction: ComponentInteraction): Promise<void> {

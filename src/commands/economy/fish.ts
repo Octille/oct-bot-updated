@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -34,10 +35,10 @@ export default defineCommand({
     const windowMs = reelWindow(catchRoll.species.rarity, rod.tool.windowBonusMs ?? 0);
     const id = (label: string, style: ButtonStyle, emoji?: string, disabled = false) =>
       rows([button('~fish', userId, ['go'], label, style, emoji, disabled)]);
-    const scene = (text: string) => embed('economy').setTitle('🎣 Fishing').setDescription(text)
+    const scene = (text: string) => embed('economy').setTitle('🎣 Fish').setDescription(text)
       .setFooter({ text: describeTool(rod, 'rod').replace(/\*\*/g, '') });
 
-    const message = await interaction.editReply({ embeds: [scene('The water is calm. Ready when you are.')], components: id('Cast', ButtonStyle.Primary, '🎣') });
+    const message = await interaction.editReply({ embeds: [scene('The water is calm. Ready when you are.')], components: id('Cast line', ButtonStyle.Success, '🎣') });
 
     let phase: Phase = 'ready';
     let biteShownAt = 0;
@@ -92,10 +93,12 @@ export default defineCommand({
           : `🐟 It got away... something ${info.label.toLowerCase()} was on the line.`;
       }
 
+      const next = await afterAction(userId, 'fish');
       const payload = {
-        embeds: [embed('economy').setColor(outcome === 'caught' ? info.color : 0x95a5a6).setTitle('🎣 Fishing').setDescription(text)
-          .setFooter({ text: [footerXp, `/fishdex to see your collection`].filter(Boolean).join(' • ') })],
-        components: id(outcome === 'caught' ? 'Caught!' : 'Lost it', outcome === 'caught' ? ButtonStyle.Success : ButtonStyle.Secondary, '🎣', true),
+        embeds: [embed('economy').setColor(outcome === 'caught' ? info.color : 0x95a5a6).setTitle(`🎣 Fish › ${outcome === 'caught' ? 'Caught!' : 'Got away'}`)
+          .setDescription([text, next.note].filter(Boolean).join('\n'))
+          .setFooter({ text: [footerXp, '/fishdex to see your collection'].filter(Boolean).join(' • ') })],
+        components: [next.row],
       };
       if (i) await i.update(payload);
       else await interaction.editReply(payload);
@@ -110,7 +113,7 @@ export default defineCommand({
       }
       timers.push(setTimeout(() => {
         if (phase !== 'waiting') return;
-        interaction.editReply({ embeds: [scene('❗❗ **BITE!** ❗❗')], components: id('REEL!', ButtonStyle.Success, '🎣') })
+        interaction.editReply({ embeds: [scene('❗❗ **BITE!** ❗❗')], components: id('Reel in!', ButtonStyle.Success, '🎣') })
           .then(() => {
             if (phase !== 'waiting') return;
             phase = 'bite';
@@ -125,7 +128,7 @@ export default defineCommand({
     collector.on('collect', (i) => {
       (async () => {
         if (phase === 'ready') {
-          await i.update({ embeds: [scene('🌊 Line in the water... wait for it...')], components: id('...', ButtonStyle.Secondary, '🎣') });
+          await i.update({ embeds: [scene('🌊 Line in the water... wait for it...')], components: id('Wait for it…', ButtonStyle.Secondary, '🎣') });
           return startWaiting();
         }
         if (phase === 'waiting') return end('early', i);

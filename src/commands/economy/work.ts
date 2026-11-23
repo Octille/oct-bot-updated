@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -45,8 +46,8 @@ export default defineCommand({
     const game = randomMinigame(job, undefined, lastGame.get(userId));
     lastGame.set(userId, game.kind);
 
-    const header = `${job.emoji} **${rank.title} ${job.name}** — shift #${num(shifts + 1)}`;
-    const title = `${game.title} • ${game.timeLimitMs / 1000}s`;
+    const header = `${job.emoji} **${rank.title} ${job.name}** — shift #${num(shifts + 1)} • ⏱️ ${game.timeLimitMs / 1000}s`;
+    const title = `💼 Work › ${job.name} › ${game.title}`;
 
     if (game.preview) {
       await interaction.editReply({ embeds: [embed('economy').setTitle(title).setDescription(`${header}\n\n${game.preview.text}`)] });
@@ -93,7 +94,9 @@ export default defineCommand({
         ].filter((l) => l !== null).join('\n'))
         .setFooter({ text: `+${xp} XP • ${next ? `${next.shifts - shifts - 1} shifts to ${next.title}` : 'Max rank'} • /job to switch jobs` });
 
-      const payload = { embeds: [result], components: gameButtons(game, userId, pressed, { wrong }) };
+      const after = await afterAction(userId, 'work');
+      if (after.note) result.setDescription(`${result.data.description}\n${after.note}`);
+      const payload = { embeds: [result], components: [...gameButtons(game, userId, pressed, { wrong }), after.row] };
       if (i) await i.update(payload);
       else await interaction.editReply(payload);
     };

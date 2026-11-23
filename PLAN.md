@@ -202,6 +202,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - work with jobs and 4 minigames, mine (tunnels, durability, gems), fish (reel timing, fishdex), hunt, dig
   - beg, search, crime/jail; item system, inventory (paginated with filter), use, sell (incl. by rarity), iteminfo
   - shop with daily rotation, buy, crates with reveal animation, consumables, cosmetics.
+- [x] **UX pass (between 2b and 3):** /menu hub with First steps, one Shop (tools inside), Inventory with item screens, sell confirmations, item locks, Wardrobe, Balance with amount boxes, Jobs, Fishdex, Help, Jail; breadcrumb titles and next-step rows on every activity. Menu screens are pure functions of (path, profile) with the path in the button ID; a crawler test checks every reachable screen against Discord limits and the menu rules.
 - [ ] **3. Levels:** (includes crime achievements and titles: e.g. *Light Fingers* for 50 pickpockets, *Master Hacker* for 25 ATM hacks, *Art Thief* for stealing The Mona Octa, *Repeat Offender* for 25 arrests — stats are already tracked in `stats.crimeWins`, `stats.crimeLoot`, `stats.crimesFailed`)
   - chat and voice XP, level rewards, announcements and level-up card, rank card, profile card
   - account levels and unlocks, prestige 0–10 with badges and a prestige shop

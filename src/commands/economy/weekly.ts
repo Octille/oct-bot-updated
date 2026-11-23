@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -33,7 +34,8 @@ export default defineCommand({
       `📦 **+${coins(result.coins)}**${result.multiplier > 1 ? ` (${result.multiplier.toFixed(1)}× for ${result.streak} weeks in a row)` : ''}`,
       `Next one ${relative(now.getTime() + 7 * 86_400_000)} — claim within a week of that to keep the bonus growing.`,
       levelUpText(granted.levelUp),
-    ].filter(Boolean);
-    await interaction.reply({ embeds: [embed('economy').setTitle('Weekly reward').setDescription(lines.join('\n')).setFooter({ text: `+${granted.xp} XP` })] });
+    ];
+    const next = await afterAction(interaction.user.id, 'weekly');
+    await interaction.reply({ embeds: [embed('economy').setTitle('📦 Weekly').setDescription([...lines, next.note].filter(Boolean).join('\n')).setFooter({ text: `+${granted.xp} XP` })], components: [next.row] });
   },
 });

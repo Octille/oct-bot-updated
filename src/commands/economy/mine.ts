@@ -1,3 +1,4 @@
+import { afterAction } from '../../ui/next';
 import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -37,7 +38,7 @@ export default defineCommand({
 
     const message = await interaction.editReply({
       embeds: [embed('economy')
-        .setTitle('⛏️ Pick a tunnel')
+        .setTitle('⛏️ Mine › Pick a tunnel')
         .setDescription(choices.map((t) => `${t.emoji} **${t.name}** — ${t.hint}`).join('\n'))
         .setFooter({ text: `${describeTool(pickaxe, 'pickaxe').replace(/\*\*/g, '')}${pickaxe.broken ? ' (mining bare-handed until repaired)' : ''}` })],
       components: rows(choices.map((t, i) => button('~mine', userId, [i], t.name, ButtonStyle.Secondary, t.emoji))),
@@ -73,14 +74,16 @@ export default defineCommand({
         if (usesTool && toolNow.broken) lines.push('🔨 **Your pickaxe broke!** `/tools` to repair it.');
         const lvl = levelUpText(levelUp);
         if (lvl) lines.push(lvl);
+        const next = await afterAction(userId, 'mine');
+        if (next.note) lines.push(next.note);
 
         await i.update({
           embeds: [embed('economy')
             .setColor(result.caveIn ? 0x7f5539 : result.ore.color)
-            .setTitle(`${tunnel.emoji} ${tunnel.name}`)
+            .setTitle(`⛏️ Mine › ${tunnel.emoji} ${tunnel.name}`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: `+${xp} XP • ${describeTool(toolNow, 'pickaxe').replace(/\*\*/g, '')}` })],
-          components: rows(choices.map((t, n) => button('~mine', userId, [n], t.name, t.id === tunnel.id ? ButtonStyle.Primary : ButtonStyle.Secondary, t.emoji, true))),
+          components: [...rows(choices.map((t, n) => button('~mine', userId, [n], t.name, t.id === tunnel.id ? ButtonStyle.Primary : ButtonStyle.Secondary, t.emoji, true))), next.row],
         });
       })().catch((err) => logError('mine', err));
     });
