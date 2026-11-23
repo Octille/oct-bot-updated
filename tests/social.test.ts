@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from './helpers/db';
+import { env } from '../src/config/env';
+
+// Tests check the real defaults, whatever the local .env overrides
+env.ANTI_ALT_PROFILE_DAYS = undefined;
+env.ANTI_ALT_DISCORD_DAYS = undefined;
 import { User } from '../src/models/User';
 import { RobEscrow } from '../src/models/RobEscrow';
 import { totalXpForLevel } from '../src/content/levels';
@@ -150,6 +155,19 @@ describe('anti-alt and daily giving limits (database)', () => {
     await expect(giveCoins(young, old, 100)).rejects.toThrow(/Discord account must be at least 30 days old/);
     await expect(giveCoins(old, young, 100)).rejects.toThrow(/Their Discord account/);
     await expect(giveCoins(old, 'fresh', 100)).resolves.toMatchObject({ received: 95 });
+  });
+
+  it('env vars override the thresholds (e.g. 0 profile days on the test bot)', async () => {
+    const { altBlocker, altThresholds } = await import('../src/services/antiAlt.js');
+    const newProfile = { createdAt: new Date() };
+    expect(altBlocker('someone', newProfile, 'You')).toMatch(/3 days/);
+    env.ANTI_ALT_PROFILE_DAYS = 0;
+    try {
+      expect(altThresholds()).toEqual({ minAccountDays: 30, minProfileDays: 0 });
+      expect(altBlocker('someone', newProfile, 'You')).toBeNull();
+    } finally {
+      env.ANTI_ALT_PROFILE_DAYS = undefined;
+    }
   });
 
   it('limits coins to 10k × level a day (max 500k) and items to 20, resetting each UTC day', async () => {

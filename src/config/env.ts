@@ -18,6 +18,10 @@ const schema = z.object({
   MONGODB_DEV_URI: z.string().optional(),
   ALLOW_LIVE_DB: z.enum(['true', 'false']).default('false'),
 
+  /** Override the anti-alt thresholds in content/social.ts (e.g. 0 profile days on the test bot). */
+  ANTI_ALT_PROFILE_DAYS: z.coerce.number().min(0).optional(),
+  ANTI_ALT_DISCORD_DAYS: z.coerce.number().min(0).optional(),
+
   LAVALINK_HOST: z.string().default('localhost'),
   LAVALINK_PORT: z.coerce.number().int().default(2333),
   LAVALINK_PASSWORD: z.string().default('youshallnotpass'),

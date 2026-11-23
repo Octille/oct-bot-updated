@@ -5,6 +5,7 @@ import { dayNumber } from '../game/streaks';
 import { UserError } from '../lib/errors';
 import { coins } from '../lib/format';
 import { User } from '../models/User';
+import { env } from '../config/env';
 import type { Profile } from './economy';
 import { unlockLevel } from './progression';
 
@@ -16,17 +17,26 @@ export function accountCreated(userId: string): Date {
   return /^\d{15,}$/.test(userId) ? new Date(Number(SnowflakeUtil.timestampFrom(userId))) : new Date(0);
 }
 
+/** The thresholds in force: content/social.ts, unless overridden by ANTI_ALT_* env vars. */
+export function altThresholds(): { minAccountDays: number; minProfileDays: number } {
+  return {
+    minAccountDays: env.ANTI_ALT_DISCORD_DAYS ?? antiAlt.minAccountDays,
+    minProfileDays: env.ANTI_ALT_PROFILE_DAYS ?? antiAlt.minProfileDays,
+  };
+}
+
 /** Why this player can't send/receive or join, or null. `who` phrases the message. */
 export function altBlocker(userId: string, profile: Pick<Profile, 'createdAt'> | null, who: 'You' | 'They', now = Date.now()): string | null {
+  const { minAccountDays, minProfileDays } = altThresholds();
   const accountDays = (now - accountCreated(userId).getTime()) / DAY;
-  if (accountDays < antiAlt.minAccountDays) {
-    return `${who === 'You' ? 'Your' : 'Their'} Discord account must be at least ${antiAlt.minAccountDays} days old (${who === 'You' ? "yours is" : "theirs is"} ${Math.floor(accountDays)}).`;
+  if (accountDays < minAccountDays) {
+    return `${who === 'You' ? 'Your' : 'Their'} Discord account must be at least ${minAccountDays} days old (${who === 'You' ? "yours is" : "theirs is"} ${Math.floor(accountDays)}).`;
   }
   const created = profile?.createdAt ? new Date(profile.createdAt).getTime() : now;
   const profileDays = (now - created) / DAY;
-  if (profileDays < antiAlt.minProfileDays) {
-    const ready = Math.ceil((antiAlt.minProfileDays * DAY - (now - created)) / 3_600_000);
-    return `${who} need to have played OctBot for ${antiAlt.minProfileDays} days first (${who === 'You' ? 'you' : 'they'} can in about ${ready}h).`;
+  if (profileDays < minProfileDays) {
+    const ready = Math.ceil((minProfileDays * DAY - (now - created)) / 3_600_000);
+    return `${who} need to have played OctBot for ${minProfileDays} days first (${who === 'You' ? 'you' : 'they'} can in about ${ready}h).`;
   }
   return null;
 }
