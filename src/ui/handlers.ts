@@ -1,4 +1,4 @@
-import { MessageFlags, type User } from 'discord.js';
+import { MessageFlags, type ButtonInteraction, type User } from 'discord.js';
 import { gamblingEnabled } from '../services/gambling';
 import { defineComponent, type ComponentHandler } from '../framework/types';
 import { getProfile, type Profile } from '../services/economy';
@@ -46,6 +46,11 @@ const navigate = defineComponent({
     const [origin = 'c', base = 'hub'] = id.args;
     // The hub's More… menu carries whole paths; other selects append the value to the base path
     const path = interaction.isStringSelectMenu() ? (base === MORE ? interaction.values[0]! : `${base}.${interaction.values[0]}`) : base;
+    // More… entries that are commands rather than screens (e.g. the leaderboard)
+    if (path.startsWith('cmd.')) {
+      await launchCommand(path.slice(4), interaction as unknown as ButtonInteraction);
+      return;
+    }
     const payload = path === 'hub'
       ? await hubPayload(interaction.user, profile, interaction.guildId)
       : render(path, ctxFor(interaction.user, origin as Origin, profile, undefined, interaction.memberPermissions?.bitfield.toString() ?? null));

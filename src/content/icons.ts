@@ -82,6 +82,9 @@ export const iconDefs = {
   duel: { tabler: 'swords', fallback: '⚔️' },
   trade: { tabler: 'arrows-exchange', fallback: '🔁' },
   give: { tabler: 'gift', fallback: '🎁' },
+  quests: { tabler: 'list-check', fallback: '📜' },
+  leaderboard: { tabler: 'podium', fallback: '🏆' },
+  reminder: { tabler: 'bell', fallback: '🔔' },
   // Veteran badges (exclusive, see content/veteran.ts)
   badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },
   badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },

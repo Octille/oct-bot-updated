@@ -80,7 +80,15 @@ export async function grant(
   const xp = opts.xp ? rollXp(opts.xp, opts.rng, opts.profile ? xpMultiplier(opts.profile) : 1) : 0;
   const profile = await apply(
     userId,
-    { ...change, inc: { ...change.inc, ...(xp ? { 'account.xp': xp } : {}) } },
+    {
+      ...change,
+      inc: {
+        ...change.inc,
+        ...(xp ? { 'account.xp': xp } : {}),
+        // Coins earned from activities, for "Earn ₪X" quests
+        ...(change.wallet && change.wallet > 0 ? { 'stats.earned': change.wallet } : {}),
+      },
+    },
     { source: opts.source, meta: opts.meta },
   );
   const levelUp = await syncLevel(profile);

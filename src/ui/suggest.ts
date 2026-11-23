@@ -6,6 +6,7 @@ import { unlockedAt } from '../services/achievements';
 import type { Profile } from '../services/economy';
 import { unlockLevel } from '../services/progression';
 import { activities, type ActivityId } from './activities';
+import { questDef, questDone, questSet } from '../services/quests';
 
 /** An achievement this close to done (share of its goal) makes its activity the suggestion. */
 const NEARLY_DONE = 0.9;
@@ -21,6 +22,18 @@ function nearAchievement(p: Profile, ready: ActivityId[]): ActivityId | null {
     if (ratio >= NEARLY_DONE && ratio < 1 && (!best || ratio > best.ratio)) best = { id: activity as ActivityId, ratio };
   }
   return best?.id ?? null;
+}
+
+/** A ready activity that advances an unfinished daily quest (then weekly). */
+function questActivity(p: Profile, ready: ActivityId[]): ActivityId | null {
+  for (const scope of ['daily', 'weekly'] as const) {
+    for (const q of questSet(p, scope).list) {
+      if (q.claimed || questDone(p, q)) continue;
+      const activity = questDef(q.id)?.activity as ActivityId | undefined;
+      if (activity && ready.includes(activity)) return activity;
+    }
+  }
+  return null;
 }
 
 /** Expected coins per use of each timed activity, from the balance model with this player's job and tools. */
@@ -55,6 +68,8 @@ export function suggestedActivity(p: Profile, ready: ActivityId[], prestigeReady
   const near = nearAchievement(p, ready);
   if (near) return near;
   for (const claim of ['daily', 'weekly'] as const) if (ready.includes(claim)) return claim;
+  const quest = questActivity(p, ready);
+  if (quest) return quest;
   if (prestigeReady) return 'prestige';
   if (!ready.length) return null;
   try {

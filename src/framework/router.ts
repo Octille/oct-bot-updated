@@ -6,6 +6,7 @@ import { duration, relative } from '../lib/format';
 import { logError } from '../lib/logger';
 import { loadProfile, loadProfileDetailed } from '../services/economy';
 import { welcomeHub } from '../ui/handlers';
+import { ensureQuests } from '../services/quests';
 import * as cooldowns from '../services/cooldowns';
 import { commandRegistry, componentRegistry } from './registry';
 import { setCommandRunner } from './commandList';
@@ -45,7 +46,10 @@ export async function runCommand(interaction: ChatInputCommandInteraction, comma
       await interaction.deferReply(command.defer === 'ephemeral' ? { flags: MessageFlags.Ephemeral } : {});
     }
 
-    const { profile, created } = await loadProfileDetailed(interaction.user.id);
+    const loaded = await loadProfileDetailed(interaction.user.id);
+    const created = loaded.created;
+    // New quests on the first interaction after a daily/weekly reset
+    const profile = await ensureQuests(loaded.profile);
     if (created) newPlayers.add(interaction.user.id);
 
     if (command.blockedInJail && profile.jailUntil && profile.jailUntil.getTime() > Date.now()) {
@@ -112,7 +116,7 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
   }
 
   try {
-    const profile = await loadProfile(interaction.user.id);
+    const profile = await ensureQuests(await loadProfile(interaction.user.id));
     await handler.execute({ interaction, client: interaction.client, id, profile });
     await announceAchievements(interaction);
   } catch (err) {

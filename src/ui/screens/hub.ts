@@ -11,6 +11,7 @@ import { firstSteps, ONBOARDING_REWARD, onboardingVisible } from '../../services
 import { activities, statusOf, statusText } from '../activities';
 import { btn, ids, MAIN, MORE, NAV, row, select, SUGGESTED, type ScreenCtx } from '../kit';
 import { suggestedActivity } from '../suggest';
+import { questDone, questSet } from '../../services/quests';
 import { unlockLevel, unlocksBetween } from '../../services/progression';
 import type { ScreenModule } from './types';
 import { levelFromXp, prestigeIncomeBonus } from '../../content/levels';
@@ -26,6 +27,19 @@ export const HUB_TTL_MS = 15 * 60_000;
 export function hubExpired(stamp: string | undefined, now = Date.now()): boolean {
   if (!stamp) return false;
   return now - parseInt(stamp, 36) * 1000 > HUB_TTL_MS;
+}
+
+/** "Quests: daily 2/3 (1 to claim) · weekly 0/3" */
+function questLine(p: ScreenCtx['profile']): string | null {
+  const part = (scope: 'daily' | 'weekly') => {
+    const s = questSet(p, scope);
+    if (!s.list.length) return null;
+    const claimed = s.list.filter((q) => q.claimed).length;
+    const ready = s.list.filter((q) => !q.claimed && questDone(p, q)).length;
+    return `${scope} ${claimed}/${s.list.length}${ready ? ` (**${ready} to claim**)` : ''}`;
+  };
+  const parts = [part('daily'), part('weekly')].filter(Boolean);
+  return parts.length ? `Quests: ${parts.join(' · ')}` : null;
 }
 
 /** Prestige shows in the More menu from this level (or once you've prestiged). */
@@ -63,6 +77,7 @@ export const hub: ScreenModule = {
           ? `✨ **You can prestige now:** +${Math.round(prestigeIncomeBonus * 100)}% coins forever`
           : `**Level ${level}** ${bar(into, needed)} ${Math.floor((into / needed) * 100)}%${next ? ` → ${next}` : ` → Level ${level + 1}`}`,
         `Daily streak: **${streak} day${streak === 1 ? '' : 's'}**${dailyReady ? ' · daily ready' : ''}`,
+        questLine(p),
         jailed ? `${icon('jail')} **You're in jail** until ${relative(p.jailUntil!)}. Pay bail below to get out now.` : null,
         testNotice(),
       ].filter(Boolean).join('\n'));
@@ -112,10 +127,12 @@ export const hub: ScreenModule = {
     for (let k = 0; k < buttons.length; k += 5) rows.push(row(...buttons.slice(k, k + 5)));
 
     const more = [
+      { label: 'Quests', value: 'quests.daily', description: 'Daily and weekly goals for coins and crates' },
       { label: 'Shop', value: 'shop', description: 'Tools, consumables, crates and cosmetics' },
       { label: 'Inventory', value: 'inv.all.0', description: 'Your items: use, sell or lock them' },
       { label: 'Balance', value: 'bal', description: 'Wallet, bank, deposits and withdrawals' },
       { label: 'Achievements', value: 'ach', description: 'Goals and their rewards' },
+      { label: 'Leaderboards', value: 'cmd.leaderboard', description: 'Top players in this server and everywhere' },
       ...(ctx.gambling !== false ? [{ label: 'Casino', value: 'casino', description: 'Games, odds and your gambling record' }] : []),
       { label: 'Wardrobe', value: 'wardrobe', description: 'Titles, badges, themes and card styles' },
       ...(unlockAt >= PRESTIGE_MENU_LEVEL || (p.account?.prestige ?? 0) > 0 ? [{ label: 'Prestige', value: 'prestige', description: 'Reset for a permanent bonus' }] : []),

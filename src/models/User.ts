@@ -66,6 +66,28 @@ const userSchema = new Schema(
       welcomed: { type: Boolean, default: false },
     },
 
+    /** Daily and weekly quests (content/quests.ts). `base` is the stat value when handed out. */
+    quests: {
+      daily: {
+        day: { type: Number, default: -1 },
+        list: [{ id: String, target: Number, base: Number, claimed: { type: Boolean, default: false }, _id: false }],
+        rerolls: { type: Number, default: 0 },
+        bonusClaimed: { type: Boolean, default: false },
+      },
+      weekly: {
+        week: { type: Number, default: -1 },
+        list: [{ id: String, target: Number, base: Number, claimed: { type: Boolean, default: false }, _id: false }],
+        rerolls: { type: Number, default: 0 },
+        bonusClaimed: { type: Boolean, default: false },
+      },
+    },
+
+    /** When DM reminders were last sent (UTC day / week numbers). */
+    reminders: {
+      dailyDay: { type: Number, default: -1 },
+      weeklyWeek: { type: Number, default: -1 },
+    },
+
     /** Coins and items sent to other players today (daily giving limit). */
     giving: {
       day: { type: Number, default: -1 },
@@ -137,6 +159,9 @@ const userSchema = new Schema(
       /** Messages and voice minutes that earned server XP, across all servers. */
       messages: { type: Number, default: 0 },
       voiceMinutes: { type: Number, default: 0 },
+      /** Coins earned from activities (for quests). */
+      earned: { type: Number, default: 0 },
+      questsDone: { type: Number, default: 0 },
       robsWon: { type: Number, default: 0 },
       robsFailed: { type: Number, default: 0 },
       robbedTimes: { type: Number, default: 0 },

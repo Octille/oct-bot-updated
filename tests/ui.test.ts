@@ -53,6 +53,10 @@ const players: Record<string, Profile> = {
     onboarding: { crateClaimed: true },
     stats: { worked: 300, fishCaught: 40, crimeWins: { pickpocket: 12 } },
     achievements: { first_shift: new Date(), regular: new Date(), workaholic: new Date(), art_thief: new Date() },
+    quests: {
+      daily: { day: 99_999, list: [{ id: 'work', target: 3, base: 300, claimed: true }, { id: 'fish', target: 5, base: 0, claimed: false }, { id: 'earn', target: 50_000, base: 0, claimed: false }], rerolls: 0, bonusClaimed: false },
+      weekly: { week: 9_999, list: [{ id: 'mine', target: 30, base: 0, claimed: false }, { id: 'crime', target: 15, base: 0, claimed: false }, { id: 'dailies', target: 10, base: 0, claimed: false }], rerolls: 1, bonusClaimed: false },
+    },
   }),
   prestiged: profile({
     wallet: 2_000, account: { xp: totalXpForLevel(36), level: 36, prestige: 3, best: 40 },
@@ -79,7 +83,9 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
         const id = parseId(c.custom_id);
         if (id.prefix !== 'ui') continue;
         const base = id.args[1]!;
-        if (c.type === ComponentType.StringSelect) for (const o of c.options) queue.push(base === MORE ? o.value : `${base}.${o.value}`);
+        if (c.type === ComponentType.StringSelect) {
+          for (const o of c.options) if (!o.value.startsWith('cmd.')) queue.push(base === MORE ? o.value : `${base}.${o.value}`);
+        }
         else if (!('disabled' in c && c.disabled)) queue.push(base);
       }
     }
@@ -87,7 +93,7 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
   return [...seen].map(([path, payload]) => ({ path, payload }));
 }
 
-const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm', 'casino'];
+const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm', 'casino', 'quests.daily', 'quests.weekly'];
 
 describe('every menu screen', () => {
   for (const [who, p] of Object.entries(players)) {
@@ -228,7 +234,7 @@ describe('hub', () => {
     expect(json.description).toMatch(/Daily streak/);
     const moreOptions = (p: Profile) => hubOf(p).components.flatMap((r) => r.toJSON().components)
       .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
-    expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Casino', 'Wardrobe', 'Help']);
+    expect(moreOptions(players.newbie!)).toEqual(['Quests', 'Shop', 'Inventory', 'Balance', 'Achievements', 'Leaderboards', 'Casino', 'Wardrobe', 'Help']);
     expect(moreOptions(players.maxed!)).toContain('Prestige');
     // Hidden where gambling is off (and in DMs)
     const off = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct', gambling: false }).components
