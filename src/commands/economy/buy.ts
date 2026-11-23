@@ -15,10 +15,10 @@ export default defineCommand({
   category: 'economy',
   async autocomplete(interaction) {
     const q = interaction.options.getFocused().toLowerCase();
-    const { stock } = await getRotation();
+    const { stock } = getRotation();
     const all = [
       ...basics,
-      ...stock.filter((s) => s.remaining > 0),
+      ...stock,
       ...cosmetics.filter((c) => !c.rotationOnly).map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price })),
     ];
     await interaction.respond(all

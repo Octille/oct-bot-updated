@@ -36,7 +36,7 @@ export const fishRarityWeights: Record<Rarity, number> = {
 };
 
 /** Each point of rod luck multiplies every non-common weight by (1 + luck × this). */
-export const luckPerPoint = 0.5;
+export const luckPerPoint = 0.35;
 
 /**
  * Base value per rarity — what the fish sells for from your inventory.

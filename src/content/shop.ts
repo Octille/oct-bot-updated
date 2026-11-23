@@ -17,25 +17,23 @@ export const basics: readonly ShopEntry[] = [
 ];
 
 export interface RotationEntry extends ShopEntry {
-  /** Total stock for everyone that day. */
-  stock: number;
+  /** How many each player can buy per day while it's in the rotation. */
+  limit: number;
 }
 
 export const rotationPool: readonly RotationEntry[] = [
-  { id: 'crate_rare', price: 22_500, kind: 'item', stock: 25 },
-  { id: 'crate_epic', price: 90_000, kind: 'item', stock: 6 },
-  { id: 'crate_legendary', price: 400_000, kind: 'item', stock: 2 },
-  { id: 'golden_ticket', price: 3_500, kind: 'item', stock: 15 },
-  { id: 'gem_octite', price: 20_000, kind: 'item', stock: 3 },
-  { id: 'title_lucky', price: 75_000, kind: 'cosmetic', stock: 10 },
-  { id: 'title_collector', price: 120_000, kind: 'cosmetic', stock: 6 },
-  { id: 'theme_gold', price: 150_000, kind: 'cosmetic', stock: 5 },
-  { id: 'theme_aurora', price: 90_000, kind: 'cosmetic', stock: 8 },
+  { id: 'crate_rare', price: 22_500, kind: 'item', limit: 3 },
+  { id: 'crate_epic', price: 90_000, kind: 'item', limit: 2 },
+  { id: 'crate_legendary', price: 400_000, kind: 'item', limit: 1 },
+  { id: 'golden_ticket', price: 3_500, kind: 'item', limit: 5 },
+  { id: 'gem_octite', price: 20_000, kind: 'item', limit: 2 },
+  { id: 'title_lucky', price: 75_000, kind: 'cosmetic', limit: 1 },
+  { id: 'title_collector', price: 120_000, kind: 'cosmetic', limit: 1 },
+  { id: 'theme_gold', price: 150_000, kind: 'cosmetic', limit: 1 },
+  { id: 'theme_aurora', price: 90_000, kind: 'cosmetic', limit: 1 },
 ];
 
 export const rotationSize = 4;
-/** Each player can buy at most this many of each rotation item per day. */
-export const rotationLimitPerPlayer = 1;
 
 /** Shops buy back consumables and crates at this fraction of their shop price. */
 export const buybackRate = 0.4;

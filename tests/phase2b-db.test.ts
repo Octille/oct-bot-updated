@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from './helpers/db';
 import { User } from '../src/models/User';
-import { ShopRotation } from '../src/models/ShopRotation';
 import * as eco from '../src/services/economy';
-import { buy, getRotation } from '../src/services/shop';
+import { boughtToday, buy, getRotation } from '../src/services/shop';
+import { dayNumber } from '../src/game/streaks';
 import { selectForSale, sell, useItem } from '../src/services/items';
 import { bailCost, payBail } from '../src/services/jail';
 import { grant } from '../src/services/progression';
@@ -30,28 +30,41 @@ describe('shop', () => {
     expect((await user('u1'))!.cosmetics?.owned).toEqual(['theme_ocean']);
   });
 
-  it('rotation stock is shared, limited, and one per player per day', async () => {
-    const { day, stock } = await getRotation();
-    const slot = stock[0]!;
-    await ShopRotation.updateOne({ _id: day }, { $set: { 'stock.0.remaining': 2 } });
-    for (const id of ['a', 'b', 'c']) await eco.addCoins(id, slot.price * 3, { source: 'test' });
+  it('rotation limits are per player: each player gets their own daily allowance', async () => {
+    const { stock } = getRotation();
+    const slot = stock.find((s) => s.kind === 'item') ?? stock[0]!;
+    for (const id of ['a', 'b']) await eco.addCoins(id, slot.price * (slot.limit + 2), { source: 'test' });
 
-    await buy('a', slot.id, 1);
-    await expect(buy('a', slot.id, 1)).rejects.toThrow(slot.kind === 'cosmetic' ? /already own/ : /only buy 1/);
+    for (let n = 0; n < slot.limit; n++) await buy('a', slot.id, 1);
+    await expect(buy('a', slot.id, 1)).rejects.toThrow(/per day/);
+    // Another player is unaffected
     await buy('b', slot.id, 1);
-    await expect(buy('c', slot.id, 1)).rejects.toThrow(/sold out/);
-    expect((await ShopRotation.findById(day).lean())!.stock[0]!.remaining).toBe(0);
-    // c was not charged
-    expect((await user('c'))!.wallet).toBe(1_000 + slot.price * 3);
+    const a = (await user('a'))!;
+    expect(boughtToday(a as never, slot.id, dayNumber(new Date()))).toBe(slot.limit);
+    // The refused purchase charged nothing
+    expect(a.wallet).toBe(1_000 + slot.price * (slot.limit + 2) - slot.price * slot.limit);
   });
 
-  it('two players racing for the last rotation item: exactly one gets it', async () => {
-    const { day, stock } = await getRotation();
-    const slot = stock[1]!;
-    await ShopRotation.updateOne({ _id: day }, { $set: { 'stock.1.remaining': 1 } });
-    for (const id of ['x', 'y', 'z']) await eco.addCoins(id, slot.price, { source: 'test' });
-    const results = await Promise.allSettled(['x', 'y', 'z'].map((id) => buy(id, slot.id, 1)));
-    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+  it('double-clicking can never exceed the limit', async () => {
+    const { stock } = getRotation();
+    const slot = stock[0]!;
+    await eco.addCoins('x', slot.price * 10, { source: 'test' });
+    const results = await Promise.allSettled(Array.from({ length: 6 }, () => buy('x', slot.id, 1)));
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(slot.limit);
+  });
+
+  it("yesterday's purchases don't count today", async () => {
+    const { stock, day } = getRotation();
+    const slot = stock[0]!;
+    await eco.addCoins('y', slot.price * 2, { source: 'test' });
+    await User.updateOne({ _id: 'y' }, { $set: { rotation: { day: day - 1, bought: { [slot.id]: 99 } } } });
+    if (slot.kind === 'item') {
+      await buy('y', slot.id, 1);
+      expect(boughtToday((await user('y'))! as never, slot.id, day)).toBe(1);
+    } else {
+      await buy('y', slot.id, 1);
+      expect((await user('y'))!.cosmetics?.owned).toContain(slot.id);
+    }
   });
 });
 

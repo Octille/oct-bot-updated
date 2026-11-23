@@ -41,8 +41,11 @@ const userSchema = new Schema(
       theme: { type: String, default: null },
     },
 
-    /** `day:itemId` keys of daily-rotation items bought (per-player limit). Old days are pruned on purchase. */
-    rotationBought: { type: [String], default: [] },
+    /** Daily-rotation purchases for the per-player limits; reset when the day changes. */
+    rotation: {
+      day: { type: Number, default: -1 },
+      bought: { type: Map, of: Number, default: () => new Map() },
+    },
 
     job: {
       current: { type: String, default: 'barista' },
@@ -86,6 +89,9 @@ const userSchema = new Schema(
       treasures: { type: Number, default: 0 },
       crimes: { type: Number, default: 0 },
       crimesFailed: { type: Number, default: 0 },
+      /** crimeId → successful attempts (for Phase 3 crime achievements and titles) */
+      crimeWins: { type: Map, of: Number, default: () => new Map() },
+      crimeLoot: { type: Number, default: 0 },
       cratesOpened: { type: Number, default: 0 },
       itemsSold: { type: Number, default: 0 },
       streakFreezesUsed: { type: Number, default: 0 },

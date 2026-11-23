@@ -23,11 +23,11 @@ export const treasures: readonly Treasure[] = [
 export const treasureRarityWeights: Record<Rarity, number> = {
   common: 50, uncommon: 28, rare: 14, epic: 6, legendary: 1.8, mythic: 0.2,
 };
-export const digLuckPerPoint = 0.5;
+export const digLuckPerPoint = 0.35;
 
 /** Treasure sell price; the shovel's value multiplier is paid on top as an appraisal bonus. */
 export const treasureValue: Record<Rarity, number> = {
-  common: 80, uncommon: 220, rare: 650, epic: 2_000, legendary: 7_000, mythic: 30_000,
+  common: 60, uncommon: 160, rare: 460, epic: 1_400, legendary: 5_000, mythic: 21_000,
 };
 
 /** What an ordinary (non-treasure) square holds. */
@@ -35,6 +35,6 @@ export const squareOdds = {
   coins: 0.45,
   junk: 0.15,
   // the rest is plain dirt
-  coinRange: [25, 70] as const,
+  coinRange: [18, 50] as const,
   junk_items: ['dig_worm', 'dig_cap'] as const,
 };

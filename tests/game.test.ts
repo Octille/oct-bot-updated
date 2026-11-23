@@ -241,12 +241,24 @@ describe('balance targets', () => {
     }
   });
 
-  it('tool wear is 10–15% of income once you own real tools', () => {
-    for (const s of scenarios.slice(1)) {
-      const share = hourly(s).wear / hourly(s).gross;
-      expect(share, s.name).toBeGreaterThanOrEqual(0.095);
-      expect(share, s.name).toBeLessThanOrEqual(0.15);
+  it('tool wear is 10–15% of income mid and late game, and gentler early on', () => {
+    const [, early, ...later] = scenarios;
+    const shareOf = (s: (typeof scenarios)[number]) => hourly(s).wear / hourly(s).gross;
+    expect(shareOf(early!)).toBeGreaterThanOrEqual(0.06);
+    expect(shareOf(early!)).toBeLessThanOrEqual(0.12);
+    for (const s of later) {
+      expect(shareOf(s), s.name).toBeGreaterThanOrEqual(0.095);
+      expect(shareOf(s), s.name).toBeLessThanOrEqual(0.15);
     }
+  });
+
+  it('more loops mean more choice, not more coins: totals stay near the Phase 2a numbers', () => {
+    const targets = [15_262, 31_315, 68_874, 129_924];
+    scenarios.forEach((s, i) => {
+      const gross = hourly(s).gross;
+      expect(gross / targets[i]!, s.name).toBeGreaterThan(0.9);
+      expect(gross / targets[i]!, s.name).toBeLessThan(1.1);
+    });
   });
 
   it('level 35 takes 60–80 active hours; first unlocks come quickly', () => {

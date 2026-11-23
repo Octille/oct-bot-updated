@@ -9,6 +9,8 @@ import { logError } from '../../lib/logger';
 import { UserError } from '../../lib/errors';
 import { moreCooldowns } from '../../content/earning';
 import { crimes, crimeUnlockLevel } from '../../content/crime';
+import { getItem, itemLabel } from '../../content/items';
+import { rarityInfo } from '../../content/rarity';
 import { commitCrime } from '../../game/crime';
 import { apply } from '../../services/economy';
 import { grant, incomeMultiplier } from '../../services/progression';
@@ -42,9 +44,16 @@ export default defineCommand({
         const done = rows(crimes.map((c, n) => button('~crime', userId, [n], c.name, c === crime ? (result.success ? ButtonStyle.Success : ButtonStyle.Danger) : ButtonStyle.Secondary, c.emoji, true)));
 
         if (result.success) {
-          const { xp, levelUp } = await grant(userId, { wallet: result.coins, inc: { 'stats.crimes': 1 } }, { source: 'crime', xp: 'crime', profile, meta: { crime: crime.id } });
+          const { xp, levelUp } = await grant(userId, {
+            wallet: result.coins,
+            items: result.loot ? { [result.loot]: 1 } : undefined,
+            inc: { 'stats.crimes': 1, [`stats.crimeWins.${crime.id}`]: 1, ...(result.loot ? { 'stats.crimeLoot': 1 } : {}) },
+          }, { source: 'crime', xp: 'crime', profile, meta: { crime: crime.id, loot: result.loot } });
+          const loot = result.loot
+            ? `${rarityInfo[getItem(result.loot)!.rarity].emoji} **You also swiped a ${itemLabel(result.loot)}!** (only found through crime)`
+            : null;
           await i.update({ embeds: [embed('economy').setTitle(`${crime.emoji} ${crime.name}`)
-            .setDescription([`😎 ${result.line}`, `💰 **+${coins(result.coins)}**`, levelUpText(levelUp)].filter(Boolean).join('\n'))
+            .setDescription([`😎 ${result.line}`, `💰 **+${coins(result.coins)}**`, loot, levelUpText(levelUp)].filter(Boolean).join('\n'))
             .setFooter({ text: `+${xp} XP` })], components: done });
           return;
         }

@@ -29,11 +29,11 @@ export const animals: readonly Animal[] = [
 export const animalRarityWeights: Record<Rarity, number> = {
   common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.9, mythic: 0.1,
 };
-export const huntLuckPerPoint = 0.5;
+export const huntLuckPerPoint = 0.35;
 
 /** Trophy sell price; anything a better weapon adds on top is paid instantly. */
 export const animalValue: Record<Rarity, number> = {
-  common: 60, uncommon: 180, rare: 600, epic: 1_800, legendary: 7_000, mythic: 30_000,
+  common: 45, uncommon: 130, rare: 420, epic: 1_300, legendary: 5_000, mythic: 21_000,
 };
 
 /** Time to click the right bush, by rarity (before the weapon's bonus). Never below 1.2s. */

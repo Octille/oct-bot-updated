@@ -15,6 +15,7 @@ import { claimDaily } from '../src/game/streaks';
 import { rarities } from '../src/content/rarity';
 import { cosmetics } from '../src/content/cosmetics';
 import { rotationFor } from '../src/services/shop';
+import { shovels } from '../src/content/tools';
 
 describe('hunting', () => {
   it('appears in one of three bushes after a short delay', () => {
@@ -45,39 +46,74 @@ describe('digging', () => {
     }
   });
 
-  it('warm means the treasure is in a neighbouring square', () => {
+  it('hot = next to it, warm = same row or column, cold = anywhere else', () => {
     expect(warmth(0, 4)).toBe('hot'); // corner next to centre
-    expect(warmth(0, 8)).toBe('cold'); // opposite corners
-    expect(warmth(1, 7)).toBe('cold');
     expect(warmth(3, 7)).toBe('hot'); // diagonal
+    expect(warmth(0, 2)).toBe('warm'); // same row, two away
+    expect(warmth(1, 7)).toBe('warm'); // same column, two away
+    expect(warmth(0, 8)).toBe('cold'); // opposite corners
+    expect(warmth(0, 5)).toBe('cold');
   });
 
-  it('a player following the hints finds treasure about as often as BALANCE.md assumes', () => {
-    const rng = seededRng(3);
-    const neighbours = (i: number) => [...Array(9).keys()].filter((j) => j !== i && warmth(i, j) === 'hot');
-    for (const digs of [2, 3, 4]) {
-      let found = 0;
-      const trials = 20_000;
-      for (let t = 0; t < trials; t++) {
-        const treasureAt = Math.floor(rng.next() * 9);
-        // Strategy: start in a corner; if warm, try its neighbours; if cold, try the rest
-        let candidates = [...Array(9).keys()];
-        let guess = 0;
-        for (let d = 0; d < digs; d++) {
-          if (guess === treasureAt) { found++; break; }
-          const hot = warmth(guess, treasureAt) === 'hot';
-          const near = new Set(neighbours(guess));
-          candidates = candidates.filter((c) => c !== guess && (hot ? near.has(c) : !near.has(c)));
-          guess = candidates[Math.floor(rng.next() * candidates.length)]!;
-        }
+  it('every shovel digs at most 3 squares', () => {
+    for (const s of shovels) expect(s.digs).toBeLessThanOrEqual(3);
+  });
+
+  /** Success rate for a player who starts at `start` and then only digs squares consistent with every hint. */
+  function simulate(digs: number, start: number, trials = 40_000): number {
+    const rng = seededRng(3 + start);
+    let found = 0;
+    for (let t = 0; t < trials; t++) {
+      const treasureAt = Math.floor(rng.next() * 9);
+      let candidates = [...Array(9).keys()];
+      let guess = start;
+      for (let d = 0; d < digs; d++) {
+        if (guess === treasureAt) { found++; break; }
+        const hint = warmth(guess, treasureAt);
+        const dug = guess;
+        candidates = candidates.filter((c) => c !== dug && warmth(dug, c) === hint);
+        guess = candidates[Math.floor(rng.next() * candidates.length)]!;
       }
-      // The model should not be more generous than a sensible strategy
-      expect(found / trials, `${digs} digs`).toBeGreaterThanOrEqual(findChance[digs]! - 0.02);
     }
+    return found / trials;
+  }
+
+  it('3 digs: a hint-following player finds the treasure 75–85% of the time', () => {
+    const corner = simulate(3, 0);
+    const edge = simulate(3, 1);
+    expect(corner).toBeGreaterThanOrEqual(0.75);
+    expect(edge).toBeLessThanOrEqual(0.87);
+    // The balance model's assumption sits inside that range
+    expect(findChance[3]!).toBeGreaterThanOrEqual(corner - 0.02);
+    expect(findChance[3]!).toBeLessThanOrEqual(edge);
+    expect(findChance[2]!).toBeLessThanOrEqual(simulate(2, 0) + 0.02);
+  });
+
+  it('starting in the centre is a trap (its hint is always hot)', () => {
+    expect(simulate(3, 4)).toBeLessThan(simulate(3, 0) - 0.1);
   });
 });
 
 describe('crime', () => {
+  it('successful crimes sometimes drop crime-only loot; riskier crimes drop more often', () => {
+    const rng = seededRng(12);
+    const drops = crimes.map((c) => {
+      let n = 0;
+      for (let i = 0; i < 20_000; i++) {
+        const r = commitCrime({ ...c, success: 1 }, 1_000, 1, rng);
+        if (r.success && r.loot) {
+          expect(r.loot).toMatch(/^crime_/);
+          expect(getItem(r.loot)).toBeDefined();
+          n++;
+        }
+      }
+      return n / 20_000;
+    });
+    expect(drops[0]!).toBeLessThan(drops[1]!);
+    expect(drops[1]!).toBeLessThan(drops[2]!);
+    expect(drops[2]!).toBeCloseTo(crimes[2]!.dropChance, 1);
+  });
+
   it('fines never exceed what you carry', () => {
     const rng = seededRng(4);
     for (let i = 0; i < 2000; i++) {
@@ -99,6 +135,7 @@ describe('crates and scratch cards', () => {
 
   it('shop crates are worth 80–100% of their price on average (a gentle coin sink)', () => {
     const prices: Record<string, number> = { crate_common: basics.find((b) => b.id === 'crate_common')!.price };
+    // Rotation crates have a per-player daily limit instead of shared stock
     for (const r of rotationPool) if (r.id.startsWith('crate_')) prices[r.id] = r.price;
     for (const [id, price] of Object.entries(prices)) {
       const ev = expectedCrateValue(crates.find((c) => c.itemId === id)!);
@@ -156,6 +193,11 @@ describe('content integrity', () => {
       if (r.kind === 'item') expect(getItem(r.id), r.id).toBeDefined();
       else expect(cosmetics.find((c) => c.id === r.id), r.id).toBeDefined();
     }
+  });
+
+  it('every rotation item has a per-player limit; the Legendary Crate is 1 per day', () => {
+    for (const r of rotationPool) expect(r.limit, r.id).toBeGreaterThanOrEqual(1);
+    expect(rotationPool.find((r) => r.id === 'crate_legendary')!.limit).toBe(1);
   });
 
   it('the rotation is deterministic per day and changes between days', () => {

@@ -16,6 +16,12 @@ import { grant, incomeMultiplier, luckBonus } from '../../services/progression';
 import { describeTool, equipped } from '../../services/tools';
 import * as cooldownService from '../../services/cooldowns';
 
+const HINTS = {
+  hot: "🔥 **Hot!** It's right next to this one.",
+  warm: '🌡️ **Warm.** Same row or column.',
+  cold: '❄️ Cold.',
+} as const;
+
 function squareFace(sq: Square): { emoji: string; label: string; style: ButtonStyle } {
   switch (sq.kind) {
     case 'treasure': return { emoji: sq.treasure.emoji, label: '\u200b', style: ButtonStyle.Success };
@@ -52,7 +58,7 @@ export default defineCommand({
     const status = (extra?: string) => embed('economy').setTitle('⛏️ Digging')
       .setDescription([
         `Somewhere in this plot is buried treasure. You have **${maxDigs - dug.length}** dig${maxDigs - dug.length === 1 ? '' : 's'} left.`,
-        hints.length ? hints.join('\n') : 'Pick a square. Each dig tells you if you\'re **🔥 warm** (treasure next to it) or **❄️ cold**.',
+        hints.length ? hints.join('\n') : 'Pick a square. Each dig gives a hint: **🔥 hot** (treasure is next to it), **🌡️ warm** (same row or column) or **❄️ cold**.',
         extra,
       ].filter(Boolean).join('\n\n'))
       .setFooter({ text: describeTool(shovel, 'shovel').replace(/\*\*/g, '') });
@@ -114,7 +120,7 @@ export default defineCommand({
         dug.push(index);
         const sq = plot.squares[index]!;
         if (sq.kind === 'treasure') hints.push(`Dig ${dug.length}: 💎 **Treasure!**`);
-        else hints.push(`Dig ${dug.length}: ${warmth(index, plot.treasureAt) === 'hot' ? '🔥 **Warm!** It\'s next to this one.' : '❄️ Cold.'}`);
+        else hints.push(`Dig ${dug.length}: ${HINTS[warmth(index, plot.treasureAt)]}`);
         if (dug.length >= maxDigs) return finish(i);
         await i.update({ embeds: [status()], components: grid() });
       })().catch((err) => logError('dig', err));

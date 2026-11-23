@@ -58,6 +58,13 @@ const digItems: Item[] = [
   { id: 'dig_cap', name: 'Bottle Cap', emoji: '🧢', rarity: 'common', type: 'material', sellPrice: 25, tradable: true, description: 'Currency in some wastelands. Not this one.' },
 ];
 
+const crimeItems: Item[] = [
+  { id: 'crime_watch', name: 'Stolen Watch', emoji: '⌚', rarity: 'rare', type: 'collectible', sellPrice: 600, tradable: true, description: 'Engraved "to Dave". You are not Dave. Only found through /crime.' },
+  { id: 'crime_ring', name: 'Diamond Ring', emoji: '💍', rarity: 'epic', type: 'collectible', sellPrice: 2_500, tradable: true, description: 'Someone is having a very bad day. Only found through /crime.' },
+  { id: 'crime_bond', name: 'Bearer Bond', emoji: '📜', rarity: 'legendary', type: 'collectible', sellPrice: 9_000, tradable: true, description: 'Whoever holds it, owns it. Only found through /crime.' },
+  { id: 'crime_painting', name: 'The Mona Octa', emoji: '🖼️', rarity: 'mythic', type: 'collectible', sellPrice: 40_000, tradable: true, description: 'A priceless eight-armed masterpiece. Only found through /crime.' },
+];
+
 const shopPrice = (id: string) => basics.find((b) => b.id === id)?.price;
 const buyback = (id: string, fallback: number) => Math.round((shopPrice(id) ?? fallback) * buybackRate);
 
@@ -77,7 +84,7 @@ const crateItems: Item[] = [
   { id: 'crate_legendary', name: 'Legendary Crate', emoji: '🌟', rarity: 'legendary', type: 'crate', sellPrice: 160_000, tradable: true, description: 'Five big rolls.' },
 ];
 
-export const items: readonly Item[] = [...baseItems, ...fishItems, ...huntItems, ...digItems, ...consumableItems, ...crateItems];
+export const items: readonly Item[] = [...baseItems, ...fishItems, ...huntItems, ...digItems, ...crimeItems, ...consumableItems, ...crateItems];
 const byId = new Map(items.map((i) => [i.id, i]));
 
 export function getItem(id: string): Item | undefined {

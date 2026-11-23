@@ -34,11 +34,18 @@ export function makePlot(luck: number, valueMult: number, rng: Rng = defaultRng)
   return { squares, treasureAt };
 }
 
-/** 🔥 if the treasure is in a neighbouring square (diagonals count), ❄️ otherwise. */
-export function warmth(index: number, treasureAt: number): 'hot' | 'cold' {
+export type Warmth = 'hot' | 'warm' | 'cold';
+
+/**
+ * 🔥 hot: the treasure is in a neighbouring square (diagonals count).
+ * 🌡️ warm: not next to it, but in the same row or column.
+ * ❄️ cold: anywhere else.
+ */
+export function warmth(index: number, treasureAt: number): Warmth {
   const [r1, c1] = [Math.floor(index / gridSize), index % gridSize];
   const [r2, c2] = [Math.floor(treasureAt / gridSize), treasureAt % gridSize];
-  return Math.max(Math.abs(r1 - r2), Math.abs(c1 - c2)) <= 1 ? 'hot' : 'cold';
+  if (Math.max(Math.abs(r1 - r2), Math.abs(c1 - c2)) <= 1) return 'hot';
+  return r1 === r2 || c1 === c2 ? 'warm' : 'cold';
 }
 
 export function appraisalBonus(square: Extract<Square, { kind: 'treasure' }>): number {
@@ -46,14 +53,14 @@ export function appraisalBonus(square: Extract<Square, { kind: 'treasure' }>): n
 }
 
 /**
- * Chance of finding the treasure with `digs` digs. A player who follows the hints perfectly gets
- * 33% / 67% / 97% for 2 / 3 / 4 digs (simulated in tests); these assume real players are a bit worse.
- * Used for BALANCE.md.
+ * Chance of finding the treasure with `digs` digs for a player who follows the hints and starts
+ * in a corner or edge square (simulated in tests: ~44% with 2 digs, 78–85% with 3).
+ * Starting in the centre is a trap — its hint can't be anything but hot. Used for BALANCE.md.
  */
-export const findChance: Record<number, number> = { 1: 1 / 9, 2: 0.33, 3: 0.6, 4: 0.85 };
+export const findChance: Record<number, number> = { 1: 1 / 9, 2: 0.44, 3: 0.78 };
 
 export function expectedDigValue(digs: number, luck: number, valueMult: number): number {
-  const p = findChance[digs] ?? 0.72;
+  const p = findChance[digs] ?? findChance[3]!;
   const treasure = weightedAverage(boostedWeights(treasureRarityWeights, luck, digLuckPerPoint), treasureValue) * valueMult;
   const otherDigs = digs - p;
   const perSquare = squareOdds.coins * ((squareOdds.coinRange[0] + squareOdds.coinRange[1]) / 2) * valueMult + squareOdds.junk * 20;

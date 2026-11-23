@@ -10,11 +10,11 @@ import { basics } from '../../content/shop';
 import { cosmetics } from '../../content/cosmetics';
 import { getItem } from '../../content/items';
 import { nextUtcMidnight } from '../../game/streaks';
-import { buy, displayName, getRotation } from '../../services/shop';
+import { boughtToday, buy, displayName, getRotation } from '../../services/shop';
 import { getProfile } from '../../services/economy';
 
 async function render(userId: string, note?: string) {
-  const { stock } = await getRotation();
+  const { day, stock } = getRotation();
   const profile = await getProfile(userId);
   const owned = new Set(profile.cosmetics?.owned ?? []);
   const shopCosmetics = cosmetics.filter((c) => !c.rotationOnly);
@@ -24,14 +24,17 @@ async function render(userId: string, note?: string) {
     .setDescription([note, `Wallet: **${coins(profile.wallet)}** • Use the menu to buy one, or \`/buy\` for more.`].filter(Boolean).join('\n'))
     .addFields(
       { name: '🧺 Always in stock', value: basics.map((b) => `${displayName(b)} — ${coins(b.price)}\n-# ${getItem(b.id)?.description ?? ''}`).join('\n') },
-      { name: `✨ Today's rotation (restocks ${relative(nextUtcMidnight(new Date()))})`, value: stock.map((s) =>
-        `${displayName(s)} — ${coins(s.price)} • ${s.remaining > 0 ? `**${s.remaining}** left` : '~~sold out~~'}${owned.has(s.id) ? ' (owned)' : ''}`).join('\n') + '\n-# One of each per player per day.' },
+      { name: `✨ Today's rotation (changes ${relative(nextUtcMidnight(new Date()))})`, value: stock.map((s) => {
+        const bought = boughtToday(profile, s.id, day);
+        const status = owned.has(s.id) ? 'owned' : bought >= s.limit ? '~~limit reached~~' : `${bought}/${s.limit} bought today`;
+        return `${displayName(s)} — ${coins(s.price)} • ${status}`;
+      }).join('\n') + '\n-# Limits are per player and reset at 00:00 UTC.' },
       { name: '🎨 Cosmetics', value: shopCosmetics.map((c) => `${displayName({ id: c.id, kind: 'cosmetic' })} — ${coins(c.price)}${owned.has(c.id) ? ' ✅' : ''}`).join('\n') + '\n-# Equip with `/cosmetics`.' },
     );
 
   const options = [
     ...basics.map((b) => ({ id: b.id, price: b.price, kind: b.kind })),
-    ...stock.filter((s) => s.remaining > 0 && !owned.has(s.id)),
+    ...stock.filter((s) => boughtToday(profile, s.id, day) < s.limit && !owned.has(s.id)),
     ...shopCosmetics.filter((c) => !owned.has(c.id)).map((c) => ({ id: c.id, price: c.price, kind: 'cosmetic' as const })),
   ].slice(0, 25);
   const menu = new StringSelectMenuBuilder().setCustomId(makeId('~shop', userId)).setPlaceholder('Buy one...')
