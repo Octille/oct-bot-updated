@@ -78,6 +78,17 @@ describe('server levels (pure)', () => {
   });
 });
 
+describe('help', () => {
+  it('hides commands with default_member_permissions from members without them', async () => {
+    const { canSee } = await import('../src/ui/screens/help.js');
+    const manageGuild = (1n << 5n).toString();
+    expect(canSee({}, null)).toBe(true);
+    expect(canSee({ default_member_permissions: manageGuild }, null)).toBe(false);
+    expect(canSee({ default_member_permissions: manageGuild }, '0')).toBe(false);
+    expect(canSee({ default_member_permissions: manageGuild }, (1n << 5n | 1n << 10n).toString())).toBe(true);
+  });
+});
+
 describe('cards', () => {
   const style = { background: '#f39c12,#6e1a0a', frame: '#af810e,#f7dc6f', accent: '#af810e', badge: 'badge_founder' };
   it('render PNGs without an avatar (no network)', async () => {
@@ -109,7 +120,10 @@ describe('phase 3 (database)', () => {
   });
 
   it('prestige resets level and coins once, keeps unlocks, and pays tokens', async () => {
-    await User.create({ _id: 'pr1', wallet: 80_000, bank: 20_000, account: { xp: totalXpForLevel(prestigeLevel), level: prestigeLevel, best: prestigeLevel } });
+    await User.create({
+      _id: 'pr1', wallet: 80_000, bank: 20_000, account: { xp: totalXpForLevel(prestigeLevel), level: prestigeLevel, best: prestigeLevel },
+      inventory: { fish_carp: 5, gem_ruby: 2, crime_painting: 1, crate_rare: 3, xp_boost: 2, streak_freeze: 1 },
+    });
     const tries = await Promise.allSettled([prestige('pr1'), prestige('pr1'), prestige('pr1')]);
     expect(tries.filter((t) => t.status === 'fulfilled').length).toBe(1);
     const p = await getProfile('pr1');
@@ -117,6 +131,9 @@ describe('phase 3 (database)', () => {
     expect(p.wallet).toBe(1_000);
     expect(p.bank).toBe(0);
     expect(p.prestige?.tokens).toBe(1);
+    // Loot and crates are wiped; consumables are kept
+    const inv = Object.fromEntries(Object.entries(p.inventory ?? {}).filter(([, q]) => (q as number) > 0));
+    expect(inv).toEqual({ xp_boost: 2, streak_freeze: 1 });
     expect(unlockLevel(p)).toBe(prestigeLevel);
     await expect(prestige('pr1')).rejects.toThrow(/level/);
   });

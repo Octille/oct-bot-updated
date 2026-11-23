@@ -20,7 +20,7 @@ async function main(): Promise<void> {
   const userId = arg('user') ?? env.OWNER_ID;
   const set: Record<string, number> = {};
   const level = arg('level');
-  if (level !== undefined) Object.assign(set, { 'account.level': Number(level), 'account.xp': totalXpForLevel(Number(level)) });
+  if (level !== undefined) Object.assign(set, { 'account.level': Number(level), 'account.xp': totalXpForLevel(Number(level)), 'account.best': Number(level) });
   if (arg('wallet') !== undefined) set.wallet = Number(arg('wallet'));
   if (arg('bank') !== undefined) set.bank = Number(arg('bank'));
   if (Object.values(set).some((v) => !Number.isSafeInteger(v) || v < 0)) throw new Error('Values must be whole numbers ≥ 0.');

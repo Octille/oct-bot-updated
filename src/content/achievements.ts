@@ -101,3 +101,15 @@ export const achievementById = new Map(achievements.map((x) => [x.id, x]));
 export const categoryLabel: Record<AchievementCategory, string> = {
   activities: 'Activities', crime: 'Crime', collection: 'Collection', progress: 'Progress', social: 'Social',
 };
+
+/** The activity that progresses each (non-hidden) achievement; the hub uses it to suggest what to do next. */
+export const achievementActivity: Record<string, string> = {
+  first_shift: 'work', regular: 'work', workaholic: 'work', flawless: 'work',
+  first_ore: 'mine', rock_collector: 'mine', deep_delver: 'mine', shiny: 'mine',
+  first_catch: 'fish', angler: 'fish', old_salt: 'fish', curious_angler: 'fish', completionist: 'fish',
+  first_hunt: 'hunt', tracker: 'hunt', big_game: 'hunt',
+  groundskeeper: 'dig', x_marks: 'dig', treasure_hunter: 'dig',
+  shameless: 'beg', couch_diver: 'search',
+  first_offense: 'crime', light_fingers: 'crime', master_hacker: 'crime', fence: 'crime',
+  habit: 'daily', committed: 'daily', dedicated: 'daily',
+};

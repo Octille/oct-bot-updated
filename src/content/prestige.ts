@@ -4,7 +4,12 @@
  * unlocked stays unlocked (gates use your best-ever level).
  */
 
+import type { ItemType } from './items';
+
 export const MAX_PRESTIGE = 10;
+
+/** Item types a prestige wipes: sellable loot and unopened crates. Tools and consumables are kept. */
+export const prestigeWipes: readonly ItemType[] = ['fish', 'material', 'collectible', 'crate'];
 /** Account level needed to prestige (about 65 active hours the first time). */
 export const prestigeLevel = 35;
 

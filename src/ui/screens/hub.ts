@@ -1,5 +1,5 @@
 import { embed } from '../../lib/embeds';
-import { coins, duration, relative } from '../../lib/format';
+import { bar, coins, duration, num, relative } from '../../lib/format';
 import { testNotice } from '../../lib/testMode';
 import { itemName } from '../../content/items';
 import { buttonIcon, icon, titleIcon } from '../../lib/icons';
@@ -8,7 +8,9 @@ import { bailCost, isJailed, payBail } from '../../services/jail';
 import { capacityOf } from '../../services/economy';
 import { firstSteps, ONBOARDING_REWARD, onboardingVisible } from '../../services/onboarding';
 import { activities, statusOf, statusText } from '../activities';
-import { btn, ids, MAIN, NAV, row, type ScreenCtx } from '../kit';
+import { btn, ids, MAIN, MORE, NAV, row, select, SUGGESTED, type ScreenCtx } from '../kit';
+import { suggestedActivity } from '../suggest';
+import { unlockLevel, unlocksBetween } from '../../services/progression';
 import type { ScreenModule } from './types';
 import { levelFromXp } from '../../content/levels';
 
@@ -25,31 +27,46 @@ export function hubExpired(stamp: string | undefined, now = Date.now()): boolean
   return now - parseInt(stamp, 36) * 1000 > HUB_TTL_MS;
 }
 
+/** Prestige shows in the More menu from this level (or once you've prestiged). */
+const PRESTIGE_MENU_LEVEL = 30;
+
+/** "Level 20 unlocks Doctor job", for the first level above `from` that unlocks something. */
+function nextUnlock(from: number): string | null {
+  for (let l = from + 1; l <= from + 60; l++) {
+    const u = unlocksBetween(l - 1, l);
+    if (u.length) return `Level ${l} unlocks ${u.join(', ')}`;
+  }
+  return null;
+}
+
 export const hub: ScreenModule = {
   render(_path, ctx: ScreenCtx) {
     const p = ctx.profile;
     const now = new Date();
     const stamp = hubStamp(now.getTime());
     const jailed = isJailed(p.jailUntil, now.getTime());
-    const { level } = levelFromXp(p.account?.xp ?? 0);
+    const { level, into, needed } = levelFromXp(p.account?.xp ?? 0);
+    const unlockAt = unlockLevel(p);
+    const next = nextUnlock(Math.max(level, unlockAt));
+    const streak = p.streak?.count ?? 0;
+    const dailyReady = statusOf('daily', p, now).state === 'ready';
+    const onboarding = onboardingVisible(p);
 
-    const half = Math.ceil(activities.length / 2);
-    const statusLine = (a: (typeof activities)[number]) => `${a.name} · ${statusText(statusOf(a.id, p, now), now)}`;
     const e = embed('economy')
       .setTitle(`${titleIcon('menu')} Menu`)
       .setDescription([
         ctx.note,
-        `${icon('currency')} **${coins(p.wallet)}** wallet · ${coins(p.bank)} / ${coins(capacityOf(p)).replace('₪ ', '')} bank · Level ${level}`,
+        `${icon('currency')} **${coins(p.wallet)}** wallet · ${coins(p.bank)} / ${coins(capacityOf(p)).replace('₪ ', '')} bank`,
+        `**Level ${level}** ${bar(into, needed)} ${num(into)} / ${num(needed)} XP`,
+        next ? `Next unlock: ${next}` : null,
+        `Daily streak: **${streak} day${streak === 1 ? '' : 's'}**${dailyReady ? ' · daily ready' : ''}`,
         jailed ? `${icon('jail')} **You're in jail** until ${relative(p.jailUntil!)}. Pay bail below to get out now.` : null,
         testNotice(),
-      ].filter(Boolean).join('\n'))
-      .addFields(
-        { name: 'Activities', value: activities.slice(0, half).map(statusLine).join('\n'), inline: true },
-        { name: '\u200b', value: activities.slice(half).map(statusLine).join('\n'), inline: true },
-      )
-      .setFooter({ text: 'Tip: green buttons are ready now. Refresh to update the timers.' });
+      ].filter(Boolean).join('\n'));
+    // The tip only helps until First steps are done
+    if (onboarding) e.setFooter({ text: 'Tip: the blue button is the best thing to do next; green ones are ready too.' });
 
-    if (onboardingVisible(p)) {
+    if (onboarding) {
       const steps = firstSteps(p);
       e.addFields({
         name: `First steps ${steps.filter((s) => s.done).length}/${steps.length}`,
@@ -58,10 +75,17 @@ export const hub: ScreenModule = {
       });
     }
 
-    const activityButtons = activities.map((a) => {
-      const s = statusOf(a.id, p, now);
+    const statuses = activities.map((a) => ({ a, s: statusOf(a.id, p, now) }));
+    const ready = statuses.filter((x) => x.s.state === 'ready').map((x) => x.a.id);
+    const suggested = suggestedActivity(p, ready);
+    // Ready first (suggested at the front), then needs/locked, cooldowns last
+    const rank = (x: (typeof statuses)[number]) =>
+      x.a.id === suggested ? 0 : x.s.state === 'ready' ? 1 : x.s.state === 'needs' ? 2 : x.s.state === 'locked' ? 3 : 4;
+    const ordered = [...statuses].sort((x, y) => rank(x) - rank(y));
+
+    const activityButtons = ordered.map(({ a, s }) => {
       switch (s.state) {
-        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, MAIN, { emoji: buttonIcon(a.id as IconKey) });
+        case 'ready': return btn(ids.go(ctx.owner, a.id, stamp), a.ready, a.id === suggested ? SUGGESTED : MAIN, { emoji: buttonIcon(a.id as IconKey) });
         case 'cooldown': return btn(ids.go(ctx.owner, a.id, stamp), `${a.name} · ${duration(s.readyAt.getTime() - now.getTime())}`, NAV, { disabled: true });
         // Clickable: takes you to the fix (e.g. Shop › Tools › Weapon)
         case 'needs': return btn(ids.nav(ctx.owner, 'h', s.fix), s.label, NAV);
@@ -70,22 +94,22 @@ export const hub: ScreenModule = {
     });
 
     const rows = [row(...activityButtons.slice(0, 5)), row(...activityButtons.slice(5, 10))];
+    const more = [
+      { label: 'Shop', value: 'shop', description: 'Tools, consumables, crates and cosmetics' },
+      { label: 'Inventory', value: 'inv.all.0', description: 'Your items: use, sell or lock them' },
+      { label: 'Balance', value: 'bal', description: 'Wallet, bank, deposits and withdrawals' },
+      { label: 'Achievements', value: 'ach', description: 'Goals and their rewards' },
+      { label: 'Wardrobe', value: 'wardrobe', description: 'Titles, badges, themes and card styles' },
+      ...(unlockAt >= PRESTIGE_MENU_LEVEL || (p.account?.prestige ?? 0) > 0 ? [{ label: 'Prestige', value: 'prestige', description: 'Reset for a permanent bonus' }] : []),
+      { label: 'Help', value: 'help', description: 'Every command, by category' },
+    ];
+    rows.push(select(ids.pick(ctx.owner, 'h', MORE), 'More…', more));
+    const bottom = [btn(ids.nav(ctx.owner, 'h', 'hub'), 'Refresh', NAV)];
     if (jailed) {
       const cost = bailCost(p.jailUntil!);
-      rows.push(row(btn(ids.act(ctx.owner, 'h', 'hub', 'bail'), p.wallet >= cost ? `Pay bail · ${coins(cost)}` : `Need ${coins(cost - p.wallet)} more`, MAIN, { disabled: p.wallet < cost })));
+      bottom.push(btn(ids.act(ctx.owner, 'h', 'hub', 'bail'), p.wallet >= cost ? `Pay bail · ${coins(cost)}` : `Need ${coins(cost - p.wallet)} more`, MAIN, { disabled: p.wallet < cost }));
     }
-    rows.push(row(
-      btn(ids.nav(ctx.owner, 'h', 'shop'), 'Shop', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'inv.all.0'), 'Inventory', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'bal'), 'Balance', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'help'), 'Help', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'hub'), 'Refresh', NAV),
-    ));
-    rows.push(row(
-      btn(ids.nav(ctx.owner, 'h', 'ach'), 'Achievements', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'prestige'), 'Prestige', NAV),
-      btn(ids.nav(ctx.owner, 'h', 'wardrobe'), 'Wardrobe', NAV),
-    ));
+    rows.push(row(...bottom));
     return { embeds: [e], components: rows };
   },
 

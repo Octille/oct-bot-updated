@@ -33,6 +33,8 @@ export interface ScreenCtx {
   userName: string;
   /** Result of the last action, shown at the top. */
   note?: string;
+  /** The viewer's server permissions (bitfield string), when known. Used to hide admin commands. */
+  permissions?: string | null;
 }
 
 /** Labels stay short so they aren't cut off on mobile; details go in the embed. */
@@ -43,6 +45,9 @@ export const MAX_OPTIONS = 10;
 export function fit(label: string, max = MAX_LABEL): string {
   return label.length <= max ? label : `${label.slice(0, max - 1)}…`;
 }
+
+/** Select-menu base whose option values are whole screen paths (the hub's "More…" menu). */
+export const MORE = 'more';
 
 export const ids = {
   /** Navigate to a screen. */
@@ -57,6 +62,8 @@ export const ids = {
 };
 
 export const MAIN = ButtonStyle.Success;
+/** The hub's one suggested activity. */
+export const SUGGESTED = ButtonStyle.Primary;
 export const NAV = ButtonStyle.Secondary;
 export const DANGER = ButtonStyle.Danger;
 

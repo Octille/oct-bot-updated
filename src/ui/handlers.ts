@@ -8,10 +8,10 @@ import { launchCommand } from '../framework/launch';
 import { activities } from './activities';
 import { hubExpired } from './screens/hub';
 import { moduleFor, render } from './screens';
-import type { Origin, Payload, ScreenCtx } from './kit';
+import { MORE, type Origin, type Payload, type ScreenCtx } from './kit';
 
-function ctxFor(user: User, origin: Origin, profile: Profile, note?: string): ScreenCtx {
-  return { owner: user.id, origin, profile, userName: user.globalName ?? user.username, note };
+function ctxFor(user: User, origin: Origin, profile: Profile, note?: string, permissions?: string | null): ScreenCtx {
+  return { owner: user.id, origin, profile, userName: user.globalName ?? user.username, note, permissions };
 }
 
 /** Opening the hub also hands out the First steps crate when it's been earned. */
@@ -38,10 +38,11 @@ const navigate = defineComponent({
   async execute({ interaction, id, profile }) {
     if (interaction.isModalSubmit()) return;
     const [origin = 'c', base = 'hub'] = id.args;
-    const path = interaction.isStringSelectMenu() ? `${base}.${interaction.values[0]}` : base;
+    // The hub's More… menu carries whole paths; other selects append the value to the base path
+    const path = interaction.isStringSelectMenu() ? (base === MORE ? interaction.values[0]! : `${base}.${interaction.values[0]}`) : base;
     const payload = path === 'hub'
       ? await hubPayload(interaction.user, profile)
-      : render(path, ctxFor(interaction.user, origin as Origin, profile));
+      : render(path, ctxFor(interaction.user, origin as Origin, profile, undefined, interaction.memberPermissions?.bitfield.toString() ?? null));
     await interaction.update(payload);
   },
 });
@@ -53,7 +54,7 @@ const act = defineComponent({
     const [origin = 'c', path = 'hub', action = '', ...args] = id.args;
     const mod = moduleFor(path);
     if (!mod.act) return;
-    const ctx = ctxFor(interaction.user, origin as Origin, profile);
+    const ctx = ctxFor(interaction.user, origin as Origin, profile, undefined, interaction.memberPermissions?.bitfield.toString() ?? null);
     const result = await mod.act(path.split('.'), action, args, interaction, ctx);
     if ('handled' in result) return;
 

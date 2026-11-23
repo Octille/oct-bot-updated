@@ -9,6 +9,7 @@ export async function replyWithScreen(interaction: ChatInputCommandInteraction, 
     origin: 'c',
     profile,
     userName: interaction.user.globalName ?? interaction.user.username,
+    permissions: interaction.memberPermissions?.bitfield.toString() ?? null,
     note,
   });
   if (interaction.deferred || interaction.replied) await interaction.editReply(payload);

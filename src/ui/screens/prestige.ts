@@ -5,11 +5,33 @@ import { UserError } from '../../lib/errors';
 import { getCosmetic } from '../../content/cosmetics';
 import { prestigeIncomeBonus } from '../../content/levels';
 import { MAX_PRESTIGE, perks, prestigeCosmeticCost, prestigeLevel, prestigeNumerals, tokensFor, type PerkId } from '../../content/prestige';
-import { buyPerk, buyPrestigeCosmetic, canPrestige, prestige } from '../../services/prestige';
+import { buyPerk, buyPrestigeCosmetic, canPrestige, prestige, prestigeLoot } from '../../services/prestige';
+import { inventoryValue } from '../../services/items';
+import { getItem, type ItemType } from '../../content/items';
 import { back, btn, DANGER, ids, MAIN, NAV, row, select, type Payload, type ScreenCtx } from '../kit';
 import type { ScreenModule } from './types';
 
 const numeral = (p: number) => (p ? prestigeNumerals[p] ?? String(p) : '0');
+
+const LOSE = 'your level and XP, wallet, bank, and all fish, gems, treasure, other loot and unopened crates';
+const KEEP = 'tools, consumables, cosmetics, achievements, fishdex progress, job ranks, streaks and everything you unlocked';
+
+const LOOT_LABEL: Partial<Record<ItemType, [string, string]>> = {
+  fish: ['fish', 'fish'], material: ['gem or material', 'gems and materials'], collectible: ['treasure or find', 'treasure and finds'], crate: ['crate', 'crates'],
+};
+
+/** "12 fish, 3 gems and materials, 1 crate (sells for ₪8,400)" */
+function lootSummary(p: ScreenCtx['profile']): string {
+  const loot = prestigeLoot(p);
+  const byType = new Map<ItemType, number>();
+  for (const [id, q] of Object.entries(loot)) {
+    const t = getItem(id)!.type;
+    byType.set(t, (byType.get(t) ?? 0) + q);
+  }
+  if (!byType.size) return 'none';
+  const parts = [...byType].map(([t, n]) => `${n} ${LOOT_LABEL[t]![n === 1 ? 0 : 1]}`);
+  return `**${parts.join(', ')}** (sells for ${coins(inventoryValue(loot))})`;
+}
 
 function main(ctx: ScreenCtx): Payload {
   const p = ctx.profile;
@@ -28,8 +50,8 @@ function main(ctx: ScreenCtx): Payload {
         ? "You've reached the top. Nothing left but bragging rights."
         : `**Next prestige** needs account level **${prestigeLevel}** (you're ${level}).`,
       current < MAX_PRESTIGE ? `You get: **+${Math.round(prestigeIncomeBonus * 100)}%** coins for good, **${tokensFor(current + 1)}** prestige token${tokensFor(current + 1) === 1 ? '' : 's'} and the Prestige ${numeral(current + 1)} marker on your cards.` : null,
-      current < MAX_PRESTIGE ? 'You lose: your level and XP, your wallet and your bank.' : null,
-      current < MAX_PRESTIGE ? 'You keep: items, tools, cosmetics, achievements, fishdex, job ranks, streaks, and everything you unlocked.' : null,
+      current < MAX_PRESTIGE ? `You lose: ${LOSE}.` : null,
+      current < MAX_PRESTIGE ? `You keep: ${KEEP}.` : null,
     ].filter((l) => l !== null && l !== undefined).join('\n'));
   return {
     embeds: [e],
@@ -50,12 +72,16 @@ function confirm(ctx: ScreenCtx): Payload {
     .setDescription([
       `${icon('warning')} This resets your progress. It can't be undone.`,
       '',
-      `Account level **${p.account?.level ?? 0}** → **0**`,
-      `Wallet **${coins(p.wallet)}** → **${coins(1_000)}**`,
-      `Bank **${coins(p.bank)}** → **${coins(0)}**`,
+      '**You will lose:**',
+      `· Account level **${p.account?.level ?? 0}** → **0** (and its XP)`,
+      `· Wallet **${coins(p.wallet)}** → **${coins(1_000)}**`,
+      `· Bank **${coins(p.bank)}** → **${coins(0)}**`,
+      `· Loot: ${lootSummary(p)}`,
+      '',
+      `**You keep:** ${KEEP}.`,
       '',
       `You become **Prestige ${numeral(current + 1)}**: +${Math.round(prestigeIncomeBonus * 100)}% coins for good and ${tokensFor(current + 1)} prestige token${tokensFor(current + 1) === 1 ? '' : 's'}.`,
-      'Items, tools, cosmetics and unlocks are kept. Tip: spend your coins on upgrades first.',
+      'Tip: sell your loot and spend your coins on tool upgrades first.',
     ].join('\n'));
   return {
     embeds: [e],

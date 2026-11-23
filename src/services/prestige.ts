@@ -1,8 +1,10 @@
 import { getCosmetic } from '../content/cosmetics';
 import { economyConfig } from '../content/economy';
-import { MAX_PRESTIGE, perks, prestigeCosmeticCost, prestigeLevel, tokensFor, type PerkId } from '../content/prestige';
+import { MAX_PRESTIGE, perks, prestigeCosmeticCost, prestigeLevel, prestigeWipes, tokensFor, type PerkId } from '../content/prestige';
 import { UserError } from '../lib/errors';
 import { apply, getProfile, type Profile } from './economy';
+import { getItem } from '../content/items';
+import { inventoryOf } from './items';
 
 export type PrestigeCheck = { ok: true } | { ok: false; reason: string };
 
@@ -13,8 +15,19 @@ export function canPrestige(p: Profile): PrestigeCheck {
   return { ok: true };
 }
 
+/** Inventory a prestige would wipe: itemId → quantity. */
+export function prestigeLoot(p: Profile): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [id, qty] of Object.entries(inventoryOf(p))) {
+    const type = getItem(id)?.type;
+    if (qty > 0 && type && prestigeWipes.includes(type)) out[id] = qty;
+  }
+  return out;
+}
+
 /**
- * Prestiges: level and XP back to 0, wallet back to the starting amount, bank emptied.
+ * Prestiges: level and XP back to 0, wallet back to the starting amount, bank emptied, and
+ * sellable loot and crates removed (so wealth can't be parked in items).
  * One conditional update, guarded on the level and the current prestige, so a double-click can't
  * prestige twice. Coin changes go through the transaction log like any other.
  */
@@ -26,9 +39,11 @@ export async function prestige(userId: string): Promise<{ profile: Profile; pres
   const next = current + 1;
   const tokens = tokensFor(next);
   const walletDelta = economyConfig.startingWallet - p.wallet;
+  const loot = prestigeLoot(p);
   const profile = await apply(userId, {
     wallet: walletDelta || undefined,
     bank: p.bank ? -p.bank : undefined,
+    items: Object.keys(loot).length ? Object.fromEntries(Object.entries(loot).map(([id, q]) => [id, -q])) : undefined,
     set: { 'account.xp': 0, 'account.level': 0 },
     inc: { 'account.prestige': 1, 'prestige.tokens': tokens },
     max: { 'account.best': p.account?.level ?? 0 },

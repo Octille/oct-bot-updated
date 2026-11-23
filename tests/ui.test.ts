@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import '../src/framework/registry';
 import { ButtonStyle, ComponentType } from 'discord.js';
 import { render, screens } from '../src/ui/screens';
-import { MAX_LABEL, MAX_OPTIONS, type Origin, type Payload, type ScreenCtx } from '../src/ui/kit';
+import { MAX_LABEL, MAX_OPTIONS, MORE, type Origin, type Payload, type ScreenCtx } from '../src/ui/kit';
 import { parseId } from '../src/lib/customId';
 import { items } from '../src/content/items';
 import { pickaxes, rods, weapons, shovels } from '../src/content/tools';
@@ -79,7 +79,7 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
         const id = parseId(c.custom_id);
         if (id.prefix !== 'ui') continue;
         const base = id.args[1]!;
-        if (c.type === ComponentType.StringSelect) for (const o of c.options) queue.push(`${base}.${o.value}`);
+        if (c.type === ComponentType.StringSelect) for (const o of c.options) queue.push(base === MORE ? o.value : `${base}.${o.value}`);
         else if (!('disabled' in c && c.disabled)) queue.push(base);
       }
     }
@@ -199,7 +199,41 @@ describe('hub', () => {
     const show = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct' }).embeds[0]!.toJSON();
     expect(show.fields?.some((f) => f.name.includes('First steps'))).toBe(true);
     const hide = render('hub', { owner: OWNER, origin: 'h', profile: players.maxed!, userName: 'Oct' }).embeds[0]!.toJSON();
-    expect(hide.fields?.some((f) => f.name.includes('First steps'))).toBe(false);
+    expect(hide.fields?.some((f) => f.name.includes('First steps')) ?? false).toBe(false);
+    // The tip line goes away with First steps
+    expect(show.footer?.text).toMatch(/Tip/);
+    expect(hide.footer?.text ?? '').not.toMatch(/Tip/);
+  });
+
+  it('orders ready activities first, cooldowns last, with exactly one suggested (blue) button', () => {
+    for (const [who, p] of Object.entries(players)) {
+      const buttons = render('hub', { owner: OWNER, origin: 'h', profile: p, userName: 'Oct' }).components.slice(0, 2)
+        .flatMap((r) => r.toJSON().components).filter((c) => c.type === ComponentType.Button) as { style: number; disabled?: boolean; label?: string }[];
+      const kinds = buttons.map((b) => (b.style === ButtonStyle.Primary || b.style === ButtonStyle.Success ? 0 : / · \d/.test(b.label ?? '') && b.disabled ? 2 : 1));
+      expect([...kinds].sort((a, b) => a - b), who).toEqual(kinds);
+      const blue = buttons.filter((b) => b.style === ButtonStyle.Primary).length;
+      const anyReady = kinds.includes(0);
+      expect(blue, who).toBe(anyReady ? 1 : 0);
+      if (anyReady) expect(buttons[0]!.style, who).toBe(ButtonStyle.Primary);
+    }
+  });
+
+  it('has no Activities list, a level bar and next unlock, and a More menu (Prestige only from level 30)', () => {
+    const hubOf = (p: Profile) => render('hub', { owner: OWNER, origin: 'h', profile: p, userName: 'Oct' });
+    const newbie = hubOf(players.newbie!);
+    const json = newbie.embeds[0]!.toJSON();
+    expect(json.fields?.some((f) => f.name === 'Activities') ?? false).toBe(false);
+    expect(json.description).toMatch(/Level 0\*\* .*XP/);
+    expect(json.description).toMatch(/Next unlock: Level \d+ unlocks /);
+    expect(json.description).toMatch(/Daily streak/);
+    const moreOptions = (p: Profile) => hubOf(p).components.flatMap((r) => r.toJSON().components)
+      .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
+    expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Wardrobe', 'Help']);
+    expect(moreOptions(players.maxed!)).toContain('Prestige');
+    expect(moreOptions(players.prestiged!)).toContain('Prestige');
+    // Only Refresh (and bail when jailed) as buttons outside the activity rows
+    const lastRow = newbie.components.at(-1)!.toJSON().components.map((c) => ('label' in c ? c.label : ''));
+    expect(lastRow).toEqual(['Refresh']);
   });
 
   it('hub activity buttons expire after 15 minutes', () => {

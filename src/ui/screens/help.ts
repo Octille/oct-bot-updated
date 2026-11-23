@@ -28,13 +28,21 @@ const EXAMPLES: Record<string, string> = {
   fishdex: '/fishdex user:@friend',
 };
 
-function commandsIn(category: Category) {
-  return getCommandList().filter((c) => c.category === category).map((c) => c.data.toJSON());
+/** Commands with default_member_permissions (admin commands) only show to members who have them. */
+export function canSee(json: { default_member_permissions?: string | null }, permissions: string | null | undefined): boolean {
+  if (!json.default_member_permissions) return true;
+  if (!permissions) return false;
+  const need = BigInt(json.default_member_permissions);
+  return (BigInt(permissions) & need) === need;
+}
+
+function commandsIn(category: Category, permissions?: string | null) {
+  return getCommandList().filter((c) => c.category === category).map((c) => c.data.toJSON()).filter((c) => canSee(c, permissions));
 }
 
 export const help: ScreenModule = {
   render(path, ctx) {
-    const sections = SECTIONS.filter((s) => commandsIn(s.category).length);
+    const sections = SECTIONS.filter((s) => commandsIn(s.category, ctx.permissions).length);
     const picker = select(ids.pick(ctx.owner, ctx.origin, 'help'), 'Pick a category', sections.map((s) => ({
       label: s.title, value: s.category, description: s.blurb, default: s.category === path[1],
     })));
@@ -46,13 +54,13 @@ export const help: ScreenModule = {
           testNotice(),
           'New here? Run **/menu** — it shows what you can do right now.',
           '',
-          ...sections.map((s) => `**${s.title}** — ${s.blurb} (${commandsIn(s.category).length} commands)`),
+          ...sections.map((s) => `**${s.title}** — ${s.blurb} (${commandsIn(s.category, ctx.permissions).length} commands)`),
         ].filter((l) => l !== null).join('\n')).setFooter({ text: 'Tip: pick a category to see its commands.' })],
         components: [picker, row(back(ctx, null))],
       };
     }
 
-    const lines = commandsIn(section.category).map((c) => `\`/${c.name}\` — ${c.description}${EXAMPLES[c.name] ? `\n-# e.g. \`${EXAMPLES[c.name]}\`` : ''}`);
+    const lines = commandsIn(section.category, ctx.permissions).map((c) => `\`/${c.name}\` — ${c.description}${EXAMPLES[c.name] ? `\n-# e.g. \`${EXAMPLES[c.name]}\`` : ''}`);
     return {
       embeds: [embed('utility').setTitle(`${titleIcon('help')} Help › ${section.title}`).setDescription(lines.join('\n').slice(0, 4000))],
       components: [picker, row(back(ctx, 'help'))],
