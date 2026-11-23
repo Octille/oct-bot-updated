@@ -87,7 +87,7 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
   return [...seen].map(([path, payload]) => ({ path, payload }));
 }
 
-const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm'];
+const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm', 'casino'];
 
 describe('every menu screen', () => {
   for (const [who, p] of Object.entries(players)) {
@@ -228,7 +228,7 @@ describe('hub', () => {
     expect(json.description).toMatch(/Daily streak/);
     const moreOptions = (p: Profile) => hubOf(p).components.flatMap((r) => r.toJSON().components)
       .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
-    expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Wardrobe', 'Help']);
+    expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Casino', 'Wardrobe', 'Help']);
     expect(moreOptions(players.maxed!)).toContain('Prestige');
     expect(moreOptions(players.prestiged!)).toContain('Prestige');
     // Refresh ends the last activity row; the More menu is the final row

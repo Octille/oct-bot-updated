@@ -8,6 +8,7 @@ import type { UseResult } from '../../services/items';
 export function describeUse(result: UseResult): string {
   switch (result.kind) {
     case 'boost': return `${icon('success')} ${result.label} active until ${relative(result.until)}.`;
+    case 'guard_dog': return `${icon('success')} Your guard dog is on duty until ${relative(result.until)}. Robbers have a much lower chance against you.`;
     case 'bank_note': return `${icon('success')} Bank capacity raised. Bank notes now add **+${coins(result.newCapacityBonus)}** in total.`;
     case 'scratch': return `🎟️ ${result.prizes.map((p) => (p ? `🎉 ${coins(p)}` : '❌')).join(' • ')} — total **${coins(result.total)}**`;
     case 'crate': {

@@ -14,7 +14,10 @@ export const boostEffect = { xpMult: 2, coinMult: 1.5, luckPoints: 2, gemMult: 2
 /** Using a boost while one is running extends it, up to this many minutes in total. */
 export const maxBoostMinutes = 120;
 
-export const consumableUses: Record<string, { kind: 'boost'; boost: BoostKind } | { kind: 'bank_note' } | { kind: 'streak_freeze' } | { kind: 'scratch' } | { kind: 'crate' }> = {
+export const consumableUses: Record<string, { kind: 'boost'; boost: BoostKind } | { kind: 'bank_note' } | { kind: 'streak_freeze' } | { kind: 'scratch' } | { kind: 'crate' } | { kind: 'guard_dog' } | { kind: 'passive' }> = {
+  guard_dog: { kind: 'guard_dog' },
+  // Works by itself (a robbery uses it up)
+  padlock: { kind: 'passive' },
   xp_boost: { kind: 'boost', boost: 'xp' },
   coin_boost: { kind: 'boost', boost: 'coin' },
   luck_potion: { kind: 'boost', boost: 'luck' },

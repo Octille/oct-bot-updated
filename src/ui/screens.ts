@@ -11,10 +11,11 @@ import { help } from './screens/help';
 import { jail } from './screens/jail';
 import { achievementsScreen } from './screens/achievements';
 import { prestigeScreen } from './screens/prestige';
+import { casino } from './screens/casino';
 
 /** Screen modules by the first segment of their path. */
 export const screens: Record<string, ScreenModule> = {
-  hub, shop, inv: inventory, wardrobe, bal: balance, job, dex: fishdex, help, jail, ach: achievementsScreen, prestige: prestigeScreen,
+  hub, shop, inv: inventory, wardrobe, bal: balance, job, dex: fishdex, help, jail, ach: achievementsScreen, prestige: prestigeScreen, casino,
 };
 
 export function moduleFor(path: string): ScreenModule {

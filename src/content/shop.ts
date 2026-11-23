@@ -14,6 +14,8 @@ export const basics: readonly ShopEntry[] = [
   { id: 'streak_freeze', price: 15_000, kind: 'item' },
   { id: 'bank_note', price: 18_000, kind: 'item' },
   { id: 'coin_boost', price: 20_000, kind: 'item' },
+  { id: 'padlock', price: 4_000, kind: 'item' },
+  { id: 'guard_dog', price: 25_000, kind: 'item' },
 ];
 
 export interface RotationEntry extends ShopEntry {

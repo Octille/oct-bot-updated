@@ -1,3 +1,4 @@
+import { guardDogDays, maxGuardDogDays } from '../content/social';
 import { boosts, consumableUses } from '../content/consumables';
 import { economyConfig } from '../content/economy';
 import { getCrate } from '../content/crates';
@@ -23,6 +24,7 @@ export function inventoryValue(inventory: Inventory): number {
 
 export type UseResult =
   | { kind: 'boost'; label: string; until: Date }
+  | { kind: 'guard_dog'; until: Date }
   | { kind: 'bank_note'; qty: number; newCapacityBonus: number }
   | { kind: 'scratch'; qty: number; prizes: number[]; total: number }
   | { kind: 'crate'; itemId: string; qty: number; loot: CrateLoot };
@@ -39,6 +41,23 @@ export async function useItem(userId: string, itemId: string, qty: number): Prom
   switch (use.kind) {
     case 'streak_freeze':
       throw new UserError('Streak freezes are used automatically when you miss a day of `/daily`. Just keep it in your inventory.');
+    case 'passive':
+      throw new UserError(`${itemLabel(itemId)} works by itself while it's in your inventory.`);
+    case 'guard_dog': {
+      // Each dog adds days of protection, up to a cap
+      const current = profile.boosts?.guard ?? null;
+      const now = Date.now();
+      const start = current && new Date(current).getTime() > now ? new Date(current).getTime() : now;
+      const until = new Date(Math.min(start + qty * guardDogDays * 86_400_000, now + maxGuardDogDays * 86_400_000));
+      if (until.getTime() <= start) throw new UserError(`Your guard dog is already on duty for the maximum ${maxGuardDogDays} days.`);
+      try {
+        await apply(userId, { items: { [itemId]: -qty }, set: { 'boosts.guard': until }, where: { 'boosts.guard': current } }, { source: 'item.use', meta: { itemId, qty } });
+      } catch (err) {
+        if (err instanceof EconomyError && err.code === 'CONFLICT') throw new UserError('Your guard dog changed while you were using it. Try again.');
+        throw err;
+      }
+      return { kind: 'guard_dog', until };
+    }
     case 'boost': {
       if (qty > 4) throw new UserError('You can use up to 4 boosts at a time.');
       const info = boosts[use.boost];

@@ -74,6 +74,8 @@ const consumableItems: Item[] = [
   { id: 'luck_potion', name: 'Luck Potion', emoji: '🍀', rarity: 'rare', type: 'consumable', sellPrice: buyback('luck_potion', 12_000), tradable: true, description: 'Rarer fish, animals and treasure, and double gem chance, for 30 minutes.' },
   { id: 'bank_note', name: 'Bank Note', emoji: '🏦', rarity: 'uncommon', type: 'consumable', sellPrice: buyback('bank_note', 18_000), tradable: true, description: 'Permanently raises your bank capacity by ₪ 10,000.' },
   { id: 'streak_freeze', name: 'Streak Freeze', emoji: '🧊', rarity: 'rare', type: 'consumable', sellPrice: buyback('streak_freeze', 15_000), tradable: true, description: 'Used automatically to save your daily streak when you miss a day.' },
+  { id: 'padlock', name: 'Padlock', emoji: '🔒', rarity: 'uncommon', type: 'consumable', sellPrice: buyback('padlock', 4_000), tradable: true, description: 'Blocks one robbery automatically, then breaks.' },
+  { id: 'guard_dog', name: 'Guard Dog', emoji: '🐕', rarity: 'rare', type: 'consumable', sellPrice: buyback('guard_dog', 25_000), tradable: true, description: 'Use it for 3 days of protection: robbers have a much lower chance against you.' },
   { id: 'scratch_card', name: 'Scratch Card', emoji: '🎟️', rarity: 'common', type: 'consumable', sellPrice: buyback('scratch_card', 1_000), tradable: true, description: 'Scratch for a prize of up to ₪ 40,000.' },
 ];
 

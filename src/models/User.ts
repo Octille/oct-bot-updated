@@ -44,6 +44,8 @@ const userSchema = new Schema(
       xp: { type: Date, default: null },
       coin: { type: Date, default: null },
       luck: { type: Date, default: null },
+      /** Guard dog protection (see content/social.ts). */
+      guard: { type: Date, default: null },
     },
 
     cosmetics: {
@@ -128,6 +130,28 @@ const userSchema = new Schema(
       /** Messages and voice minutes that earned server XP, across all servers. */
       messages: { type: Number, default: 0 },
       voiceMinutes: { type: Number, default: 0 },
+      robsWon: { type: Number, default: 0 },
+      robsFailed: { type: Number, default: 0 },
+      robbedTimes: { type: Number, default: 0 },
+      robbersCaught: { type: Number, default: 0 },
+      heists: { type: Number, default: 0 },
+      heistsWon: { type: Number, default: 0 },
+      duelsWon: { type: Number, default: 0 },
+      duelsLost: { type: Number, default: 0 },
+      trades: { type: Number, default: 0 },
+      gambling: {
+        played: { type: Number, default: 0 },
+        wagered: { type: Number, default: 0 },
+        paidOut: { type: Number, default: 0 },
+        /** Biggest net win in one round. */
+        biggestWin: { type: Number, default: 0 },
+        /** game → totals */
+        byGame: {
+          type: Map,
+          of: new Schema({ played: { type: Number, default: 0 }, wagered: { type: Number, default: 0 }, paidOut: { type: Number, default: 0 } }, { _id: false }),
+          default: () => new Map(),
+        },
+      },
       cratesOpened: { type: Number, default: 0 },
       itemsSold: { type: Number, default: 0 },
       streakFreezesUsed: { type: Number, default: 0 },
