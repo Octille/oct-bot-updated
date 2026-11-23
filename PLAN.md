@@ -210,7 +210,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - account levels and unlocks, prestige 0–10 with badges and a prestige shop
   - 40+ achievements, some hidden.
   - Veteran rank card frames/backgrounds (one per tier); badge and title on rank cards, leaderboards and level-up messages.
-- [ ] **4. Gambling + social:**
+- [x] **4. Gambling + social** (built: coinflip, slots, blackjack, high-low, roulette, crash with tested house edges and a ₪2.5M per-round cap; /casino; /settings gambling; rob with padlock, guard dog and a 30s escrowed getaway the victim can catch; NPC-vault heist lobby; reaction duel; trade window; give (5% tax) and gift; coins in trades and duel pots taxed like give):
   - blackjack, slots, coinflip, high-low, roulette, crash, gambling stats
   - rob with counterplay, multiplayer heist lobby, duel, trade window, give (tax), gift.
 - [ ] **5. Retention & events:**

@@ -39,6 +39,12 @@ import roulette from './gambling/roulette';
 import crash from './gambling/crash';
 import casino from './gambling/casino';
 import settings from './admin/settings';
+import rob from './social/rob';
+import heist from './social/heist';
+import duel from './social/duel';
+import trade from './social/trade';
+import give from './social/give';
+import gift from './social/gift';
 
 /** Every slash command. Add new commands here. */
 export const commands: SlashCommand[] = [
@@ -49,5 +55,6 @@ export const commands: SlashCommand[] = [
   inventory, iteminfo, sell, use, shop, buy, cosmetics,
   rank, profileCmd, achievementsCmd, prestigeCmd, levels,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,
+  rob, heist, duel, trade, give, gift,
   settings,
 ];

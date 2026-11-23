@@ -105,6 +105,26 @@ Per server, separate from account levels. XP to the next level is `5L² + 50L + 
 
 Needs account level 35 (about 65 active hours the first time). Resets level, XP, wallet (to ₪1,000) and bank; keeps everything else, and unlocks use the best-ever level. Each prestige: +5% coins for good and 1 token (2 from prestige 5). Re-levelling to 35 takes the same ~65 hours of actions, minus the Scholar perk (+15% XP) and faster coin income from kept late-game tools. Max prestige 10 = +50% coins; 15 tokens in total, perks and prestige cosmetics cost 15.
 
+## Gambling (Phase 4)
+
+Bets ₪100 up to ₪10,000 + ₪5,000 per (best-ever) account level, max ₪250,000. Per game the max bet is also limited so one round never pays more than ₪2,500,000 (high-low and crash cash out automatically at that point instead). Bets are taken when the round starts and paid at the end.
+
+| Game | Rules | House edge |
+|---|---|---|
+| Coinflip | 50% to win 1.95× | 2.50% (exact) |
+| Slots | 3 reels, 7 symbols; three of a kind 4–25×, two cherries 2.2×, any pair 1.5× (46.7% of spins pay) | 4.63% (exact) |
+| Blackjack | 6 decks, dealer stands on 17, blackjack 3:2, double on any two, no split | 1.14% (2M-hand basic-strategy simulation) |
+| High-low | next card higher/lower, ties win; each step pays fair odds × 0.97 | 3% per guess |
+| Roulette | European, single zero; 2× / 3× / 36× | 2.70% (exact) |
+| Crash | P(crash ≥ x) = 0.97 / x; ~4% of rounds end at 1.00× | 3.00% (exact) |
+
+## Social (Phase 4)
+
+- **Rob** (level 5, 30m cooldown): target must have played, been active in the last 24h and hold ₪2,500+. Chance 40% ± 1.5% per level difference (15–60%), −15% against a guard dog. Steals 10–25% of their wallet (max ₪50,000), held 30s: the victim can catch the robber (loot back, fine, 15m jail). Failing costs a fine of 10% of your wallet (₪500–10,000, paid to the target), 35% chance of 10m jail. A padlock blocks one robbery. Targets are protected for an hour after any attempt. Coins only move between players.
+- **Heist** (level 10, 4h cooldown, crews of 2–6): ₪5,000 stake each; success 48% (2) → 75% (5+); success pays ₪11,000 each, failure loses the stake (40% jail chance each). It's the only social source of new coins: at most about ₪800/hour per player, under 3% of early-game income.
+- **Duel** (level 3): both stake the same; the pot minus 5% goes to whoever clicks DRAW! first.
+- **Give / trade coins**: 5% tax. Give, gift and trade need level 3, and only work with players who already have a profile.
+
 ## Migration ceiling (Phase 7)
 
 The v2 migration caps corrupt balances at a ceiling derived from the late-game row above. The plan is roughly 30 days of heavy late-game play: late-game ₪/hour × 4 hours × 30 days. With the current numbers that's **≈ ₪ 15.4M**. The exact figure is recomputed from this table when the migration runs.
