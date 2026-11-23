@@ -15,7 +15,7 @@ export const BRAND = 0x6066ae;
  *   white — on green/blue buttons only, where the label is white too
  *   grey  — inline in embed text (Discord's muted text colour)
  */
-export const ICON_VARIANTS = { brand: '#7f83be', white: '#ffffff', grey: '#949ba4' } as const;
+export const ICON_VARIANTS = { brand: '#7f83be', white: '#ffffff', grey: '#80848e' } as const;
 export type IconVariant = keyof typeof ICON_VARIANTS;
 /** One-letter variant codes used in application emoji names. */
 export const VARIANT_CODE: Record<IconVariant | 'fixed', string> = { brand: 'b', white: 'w', grey: 'g', fixed: 'c' };

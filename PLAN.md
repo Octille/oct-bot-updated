@@ -276,7 +276,7 @@ Nothing gets cut from the brief. If something turns out not to be workable, I'll
 
 ## 9. Veteran set (players from the original bot)
 
-Thresholds proposed from a read-only look at the live data (77,801 profiles; 76,671 never ran a tracked command). The old bot's `level` field barely moved (only 382 profiles above 0, max level 3) and nobody prestiged, so tiers use **distinct commands used** (`commands_cooldowns`) and join date instead. **Proposed, waiting for approval.**
+Thresholds proposed from a read-only look at the live data (77,801 profiles; 76,671 never ran a tracked command). The old bot's `level` field barely moved (only 382 profiles above 0, max level 3) and nobody prestiged, so tiers use **distinct commands used** (`commands_cooldowns`) and join date instead. **Approved 2026-11-23.**
 
 | Tier | Rule | Count |
 |---|---|---|
