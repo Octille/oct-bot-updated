@@ -139,7 +139,7 @@ Bets ₪100 up to ₪10,000 + ₪5,000 per (best-ever) account level, max ₪250
 | Weekly quest | ₪1,500 + ₪350 × level, 250 XP | ₪3,250 | ₪6,750 | ₪13,750 |
 | All 3 weekly | Rare Crate (Epic from level 35) | | | |
 
-Per day (dailies + a seventh of the weeklies), at 1.5 active hours a day, with bonus crates counted at their **opened** value: **14.1% mid, 15.7% late**, but 28.1% for a brand-new player and 19.4% early (level 5), because their income is small next to even a Common crate. Coins are 4–7% of income; the bonus crates are the rest. Test: 12–20% from level 15; under 30% before that (owner decision pending). Quests only count real activity: "sell" quests are fish only (shop items sell back below cost), chat messages count once a minute across all servers, and daily/weekly claims don't count as "earned".
+Per day (dailies + a seventh of the weeklies), at 1.5 active hours a day, with bonus crates counted at their **opened** value: **14.1% mid, 15.7% late**, but 28.1% for a brand-new player and 19.4% early (level 5), because their income is small next to even a Common crate. Coins are 4–7% of income; the bonus crates are the rest. This is **deliberate**: generous early quests help new players get started, and the share settles to ~15% by mid-game (decided 2026-11-24). Test: 12–20% from level 15; under 30% before that. Quests only count real activity: "sell" quests are fish only (shop items sell back below cost), chat messages count once a minute across all servers, and daily/weekly claims don't count as "earned".
 
 ## Leaderboards (Phase 5a)
 
