@@ -2,6 +2,7 @@
  * Play-testing helper: sets a profile's level and coins in the LOCAL dev database.
  *   npx tsx scripts/dev-set.ts --level 20 --wallet 500000 [--bank 0] [--user <discord id>]
  *   npx tsx scripts/dev-set.ts --veteran founder --reset-welcome   (grant a veteran tier; show the welcome-back again)
+ *   npx tsx scripts/dev-set.ts --age-days 10                       (backdate the profile, for the 3-day anti-alt rule)
  * Defaults to OWNER_ID. Refuses to run against a hosted (Atlas) database.
  */
 import mongoose from 'mongoose';
@@ -35,6 +36,11 @@ async function main(): Promise<void> {
   if (tier !== undefined) {
     if (!veteranTiers.includes(tier as VeteranTier)) throw new Error(`--veteran must be one of ${veteranTiers.join(', ')}`);
     await grantVeteran(userId, tier as VeteranTier);
+  }
+  if (arg('age-days') !== undefined) {
+    const days = Number(arg('age-days'));
+    if (!Number.isFinite(days) || days < 0) throw new Error('--age-days must be a number ≥ 0');
+    await User.collection.updateOne({ _id: userId as never }, { $set: { createdAt: new Date(Date.now() - days * 86_400_000) } });
   }
   if (process.argv.includes('--reset-welcome')) await User.updateOne({ _id: userId }, { $set: { 'veteran.welcomed': false } });
   const u = await User.findById(userId).lean();
