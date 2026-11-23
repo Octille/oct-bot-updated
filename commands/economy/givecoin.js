@@ -1,9 +1,10 @@
 const profileModel = require('../../models/profileSchema');
+const { isOwner } = require('../../utils');
 module.exports = {
   name: 'givecoin',
   description: 'Give a player some coins (owner only)',
   async execute(message, args) {
-    if (message.member.id !== '460509056487129090') return message.channel.send('Sorry, only **Gurkirat** can run this command.');
+    if (!isOwner(message.author.id)) return message.channel.send('Sorry, only the bot owner can run this command.');
     if (!args.length) return message.channel.send('You need to mention a player to give them coins.');
     const target = message.mentions.users.first();
     const amount = parseInt(args[1]);

@@ -11,10 +11,6 @@ const guildSchema = new mongoose.Schema({
   // Role given to every new member (!autorole)
   autoRoleID: { type: String, default: null },
 
-  // Counting game (!counting)
-  countingChannelID: { type: String, default: null },
-  countingNumber:    { type: Number, default: 0 },
-
   // Reaction ticket panel (!ticketsetup)
   ticket: {
     messageID: { type: String, default: null },

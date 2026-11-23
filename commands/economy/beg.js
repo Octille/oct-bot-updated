@@ -15,7 +15,6 @@ module.exports = {
         `Ben Simmons shot a 3! Earning you **₪${randomNumber}**!`,
         `Your mom donated **₪${randomNumber}** which landed in your hands.`,
         `Steven Hawking sent down **₪${randomNumber}** from heaven!`,
-        `Gurkirat (developer) sent you **₪${randomNumber}**!`,
         `Someone finally liked your tiktok earning you **₪${randomNumber}**!`,
         `A fan blew **₪${randomNumber}** at you.`,
         `Your friend lent you **₪${randomNumber}**. Remember to return it.`,

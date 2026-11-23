@@ -10,11 +10,6 @@ module.exports = async (client, message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
 
-  // Delete messages in the ticket-creation channel
-  if (message.channel.id === '820435226227638302') {
-    message.delete().catch(() => {});
-  }
-
   // Fetch or create guild settings
   let settings;
   try {
@@ -31,18 +26,6 @@ module.exports = async (client, message) => {
   } catch (err) {
     console.error('[MessageCreate] Guild settings error:', err);
     settings = { prefix: process.env.PREFIX || '!' };
-  }
-
-  // Counting channel: only the next number is allowed
-  if (settings.countingChannelID && message.channel.id === settings.countingChannelID) {
-    const next = (settings.countingNumber || 0) + 1;
-    if (message.content.trim() !== `${next}`) {
-      message.delete().catch(() => {});
-      message.author.send(`Wrong number in **${message.guild.name}**! Hint: \`${next}\``).catch(() => {});
-      return;
-    }
-    await Guild.updateOne({ guildID: message.guild.id }, { $set: { countingNumber: next } });
-    return;
   }
 
   // Invite link filter (moderators are exempt)
@@ -100,14 +83,6 @@ module.exports = async (client, message) => {
     console.log(err);
   }
 
-  if (profileData?.banned) {
-    const embed = new EmbedBuilder()
-      .setColor('Red')
-      .setTitle('Banned!')
-      .setDescription('Looks like you have been banned from using Oct Bot. If you think this is a mistake, please open a ticket in the support server.');
-    return message.channel.send({ embeds: [embed] });
-  }
-
   // Coin penalty for negative balance
   if (profileData && profileData.coins < 0) {
     message.channel.send('Looks like you lost all your coins and had a stroke. You paid the hospital half your bank.');
@@ -117,23 +92,21 @@ module.exports = async (client, message) => {
     return;
   }
 
-  // Cooldown handling (developers can switch it off per user with !dev)
-  if (!profileData?.cooldownsDisabled) {
-    if (!client.cooldowns.has(command.name)) client.cooldowns.set(command.name, new Collection());
-    const now = Date.now();
-    const timestamps = client.cooldowns.get(command.name);
-    const cooldownAmount = (command.cooldown || 3) * 1000;
+  // Cooldown handling
+  if (!client.cooldowns.has(command.name)) client.cooldowns.set(command.name, new Collection());
+  const now = Date.now();
+  const timestamps = client.cooldowns.get(command.name);
+  const cooldownAmount = (command.cooldown || 3) * 1000;
 
-    if (timestamps.has(message.author.id)) {
-      const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
-      if (now < expirationTime) {
-        const timeLeft = (expirationTime - now) / 1000;
-        return message.reply(`Please wait \`${timeLeft.toFixed(1)}\` more second(s) before using **${command.name}** again.`);
-      }
+  if (timestamps.has(message.author.id)) {
+    const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
+    if (now < expirationTime) {
+      const timeLeft = (expirationTime - now) / 1000;
+      return message.reply(`Please wait \`${timeLeft.toFixed(1)}\` more second(s) before using **${command.name}** again.`);
     }
-    timestamps.set(message.author.id, now);
-    setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
   }
+  timestamps.set(message.author.id, now);
+  setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
 
   try {
     await command.execute(message, args, cmd, client, profileData, settings);

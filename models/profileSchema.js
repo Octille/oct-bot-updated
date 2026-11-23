@@ -48,16 +48,8 @@ const profileSchema = new mongoose.Schema({
     Heist:  { type: Date },
     Rob:    { type: Date },
     Fish:   { type: Date },
-    Search: { type: Date },
   },
 
-  // ── Bot admin flags ───────────────────────────────────────────────────────
-  banned:            { type: Boolean, default: false }, // blocked from using the bot
-  isDeveloper:       { type: Boolean, default: false }, // can use !dev
-  cooldownsDisabled: { type: Boolean, default: false },
-
-  // ── top.gg ────────────────────────────────────────────────────────────────
-  lastVoteClaim: { type: Date, default: null },
 
   // ── Jail ──────────────────────────────────────────────────────────────────
   jailUntil: { type: Date, default: null },

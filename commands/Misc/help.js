@@ -2,8 +2,6 @@ const { EmbedBuilder } = require('discord.js');
 
 const categories = {
   economy:    { emoji: '💰', label: 'Economy',    folder: 'economy' },
-  fun:        { emoji: '😄', label: 'Fun',         folder: 'fun' },
-  minecraft:  { emoji: '⛏️', label: 'Minecraft',  folder: 'minecraft' },
   misc:       { emoji: '💡', label: 'Misc',        folder: 'Misc' },
   moderation: { emoji: '🔧', label: 'Moderation', folder: 'Moderation' },
   music:      { emoji: '🎶', label: 'Music',       folder: 'Music' },

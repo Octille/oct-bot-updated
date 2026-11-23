@@ -4,15 +4,10 @@ module.exports = async (client) => {
   console.log(`✅ ${client.user.tag} is now online!`);
 
   client.user.setPresence({
-    activities: [{
-      name: `games on ${client.guilds.cache.size} servers`,
-      type: ActivityType.Streaming,
-      url: 'https://bit.ly/38OiD4C',
-    }],
+    activities: [{ name: `${process.env.PREFIX || '!'}help`, type: ActivityType.Listening }],
     status: 'online',
   });
 
-  
   try {
     await client.lavalink.init({ id: client.user.id, username: client.user.username });
     console.log(`[Lavalink] Manager initialised as ${client.user.tag}`);
