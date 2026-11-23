@@ -1,3 +1,4 @@
+import { unlockLevel } from './progression';
 import { findTool, nextTool, repairCost, starterRod, type Tool, type ToolSlot } from '../content/tools';
 import { EconomyError, UserError } from '../lib/errors';
 import { coins } from '../lib/format';
@@ -40,7 +41,7 @@ export async function upgrade(userId: string, slot: ToolSlot): Promise<{ tool: T
   const current = profile.tools?.[slot]?.id ?? null;
   const next = nextTool(slot, current);
   if (!next) throw new UserError('You already have the best one.');
-  const level = profile.account?.level ?? 0;
+  const level = unlockLevel(profile);
   if (level < next.level) throw new UserError(`The ${next.emoji} **${next.name}** needs account level **${next.level}** (you're ${level}).`);
 
   const updated = await apply(

@@ -66,6 +66,10 @@ export const iconDefs = {
   epic: rarity('epic', 'pentagon', '🟣'),
   legendary: rarity('legendary', 'hexagon', '🟠'),
   mythic: rarity('mythic', 'star', '🔴'),
+  achievements: { tabler: 'trophy', fallback: '🏆' },
+  prestige: { tabler: 'flame', fallback: '🔥' },
+  rank: { tabler: 'chart-bar', fallback: '📊' },
+  profile: { tabler: 'id-badge-2', fallback: '🪪' },
   // Veteran badges (exclusive, see content/veteran.ts)
   badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },
   badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },

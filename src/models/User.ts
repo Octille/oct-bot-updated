@@ -13,7 +13,18 @@ const userSchema = new Schema(
       xp: { type: Number, default: 0, min: 0 },
       level: { type: Number, default: 0, min: 0 },
       prestige: { type: Number, default: 0, min: 0 },
+      /** Highest level ever reached. Unlocks use this, so prestiging never re-locks anything. */
+      best: { type: Number, default: 0, min: 0 },
     },
+
+    /** Prestige tokens and the perks bought with them (content/prestige.ts). */
+    prestige: {
+      tokens: { type: Number, default: 0, min: 0 },
+      perks: { type: [String], default: [] },
+    },
+
+    /** achievement id → when it was unlocked */
+    achievements: { type: Map, of: Date, default: () => new Map() },
 
     /** itemId → quantity */
     inventory: { type: Map, of: Number, default: () => new Map() },
@@ -41,6 +52,9 @@ const userSchema = new Schema(
       theme: { type: String, default: null },
       /** Equipped badge, shown next to your name. null hides it. */
       badge: { type: String, default: null },
+      /** Rank/profile card background and avatar frame. */
+      background: { type: String, default: null },
+      frame: { type: String, default: null },
     },
 
     /** Players from the original bot (set by the v2 migration). */
@@ -109,6 +123,11 @@ const userSchema = new Schema(
       /** crimeId → successful attempts (for Phase 3 crime achievements and titles) */
       crimeWins: { type: Map, of: Number, default: () => new Map() },
       crimeLoot: { type: Number, default: 0 },
+      /** crime loot itemId → times found */
+      crimeLootItems: { type: Map, of: Number, default: () => new Map() },
+      /** Messages and voice minutes that earned server XP, across all servers. */
+      messages: { type: Number, default: 0 },
+      voiceMinutes: { type: Number, default: 0 },
       cratesOpened: { type: Number, default: 0 },
       itemsSold: { type: Number, default: 0 },
       streakFreezesUsed: { type: Number, default: 0 },

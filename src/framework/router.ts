@@ -12,6 +12,8 @@ import { setCommandRunner } from './commandList';
 import { respondError } from './respond';
 import { icon } from '../lib/icons';
 import type { ComponentInteraction } from './types';
+import { achievementText, checkAchievements } from '../services/achievements';
+import { embed } from '../lib/embeds';
 
 /** How long to wait before telling someone a collector-managed button has expired. */
 const EXPIRED_GRACE_MS = 2_500;
@@ -58,6 +60,7 @@ export async function runCommand(interaction: ChatInputCommandInteraction, comma
 
     await command.execute({ interaction, client: interaction.client, profile });
     await greetNewPlayer(interaction);
+    await announceAchievements(interaction);
   } catch (err) {
     await greetNewPlayer(interaction);
     if (claimedCooldown && command.cooldown) {
@@ -108,9 +111,24 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
   try {
     const profile = await loadProfile(interaction.user.id);
     await handler.execute({ interaction, client: interaction.client, id, profile });
+    await announceAchievements(interaction);
   } catch (err) {
     if (err instanceof UserError) return respondError(interaction, err.message);
     logError(`component ${id.prefix}`, err);
     return respondError(interaction, 'Something went wrong. It has been reported.');
+  }
+}
+
+/**
+ * After any command or button: unlock achievements earned by it and tell the player privately.
+ * Activities whose games finish later report theirs on the result screen instead (ui/next.ts).
+ */
+async function announceAchievements(interaction: ChatInputCommandInteraction | ComponentInteraction): Promise<void> {
+  try {
+    const text = achievementText(await checkAchievements(interaction.user.id));
+    if (!text || !(interaction.replied || interaction.deferred)) return;
+    await interaction.followUp({ embeds: [embed('success').setDescription(text)], flags: MessageFlags.Ephemeral });
+  } catch (err) {
+    logError('achievements', err);
   }
 }

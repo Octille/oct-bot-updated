@@ -81,6 +81,11 @@ export const hub: ScreenModule = {
       btn(ids.nav(ctx.owner, 'h', 'help'), 'Help', NAV),
       btn(ids.nav(ctx.owner, 'h', 'hub'), 'Refresh', NAV),
     ));
+    rows.push(row(
+      btn(ids.nav(ctx.owner, 'h', 'ach'), 'Achievements', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'prestige'), 'Prestige', NAV),
+      btn(ids.nav(ctx.owner, 'h', 'wardrobe'), 'Wardrobe', NAV),
+    ));
     return { embeds: [e], components: rows };
   },
 

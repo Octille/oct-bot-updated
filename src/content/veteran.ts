@@ -10,10 +10,10 @@
 export type VeteranTier = 'veteran' | 'elite' | 'founder';
 export const veteranTiers: readonly VeteranTier[] = ['veteran', 'elite', 'founder'];
 
-export const veteranInfo: Record<VeteranTier, { label: string; title: string; badge: string; theme: string; blurb: string }> = {
-  veteran: { label: 'Veteran', title: 'title_veteran', badge: 'badge_veteran', theme: 'theme_veteran', blurb: 'You played the original OctBot.' },
-  elite: { label: 'Elite Veteran', title: 'title_elite_veteran', badge: 'badge_elite', theme: 'theme_elite', blurb: 'You were one of the original bot\'s most active players.' },
-  founder: { label: 'Founder', title: 'title_founder', badge: 'badge_founder', theme: 'theme_founder', blurb: 'You were there from the very start.' },
+export const veteranInfo: Record<VeteranTier, { label: string; title: string; badge: string; theme: string; frame: string; blurb: string }> = {
+  veteran: { label: 'Veteran', title: 'title_veteran', badge: 'badge_veteran', theme: 'theme_veteran', frame: 'frame_veteran', blurb: 'You played the original OctBot.' },
+  elite: { label: 'Elite Veteran', title: 'title_elite_veteran', badge: 'badge_elite', theme: 'theme_elite', frame: 'frame_elite', blurb: 'You were one of the original bot\'s most active players.' },
+  founder: { label: 'Founder', title: 'title_founder', badge: 'badge_founder', theme: 'theme_founder', frame: 'frame_founder', blurb: 'You were there from the very start.' },
 };
 
 export const veteranThresholds = {
@@ -38,5 +38,5 @@ export const veteranThresholds = {
 /** Every cosmetic a tier unlocks, including lower tiers'. */
 export function veteranCosmetics(tier: VeteranTier): string[] {
   const upTo = veteranTiers.slice(0, veteranTiers.indexOf(tier) + 1);
-  return upTo.flatMap((t) => [veteranInfo[t].title, veteranInfo[t].badge, veteranInfo[t].theme]);
+  return upTo.flatMap((t) => [veteranInfo[t].title, veteranInfo[t].badge, veteranInfo[t].theme, veteranInfo[t].frame]);
 }

@@ -19,7 +19,7 @@ export const economyConfig = {
 } as const;
 
 /** Bank capacity for a given account level and number of bank notes used. */
-export function bankCapacity(level: number, bankNotes: number): number {
+export function bankCapacity(level: number, bankNotes: number, perkMult = 1): number {
   const { base, perLevel, perNote } = economyConfig.bank;
-  return base + level * perLevel + bankNotes * perNote;
+  return Math.floor((base + level * perLevel + bankNotes * perNote) * perkMult);
 }

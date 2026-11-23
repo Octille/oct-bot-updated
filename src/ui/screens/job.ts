@@ -5,7 +5,7 @@ import { UserError } from '../../lib/errors';
 import { getJob, jobRanks, jobs, nextRank, rankFor } from '../../content/jobs';
 import { shiftsIn } from '../../game/jobs';
 import { apply } from '../../services/economy';
-import { incomeMultiplier } from '../../services/progression';
+import { incomeMultiplier, unlockLevel } from '../../services/progression';
 import { back, btn, ids, MAIN, NAV, row, select } from '../kit';
 import type { ScreenModule } from './types';
 
@@ -14,7 +14,7 @@ const GAMES = ['Unscramble', 'Quick maths', 'Memory', 'Colour click'];
 export const job: ScreenModule = {
   render(path, ctx) {
     const p = ctx.profile;
-    const level = p.account?.level ?? 0;
+    const level = unlockLevel(p);
     const current = getJob(p.job?.current);
     const options = jobs.map((j) => {
       const shifts = shiftsIn(p.job?.shifts, j.id);
@@ -67,7 +67,7 @@ export const job: ScreenModule = {
   async act(path, action, args, _i, ctx) {
     if (action !== 'switch') return { path: path.join('.') };
     const j = getJob(args[0]);
-    if (j.level > (ctx.profile.account?.level ?? 0)) throw new UserError(`${j.name} unlocks at level ${j.level}.`);
+    if (j.level > unlockLevel(ctx.profile)) throw new UserError(`${j.name} unlocks at level ${j.level}.`);
     await apply(ctx.owner, { set: { 'job.current': j.id } }, { source: 'job.switch' });
     return { path: `job.${j.id}`, note: `${icon('success')} You're now a **${j.name}**. Start a shift when you're ready.` };
   },

@@ -1,3 +1,4 @@
+import { unlockLevel } from '../services/progression';
 import { cooldowns, moreCooldowns } from '../content/earning';
 import { crimeUnlockLevel } from '../content/crime';
 import { duration } from '../lib/format';
@@ -42,7 +43,7 @@ export function statusOf(id: ActivityId, profile: Profile, now = new Date()): St
   if (isJailed(profile.jailUntil, now.getTime())) {
     return { state: 'locked', reason: 'In jail', label: 'In jail' };
   }
-  if ('level' in a && (profile.account?.level ?? 0) < a.level) {
+  if ('level' in a && unlockLevel(profile) < a.level) {
     return { state: 'locked', reason: `Level ${a.level}`, label: `Level ${a.level}` };
   }
   if ('tool' in a) {

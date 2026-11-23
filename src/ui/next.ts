@@ -6,6 +6,7 @@ import type { IconKey } from '../content/icons';
 import { activities, nextReady, statusOf, type ActivityId } from './activities';
 import { btn, ids, MAIN, NAV, row, type Row } from './kit';
 import { duration } from '../lib/format';
+import { achievementText, checkAchievements } from '../services/achievements';
 
 export interface AfterAction {
   /** [Menu] [next ready activity] [this activity again]. */
@@ -22,6 +23,8 @@ export async function afterAction(userId: string, current: ActivityId): Promise<
     note = `${icon('success')} **First steps complete!** You got a free ${itemName('crate_common')}. Open it from your inventory.`;
     profile = await getProfile(userId);
   }
+  const unlocked = achievementText(await checkAchievements(userId, profile));
+  if (unlocked) note = [note, unlocked].filter(Boolean).join('\n');
 
   const now = new Date();
   const buttons = [btn(ids.go(userId, 'menu'), 'Menu', NAV)];

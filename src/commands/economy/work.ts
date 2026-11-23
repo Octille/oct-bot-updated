@@ -12,7 +12,7 @@ import { cooldowns } from '../../content/earning';
 import { getJob, nextRank, rankFor } from '../../content/jobs';
 import { isPerfect, performanceFor, randomMinigame, type Minigame, type MinigameKind } from '../../game/minigames';
 import { PERFECT_BONUS, shiftPay, shiftsIn } from '../../game/jobs';
-import { grant, incomeMultiplier } from '../../services/progression';
+import { grant, incomeMultiplier, unlockLevel } from '../../services/progression';
 
 /** Last minigame each user played, so the next shift is a different one. */
 const lastGame = new Map<string, MinigameKind>();
@@ -38,7 +38,7 @@ export default defineCommand({
   cooldown: { key: 'work', seconds: cooldowns.work },
   async execute({ interaction, profile }) {
     const userId = interaction.user.id;
-    const level = profile.account?.level ?? 0;
+    const level = unlockLevel(profile);
     let job = getJob(profile.job?.current);
     if (job.level > level) job = getJob('barista');
 

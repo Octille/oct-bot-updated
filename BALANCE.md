@@ -88,6 +88,23 @@ Fishdex completion: 25% → ₪ 15,000, 50% → ₪ 60,000, 75% → ₪ 200,000,
 | 20 | 16,308 | 16.1 h |
 | 35 | 66,750 | 65.1 h |
 
+## Server levels (Phase 3)
+
+Per server, separate from account levels. XP to the next level is `5L² + 50L + 100`. Chat gives 15–25 XP (average 20) for at most one message a minute; voice gives 10 XP a minute with company. Multipliers (0.5–3×, highest wins) and double XP scale these.
+
+| Server level | Total XP | Counted messages (avg 20 XP) | Or voice hours |
+|---|---|---|---|
+| 1 | 100 | 5 | 0.2 |
+| 5 | 1,150 | 58 | 1.9 |
+| 10 | 4,675 | 234 | 7.8 |
+| 20 | 23,850 | 1,193 | 40 |
+| 30 | 67,525 | 3,376 | 113 |
+| 50 | 268,375 | 13,419 | 447 |
+
+## Prestige (Phase 3)
+
+Needs account level 35 (about 65 active hours the first time). Resets level, XP, wallet (to ₪1,000) and bank; keeps everything else, and unlocks use the best-ever level. Each prestige: +5% coins for good and 1 token (2 from prestige 5). Re-levelling to 35 takes the same ~65 hours of actions, minus the Scholar perk (+15% XP) and faster coin income from kept late-game tools. Max prestige 10 = +50% coins; 15 tokens in total, perks and prestige cosmetics cost 15.
+
 ## Migration ceiling (Phase 7)
 
 The v2 migration caps corrupt balances at a ceiling derived from the late-game row above. The plan is roughly 30 days of heavy late-game play: late-game ₪/hour × 4 hours × 30 days. With the current numbers that's **≈ ₪ 15.4M**. The exact figure is recomputed from this table when the migration runs.

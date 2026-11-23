@@ -16,6 +16,8 @@ const guildSettingsSchema = new Schema(
       multipliers: [{ targetId: { type: String, required: true }, mult: { type: Number, required: true }, _id: false }],
       voiceXp: { type: Boolean, default: true },
       doubleXpUntil: { type: Date, default: null },
+      /** Double XP every Saturday and Sunday (UTC). */
+      weekendDoubleXp: { type: Boolean, default: false },
     },
 
     drops: {

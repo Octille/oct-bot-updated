@@ -26,6 +26,11 @@ import use from './economy/use';
 import shop from './economy/shop';
 import buy from './economy/buy';
 import cosmetics from './economy/cosmetics';
+import rank from './levels/rank';
+import profileCmd from './levels/profile';
+import achievementsCmd from './levels/achievements';
+import prestigeCmd from './levels/prestige';
+import levels from './levels/levels';
 
 /** Every slash command. Add new commands here. */
 export const commands: SlashCommand[] = [
@@ -34,4 +39,5 @@ export const commands: SlashCommand[] = [
   work, job, mine, fish, fishdex, tools, beg, search,
   hunt, dig, crime, bail,
   inventory, iteminfo, sell, use, shop, buy, cosmetics,
+  rank, profileCmd, achievementsCmd, prestigeCmd, levels,
 ];

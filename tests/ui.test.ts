@@ -49,8 +49,14 @@ const players: Record<string, Profile> = {
       pickaxe: { id: pickaxes.at(-1)!.id, durability: 1 }, rod: { id: rods.at(-1)!.id, durability: 330 },
       weapon: { id: weapons.at(-1)!.id, durability: 2 }, shovel: { id: shovels.at(-1)!.id, durability: 420 },
     },
-    cosmetics: { owned: cosmetics.map((c) => c.id), title: 'title_tycoon', theme: 'theme_gold' },
+    cosmetics: { owned: cosmetics.map((c) => c.id), title: 'title_tycoon', theme: 'theme_gold', badge: 'badge_founder', background: 'bg_phoenix', frame: 'frame_founder' },
     onboarding: { crateClaimed: true },
+    stats: { worked: 300, fishCaught: 40, crimeWins: { pickpocket: 12 } },
+    achievements: { first_shift: new Date(), regular: new Date(), workaholic: new Date(), art_thief: new Date() },
+  }),
+  prestiged: profile({
+    wallet: 2_000, account: { xp: totalXpForLevel(36), level: 36, prestige: 3, best: 40 },
+    prestige: { tokens: 4, perks: ['deep_pockets'] },
   }),
   jailed: profile({ wallet: 0, account: { xp: totalXpForLevel(4), level: 4, prestige: 0 }, jailUntil: new Date(Date.now() + 5 * 60_000) }),
 };
@@ -81,7 +87,7 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
   return [...seen].map(([path, payload]) => ({ path, payload }));
 }
 
-const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail'];
+const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm'];
 
 describe('every menu screen', () => {
   for (const [who, p] of Object.entries(players)) {

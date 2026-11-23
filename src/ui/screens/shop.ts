@@ -1,3 +1,4 @@
+import { unlockLevel } from '../../services/progression';
 import { embed } from '../../lib/embeds';
 import { bar, coins } from '../../lib/format';
 import { icon, rarityTag, titleIcon } from '../../lib/icons';
@@ -20,7 +21,8 @@ const SECTIONS = [
   { id: 'cons', label: 'Consumables', description: 'Boosts, bank notes, streak freezes, scratch cards' },
   { id: 'crates', label: 'Crates', description: "Loot crates, including today's rare ones" },
   { id: 'deals', label: "Today's deals", description: 'Changes at 00:00 UTC, per-player daily limits' },
-  { id: 'cos', label: 'Cosmetics', description: 'Titles and colour themes' },
+  { id: 'cos', label: 'Titles & themes', description: 'Titles next to your name, colour themes' },
+  { id: 'bgs', label: 'Card backgrounds', description: 'Backgrounds for /rank and /profile' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -48,13 +50,14 @@ function sectionListings(section: SectionId): Listing[] {
       ...stock.filter((s) => getItem(s.id)?.type === 'crate'),
     ];
     case 'deals': return stock;
-    case 'cos': return shopCosmetics().map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price }));
+    case 'cos': return shopCosmetics().filter((c) => c.kind !== 'background').map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price }));
+    case 'bgs': return shopCosmetics().filter((c) => c.kind === 'background').map((c) => ({ id: c.id, kind: 'cosmetic' as const, price: c.price }));
     default: return [];
   }
 }
 
 function findListing(id: string): Listing | undefined {
-  for (const s of ['cons', 'crates', 'deals', 'cos'] as const) {
+  for (const s of ['cons', 'crates', 'deals', 'cos', 'bgs'] as const) {
     const found = sectionListings(s).find((l) => l.id === id);
     if (found) return found;
   }
@@ -113,7 +116,7 @@ function toolScreen(ctx: ScreenCtx, slot: ToolSlot) {
   const meta = TOOL_SLOTS.find((t) => t.slot === slot)!;
   const eq = equipped(p, slot);
   const next = nextTool(slot, eq.tool?.id);
-  const level = p.account?.level ?? 0;
+  const level = unlockLevel(p);
   const path = `shop.tools.${slot}`;
 
   const lines: string[] = [];
@@ -197,7 +200,7 @@ function itemScreen(ctx: ScreenCtx, id: string, section: SectionId) {
   const lines = [
     ctx.note,
     ctx.note ? '' : null,
-    item ? `${rarityTag(item.rarity)} · ${item.type}` : cosmetic?.kind === 'title' ? `Title · shows as "${ctx.userName} • ${cosmetic.value}"` : cosmetic?.kind === 'badge' ? 'Badge shown next to your name' : 'Colour theme for your menus',
+    item ? `${rarityTag(item.rarity)} · ${item.type}` : cosmetic?.kind === 'title' ? `Title · shows as "${ctx.userName} • ${cosmetic.value}"` : cosmetic?.kind === 'badge' ? 'Badge shown next to your name' : cosmetic?.kind === 'background' ? 'Card background for /rank and /profile' : 'Colour theme for your menus',
     item?.description ?? null,
     '',
     ownsCosmetic ? 'You own this.' : priceLine('Price', listing.price, p.wallet),

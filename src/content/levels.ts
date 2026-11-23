@@ -41,3 +41,40 @@ export type XpSource = keyof typeof accountXp;
 
 /** Each prestige adds this much to all coin income. Prestige itself arrives in Phase 3. */
 export const prestigeIncomeBonus = 0.05;
+
+/* ── Server (chat) levels: per server, from messages and voice ─────────────────────────── */
+
+/** XP to go from server level `level` to `level + 1`. */
+export function serverXpToNext(level: number): number {
+  return 5 * level * level + 50 * level + 100;
+}
+
+export function serverLevelFromXp(totalXp: number): { level: number; into: number; needed: number } {
+  let level = 0;
+  let rest = totalXp;
+  while (rest >= serverXpToNext(level)) {
+    rest -= serverXpToNext(level);
+    level++;
+  }
+  return { level, into: rest, needed: serverXpToNext(level) };
+}
+
+export function totalServerXpForLevel(level: number): number {
+  let total = 0;
+  for (let l = 0; l < level; l++) total += serverXpToNext(l);
+  return total;
+}
+
+export const chatXp = {
+  /** XP per counted message, [min, max]. */
+  message: [15, 25] as const,
+  /** Only one message per user per server counts in this window. */
+  cooldownSeconds: 60,
+  /** Shorter messages don't count (only checked when the bot has the Message Content intent). */
+  minLength: 5,
+  /** XP per minute in voice, when at least one other eligible person is in the channel. */
+  voicePerMinute: 10,
+  /** Channel/role multipliers admins can set. */
+  minMult: 0.5,
+  maxMult: 3,
+} as const;

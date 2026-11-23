@@ -16,7 +16,7 @@ import { getItem, itemLabel } from '../../content/items';
 import { rarityInfo } from '../../content/rarity';
 import { commitCrime } from '../../game/crime';
 import { apply } from '../../services/economy';
-import { grant, incomeMultiplier } from '../../services/progression';
+import { grant, incomeMultiplier, unlockLevel } from '../../services/progression';
 import { bailCost } from '../../services/jail';
 import * as cooldownService from '../../services/cooldowns';
 
@@ -28,7 +28,7 @@ export default defineCommand({
   cooldown: { key: 'crime', seconds: moreCooldowns.crime },
   async execute({ interaction, profile }) {
     const userId = interaction.user.id;
-    if ((profile.account?.level ?? 0) < crimeUnlockLevel) throw new UserError(`Crime unlocks at account level **${crimeUnlockLevel}**. Keep grinding honestly for now.`);
+    if (unlockLevel(profile) < crimeUnlockLevel) throw new UserError(`Crime unlocks at account level **${crimeUnlockLevel}**. Keep grinding honestly for now.`);
 
     const message = await interaction.editReply({
       embeds: [embed('economy').setTitle(`${titleIcon('crime')} Crime › Pick your crime`).setDescription(crimes.map((c) =>
@@ -50,7 +50,7 @@ export default defineCommand({
           const { xp, levelUp } = await grant(userId, {
             wallet: result.coins,
             items: result.loot ? { [result.loot]: 1 } : undefined,
-            inc: { 'stats.crimes': 1, [`stats.crimeWins.${crime.id}`]: 1, ...(result.loot ? { 'stats.crimeLoot': 1 } : {}) },
+            inc: { 'stats.crimes': 1, [`stats.crimeWins.${crime.id}`]: 1, ...(result.loot ? { 'stats.crimeLoot': 1, [`stats.crimeLootItems.${result.loot}`]: 1 } : {}) },
           }, { source: 'crime', xp: 'crime', profile, meta: { crime: crime.id, loot: result.loot } });
           const loot = result.loot
             ? `${icon(getItem(result.loot)!.rarity)} You also swiped a **${itemLabel(result.loot)}** (only found through crime)`

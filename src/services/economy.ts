@@ -4,6 +4,7 @@ import { Transaction } from '../models/Transaction';
 import { EconomyError } from '../lib/errors';
 import { coins } from '../lib/format';
 import { bankCapacity, economyConfig } from '../content/economy';
+import { perkEffect } from '../content/prestige';
 
 /**
  * The only place that changes balances or inventories.
@@ -62,17 +63,33 @@ function assertPositive(n: number, label = 'Amount'): void {
   if (n <= 0) throw new EconomyError('INVALID_AMOUNT', `${label} must be more than zero.`);
 }
 
+const BANK_PERKS: string[] = ['deep_pockets', 'deeper_pockets'];
+
 /** Bank capacity computed inside MongoDB, so the cap check is part of the atomic update. */
 const bankCapExpr = {
-  $add: [
-    economyConfig.bank.base,
-    { $multiply: [{ $ifNull: ['$account.level', 0] }, economyConfig.bank.perLevel] },
-    { $multiply: [{ $ifNull: ['$bankNotes', 0] }, economyConfig.bank.perNote] },
-  ],
+  $floor: {
+    $multiply: [
+      {
+        $add: [
+          economyConfig.bank.base,
+          { $multiply: [{ $ifNull: ['$account.level', 0] }, economyConfig.bank.perLevel] },
+          { $multiply: [{ $ifNull: ['$bankNotes', 0] }, economyConfig.bank.perNote] },
+        ],
+      },
+      // Bank perks from the prestige shop
+      { $add: [1, { $multiply: [perkEffect.bankMult, { $size: { $setIntersection: [{ $ifNull: ['$prestige.perks', []] }, BANK_PERKS] } }] }] },
+    ],
+  },
 };
 
-export function capacityOf(user: Pick<Profile, 'account' | 'bankNotes'>): number {
-  return bankCapacity(user.account?.level ?? 0, user.bankNotes ?? 0);
+
+export function bankPerkMult(user: Partial<Pick<Profile, 'prestige'>>): number {
+  const owned = user.prestige?.perks ?? [];
+  return 1 + perkEffect.bankMult * BANK_PERKS.filter((p) => owned.includes(p)).length;
+}
+
+export function capacityOf(user: Pick<Profile, 'account' | 'bankNotes'> & Partial<Pick<Profile, 'prestige'>>): number {
+  return bankCapacity(user.account?.level ?? 0, user.bankNotes ?? 0, bankPerkMult(user));
 }
 
 function isDuplicateKey(err: unknown): boolean {

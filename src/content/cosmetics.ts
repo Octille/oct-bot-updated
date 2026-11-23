@@ -5,16 +5,28 @@
 
 export interface Cosmetic {
   id: string;
-  kind: 'title' | 'theme' | 'badge';
+  kind: CosmeticKind;
   name: string;
-  /** Titles: text shown next to your name. Themes: embed colour. Badges: icon key. */
+  /**
+   * Titles: text shown next to your name. Themes: embed colour. Badges: icon key.
+   * Backgrounds: card gradient "#top,#bottom". Frames: avatar ring colour "#hex" (or "#a,#b" for a gradient ring).
+   */
   value: string | number;
   price: number;
   /** Only sold in the daily rotation. */
   rotationOnly?: boolean;
-  /** Never sold, never tradable, can't be earned after launch (granted by the v2 migration). */
-  exclusive?: 'veteran';
+  /**
+   * Not in the coin shop:
+   *   veteran     — granted by the v2 migration only; can't be earned after launch
+   *   achievement — the reward for an achievement
+   *   prestige    — bought with prestige tokens
+   */
+  exclusive?: 'veteran' | 'achievement' | 'prestige';
+  /** Prestige needed before it shows up in the prestige shop. */
+  minPrestige?: number;
 }
+
+export type CosmeticKind = 'title' | 'theme' | 'badge' | 'background' | 'frame';
 
 export const cosmetics: readonly Cosmetic[] = [
   { id: 'title_beggar', kind: 'title', name: 'Professional Beggar', value: 'Professional Beggar', price: 15_000 },
@@ -32,6 +44,35 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'theme_aurora', kind: 'theme', name: 'Aurora', value: 0x00e5c8, price: 90_000, rotationOnly: true },
   { id: 'theme_gold', kind: 'theme', name: 'Solid Gold', value: 0xffd700, price: 150_000, rotationOnly: true },
 
+  // Card backgrounds (rank and profile cards)
+  { id: 'bg_midnight', kind: 'background', name: 'Midnight', value: '#1f2340,#0b0d1a', price: 25_000 },
+  { id: 'bg_ocean', kind: 'background', name: 'Ocean Depths', value: '#0f4c75,#06202f', price: 40_000 },
+  { id: 'bg_forest', kind: 'background', name: 'Deep Forest', value: '#1e5631,#0b2012', price: 40_000 },
+  { id: 'bg_sunset', kind: 'background', name: 'Sunset', value: '#ff7e5f,#4a1942', price: 75_000 },
+  { id: 'bg_ember', kind: 'background', name: 'Ember', value: '#c0392b,#2c0b0b', price: 100_000 },
+  { id: 'bg_aurora', kind: 'background', name: 'Aurora', value: '#00c9a7,#1b1464', price: 150_000, rotationOnly: true },
+
+  // Achievement rewards (see content/achievements.ts)
+  { id: 'title_light_fingers', kind: 'title', name: 'Light Fingers', value: 'Light Fingers', price: 0, exclusive: 'achievement' },
+  { id: 'title_master_hacker', kind: 'title', name: 'Master Hacker', value: 'Master Hacker', price: 0, exclusive: 'achievement' },
+  { id: 'title_art_thief', kind: 'title', name: 'Art Thief', value: 'Art Thief', price: 0, exclusive: 'achievement' },
+  { id: 'title_repeat_offender', kind: 'title', name: 'Repeat Offender', value: 'Repeat Offender', price: 0, exclusive: 'achievement' },
+  { id: 'title_old_salt', kind: 'title', name: 'Old Salt', value: 'Old Salt', price: 0, exclusive: 'achievement' },
+  { id: 'title_deep_delver', kind: 'title', name: 'Deep Delver', value: 'Deep Delver', price: 0, exclusive: 'achievement' },
+  { id: 'title_big_game', kind: 'title', name: 'Big Game Hunter', value: 'Big Game Hunter', price: 0, exclusive: 'achievement' },
+  { id: 'title_treasure_hunter', kind: 'title', name: 'Treasure Hunter', value: 'Treasure Hunter', price: 0, exclusive: 'achievement' },
+  { id: 'title_workaholic', kind: 'title', name: 'Workaholic', value: 'Workaholic', price: 0, exclusive: 'achievement' },
+  { id: 'title_dedicated', kind: 'title', name: 'Dedicated', value: 'Dedicated', price: 0, exclusive: 'achievement' },
+  { id: 'title_chatterbox', kind: 'title', name: 'Chatterbox', value: 'Chatterbox', price: 0, exclusive: 'achievement' },
+  { id: 'title_completionist', kind: 'title', name: 'Completionist', value: 'Completionist', price: 0, exclusive: 'achievement' },
+  { id: 'bg_abyss', kind: 'background', name: 'Abyss', value: '#123c69,#000814', price: 0, exclusive: 'achievement' },
+
+  // Prestige shop (bought with prestige tokens; see content/prestige.ts)
+  { id: 'title_reborn', kind: 'title', name: 'Reborn', value: 'Reborn', price: 0, exclusive: 'prestige', minPrestige: 1 },
+  { id: 'theme_phoenix', kind: 'theme', name: 'Phoenix', value: 0xe25822, price: 0, exclusive: 'prestige', minPrestige: 1 },
+  { id: 'bg_phoenix', kind: 'background', name: 'Phoenix', value: '#f39c12,#6e1a0a', price: 0, exclusive: 'prestige', minPrestige: 3 },
+  { id: 'title_ascended', kind: 'title', name: 'Ascended', value: 'Ascended', price: 0, exclusive: 'prestige', minPrestige: 5 },
+
   // Veteran set — players from the original bot. See content/veteran.ts.
   { id: 'title_veteran', kind: 'title', name: 'Veteran', value: 'Veteran', price: 0, exclusive: 'veteran' },
   { id: 'title_elite_veteran', kind: 'title', name: 'Elite Veteran', value: 'Elite Veteran', price: 0, exclusive: 'veteran' },
@@ -43,6 +84,10 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'theme_veteran', kind: 'theme', name: 'Classic Oct', value: 0x6b32a8, price: 0, exclusive: 'veteran' },
   { id: 'theme_elite', kind: 'theme', name: 'Elite Amethyst', value: 0x8e44ad, price: 0, exclusive: 'veteran' },
   { id: 'theme_founder', kind: 'theme', name: 'Founder Gold', value: 0xaf810e, price: 0, exclusive: 'veteran' },
+  // Rank card frames (avatar ring)
+  { id: 'frame_veteran', kind: 'frame', name: 'Veteran frame', value: '#6066ae,#7f83be', price: 0, exclusive: 'veteran' },
+  { id: 'frame_elite', kind: 'frame', name: 'Elite Veteran frame', value: '#8e44ad,#c39bd3', price: 0, exclusive: 'veteran' },
+  { id: 'frame_founder', kind: 'frame', name: 'Founder frame', value: '#af810e,#f7dc6f', price: 0, exclusive: 'veteran' },
 ];
 
 /** Cosmetics anyone can buy (not rotation-only, not exclusive). */

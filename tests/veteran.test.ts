@@ -8,17 +8,17 @@ import { titled } from '../src/lib/theme';
 
 describe('veteran set (content)', () => {
   it('exclusives are never sold', () => {
-    const exclusive = cosmetics.filter((c) => c.exclusive);
-    expect(exclusive.length).toBe(9);
+    const exclusive = cosmetics.filter((c) => c.exclusive === 'veteran');
+    expect(exclusive.length).toBe(12);
     for (const c of shopCosmetics()) expect(c.exclusive).toBeUndefined();
     for (const c of exclusive) expect(c.rotationOnly).toBeFalsy();
   });
 
   it('each tier includes the tiers below it', () => {
-    expect(veteranCosmetics('veteran')).toEqual(['title_veteran', 'badge_veteran', 'theme_veteran']);
+    expect(veteranCosmetics('veteran')).toEqual(['title_veteran', 'badge_veteran', 'theme_veteran', 'frame_veteran']);
     expect(veteranCosmetics('elite')).toEqual(expect.arrayContaining(veteranCosmetics('veteran')));
     expect(veteranCosmetics('founder')).toEqual(expect.arrayContaining(veteranCosmetics('elite')));
-    expect(veteranCosmetics('founder')).toHaveLength(9);
+    expect(veteranCosmetics('founder')).toHaveLength(12);
     for (const id of veteranCosmetics('founder')) expect(cosmetics.find((c) => c.id === id)?.exclusive, id).toBe('veteran');
   });
 });
