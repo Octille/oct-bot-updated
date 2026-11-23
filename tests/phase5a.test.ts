@@ -45,9 +45,15 @@ describe('quests (pure)', () => {
       const daily = 3 * questRewards.daily.coins(s.level) + crate(questRewards.daily.bonus(s.level));
       const weekly = (3 * questRewards.weekly.coins(s.level) + crate(questRewards.weekly.bonus(s.level))) / 7;
       const share = (daily + weekly) / (1.5 * hourly(s).net + daily + weekly);
-      // Coins are only 4–8% of income; the bonus crates are most of the rest (see BALANCE.md)
-      expect(share, s.name).toBeLessThan(0.3);
-      expect(share, s.name).toBeGreaterThan(0.1);
+      // About 12–20% of income from mid-game on (coins 7%, bonus crates the rest; see BALANCE.md).
+      // New and early players sit higher (28% / 19%): their income is small next to even a Common
+      // crate. Owner decision pending (2026-11-24), so they only have a looser cap for now.
+      if (s.level >= 15) {
+        expect(share, s.name).toBeLessThan(0.2);
+        expect(share, s.name).toBeGreaterThan(0.12);
+      } else {
+        expect(share, s.name).toBeLessThan(0.3);
+      }
     }
   });
 });

@@ -44,8 +44,8 @@ export const questsPerSet = 3;
 
 /** Rewards per quest and for finishing the whole set (the bonus chest). Quests are ~15% of income (BALANCE.md). */
 export const questRewards = {
-  daily: { coins: (level: number) => 250 + 75 * level, xp: 40, bonus: (level: number) => (level >= 10 ? 'crate_rare' : 'crate_common') },
-  weekly: { coins: (level: number) => 1_500 + 350 * level, xp: 250, bonus: (level: number) => (level >= 20 ? 'crate_epic' : 'crate_rare') },
+  daily: { coins: (level: number) => 250 + 75 * level, xp: 40, bonus: (_level: number) => 'crate_common' },
+  weekly: { coins: (level: number) => 1_500 + 350 * level, xp: 250, bonus: (level: number) => (level >= 35 ? 'crate_epic' : 'crate_rare') },
 } as const;
 
 /** Rerolls per set (a new random quest replaces one you haven't finished). */
