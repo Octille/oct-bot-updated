@@ -66,6 +66,13 @@ const userSchema = new Schema(
       welcomed: { type: Boolean, default: false },
     },
 
+    /** Coins and items sent to other players today (daily giving limit). */
+    giving: {
+      day: { type: Number, default: -1 },
+      coins: { type: Number, default: 0 },
+      items: { type: Number, default: 0 },
+    },
+
     /** Daily-rotation purchases for the per-player limits; reset when the day changes. */
     rotation: {
       day: { type: Number, default: -1 },

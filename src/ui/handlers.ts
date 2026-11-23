@@ -1,4 +1,5 @@
 import { MessageFlags, type User } from 'discord.js';
+import { gamblingEnabled } from '../services/gambling';
 import { defineComponent, type ComponentHandler } from '../framework/types';
 import { getProfile, type Profile } from '../services/economy';
 import { claimOnboardingReward } from '../services/onboarding';
@@ -14,22 +15,27 @@ function ctxFor(user: User, origin: Origin, profile: Profile, note?: string, per
   return { owner: user.id, origin, profile, userName: user.globalName ?? user.username, note, permissions };
 }
 
+/** Gambling is allowed in servers that haven't switched it off, never in DMs. Cached per server. */
+async function gamblingHere(guildId: string | null): Promise<boolean> {
+  return guildId ? gamblingEnabled(guildId) : false;
+}
+
 /** Opening the hub also hands out the First steps crate when it's been earned. */
-async function hubPayload(user: User, profile: Profile, note?: string): Promise<Payload> {
+async function hubPayload(user: User, profile: Profile, guildId: string | null, note?: string): Promise<Payload> {
   if (await claimOnboardingReward(profile)) {
     profile = await getProfile(user.id);
     note = [note, `${icon('success')} **First steps complete!** You got a free ${itemName('crate_common')}.`].filter(Boolean).join('\n');
   }
-  return render('hub', ctxFor(user, 'h', profile, note));
+  return render('hub', { ...ctxFor(user, 'h', profile, note), gambling: await gamblingHere(guildId) });
 }
 
 /** The private welcome shown after a brand-new player's first command. */
-export async function welcomeHub(user: User): Promise<Payload> {
-  return hubPayload(user, await getProfile(user.id), '**Welcome to OctBot!** This is your menu. It shows what you can do right now; open it any time with `/menu`.');
+export async function welcomeHub(user: User, guildId: string | null): Promise<Payload> {
+  return hubPayload(user, await getProfile(user.id), guildId, '**Welcome to OctBot!** This is your menu. It shows what you can do right now; open it any time with `/menu`.');
 }
 
-export async function openHub(user: User): Promise<Payload> {
-  return hubPayload(user, await getProfile(user.id));
+export async function openHub(user: User, guildId: string | null): Promise<Payload> {
+  return hubPayload(user, await getProfile(user.id), guildId);
 }
 
 /** Navigate: `ui:<owner>:<origin>:<path>`. Select menus append the chosen value to the path. */
@@ -41,7 +47,7 @@ const navigate = defineComponent({
     // The hub's More… menu carries whole paths; other selects append the value to the base path
     const path = interaction.isStringSelectMenu() ? (base === MORE ? interaction.values[0]! : `${base}.${interaction.values[0]}`) : base;
     const payload = path === 'hub'
-      ? await hubPayload(interaction.user, profile)
+      ? await hubPayload(interaction.user, profile, interaction.guildId)
       : render(path, ctxFor(interaction.user, origin as Origin, profile, undefined, interaction.memberPermissions?.bitfield.toString() ?? null));
     await interaction.update(payload);
   },
@@ -60,7 +66,7 @@ const act = defineComponent({
 
     const fresh = await getProfile(interaction.user.id);
     const payload = result.path === 'hub'
-      ? await hubPayload(interaction.user, fresh, result.note)
+      ? await hubPayload(interaction.user, fresh, interaction.guildId, result.note)
       : render(result.path, { ...ctx, profile: fresh, note: result.note });
     if (interaction.deferred || interaction.replied) await interaction.editReply(payload);
     else if (interaction.isModalSubmit()) {
@@ -77,7 +83,7 @@ const go = defineComponent({
     if (!interaction.isButton()) return;
     const [target = 'menu', stamp] = id.args;
     if (target === 'menu') {
-      await interaction.reply({ ...(await openHub(interaction.user)), flags: MessageFlags.Ephemeral });
+      await interaction.reply({ ...(await openHub(interaction.user, interaction.guildId)), flags: MessageFlags.Ephemeral });
       return;
     }
     if (hubExpired(stamp)) {

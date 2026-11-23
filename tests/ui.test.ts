@@ -230,6 +230,10 @@ describe('hub', () => {
       .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
     expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Casino', 'Wardrobe', 'Help']);
     expect(moreOptions(players.maxed!)).toContain('Prestige');
+    // Hidden where gambling is off (and in DMs)
+    const off = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct', gambling: false }).components
+      .flatMap((r) => r.toJSON().components).flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
+    expect(off).not.toContain('Casino');
     expect(moreOptions(players.prestiged!)).toContain('Prestige');
     // Refresh ends the last activity row; the More menu is the final row
     const rows = newbie.components.map((r) => r.toJSON().components);

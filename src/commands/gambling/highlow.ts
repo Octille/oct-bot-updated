@@ -10,7 +10,7 @@ import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { defaultRng } from '../../lib/rng';
 import { button, rows } from '../../lib/ui';
-import { assertGamblingAllowed, netText, parseBet, payOut, takeBet } from '../../services/gambling';
+import { assertGamblingAllowed, netText, parseBet, payOut, placeOf, takeBet } from '../../services/gambling';
 import { btn, ids, NAV, row } from '../../ui/kit';
 import { resultKind } from './round';
 
@@ -25,7 +25,7 @@ export default defineCommand({
     await assertGamblingAllowed(interaction);
     const userId = interaction.user.id;
     const bet = parseBet(interaction.options.getString('bet', true), profile, 'highlow');
-    await takeBet(userId, 'highlow', bet);
+    const { roundId } = await takeBet(userId, 'highlow', bet, placeOf(interaction));
     let card: Card = drawCard(defaultRng);
     let pot = bet;
     let streak = 0;
@@ -49,7 +49,7 @@ export default defineCommand({
 
     const end = async (won: boolean, line: string) => {
       const payout = won ? pot : 0;
-      const after = await payOut(userId, 'highlow', bet, payout);
+      const after = await payOut(userId, 'highlow', bet, payout, roundId);
       const kind = resultKind(bet, payout);
       return {
         embeds: [embed(kind).setTitle(`${titleIcon('highlow')} High-Low › ${won ? 'Cashed out' : 'Wrong'}`).setDescription([

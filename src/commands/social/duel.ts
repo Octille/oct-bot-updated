@@ -13,9 +13,11 @@ import { logError } from '../../lib/logger';
 import { randInt } from '../../lib/rng';
 import { button, rows } from '../../lib/ui';
 import { User } from '../../models/User';
-import { settle, type Profile } from '../../services/economy';
+import { apply, inTransaction, type Profile } from '../../services/economy';
+import { closeRound, openRound } from '../../services/rounds';
 import { isJailed } from '../../services/jail';
 import { unlockLevel } from '../../services/progression';
+import { assertNotAlt } from '../../services/antiAlt';
 
 export default defineCommand({
   data: new SlashCommandBuilder().setName('duel').setDescription('Challenge someone: first to click DRAW! wins the pot')
@@ -33,6 +35,8 @@ export default defineCommand({
     const other = (await User.findById(b, null, { lean: true })) as unknown as Profile | null;
     if (!other) throw new UserError("They haven't played OctBot yet.");
     if (unlockLevel(profile) < duelRules.minLevel) throw new UserError(`Duels unlock at account level ${duelRules.minLevel}.`);
+    assertNotAlt(a, profile, 'You');
+    assertNotAlt(b, other, 'They');
     const max = Math.min(levelMaxBet(unlockLevel(profile)), levelMaxBet(unlockLevel(other)));
     const parsed = parseAmount(interaction.options.getString('bet', true), Math.min(profile.wallet, max));
     if (!parsed.ok) throw new UserError(parsed.reason);
@@ -56,6 +60,7 @@ export default defineCommand({
     });
 
     let phase: 'invite' | 'waiting' | 'draw' | 'done' = 'invite';
+    let roundId = '';
     let drawTs = 0;
     const invite = collect(message, { time: duelRules.acceptSeconds * 1000, max: 1 , disableOnEnd: false });
     invite.on('collect', (i) => {
@@ -71,10 +76,11 @@ export default defineCommand({
         }
         // Both stakes in one transaction: if either can't pay, nothing moves
         try {
-          await settle([
-            { userId: a, change: { wallet: -bet } },
-            { userId: b, change: { wallet: -bet } },
-          ], { source: 'duel.stake', meta: { a, b, bet } });
+          await inTransaction(async (session) => {
+            await apply(a, { wallet: -bet }, { source: 'duel.stake', session, meta: { a, b, bet } });
+            await apply(b, { wallet: -bet }, { source: 'duel.stake', session, meta: { a, b, bet } });
+            roundId = await openRound('duel', [{ userId: a, amount: bet }, { userId: b, amount: bet }], { guildId: interaction.guildId, channelId: interaction.channelId }, session);
+          });
         } catch {
           phase = 'done';
           return i.update({ content: '', embeds: [embed('warning').setTitle(title).setDescription(`${icon('warning')} One of you can't cover ${coins(bet)} any more. The duel is off.`)], components: [], allowedMentions: { parse: [] } });
@@ -94,15 +100,16 @@ export default defineCommand({
     const finish = async (winner: string | null, line: string) => {
       if (phase === 'done') return;
       phase = 'done';
-      if (winner) {
-        const loser = winner === a ? b : a;
-        await settle([
-          { userId: winner, change: { wallet: prize, inc: { 'stats.duelsWon': 1 } } },
-          { userId: loser, change: { inc: { 'stats.duelsLost': 1 } } },
-        ], { source: 'duel.win', meta: { a, b, bet } });
-      } else {
-        await settle([{ userId: a, change: { wallet: bet } }, { userId: b, change: { wallet: bet } }], { source: 'duel.refund' });
-      }
+      await inTransaction(async (session) => {
+        if (!(await closeRound(roundId, session))) return; // already refunded
+        if (winner) {
+          const loser = winner === a ? b : a;
+          await apply(winner, { wallet: prize, inc: { 'stats.duelsWon': 1 } }, { source: 'duel.win', session, meta: { a, b, bet } });
+          await apply(loser, { inc: { 'stats.duelsLost': 1 } }, { source: 'duel.win', session, meta: { a, b, bet } });
+        } else {
+          for (const id of [a, b]) await apply(id, { wallet: bet }, { source: 'duel.refund', session });
+        }
+      });
       await interaction.editReply({ content: '', embeds: [embed(winner ? 'success' : 'warning').setTitle(`${title} › ${winner ? 'Winner' : 'No contest'}`).setDescription(line)], components: [], allowedMentions: { parse: [] } });
     };
 

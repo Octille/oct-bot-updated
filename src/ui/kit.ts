@@ -35,6 +35,8 @@ export interface ScreenCtx {
   note?: string;
   /** The viewer's server permissions (bitfield string), when known. Used to hide admin commands. */
   permissions?: string | null;
+  /** Whether gambling is allowed here (false in DMs and where a server switched it off). Unknown = shown. */
+  gambling?: boolean;
 }
 
 /** Labels stay short so they aren't cut off on mobile; details go in the embed. */

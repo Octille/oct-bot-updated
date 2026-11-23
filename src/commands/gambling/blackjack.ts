@@ -10,7 +10,7 @@ import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { defaultRng } from '../../lib/rng';
 import { button, rows } from '../../lib/ui';
-import { assertGamblingAllowed, netText, parseBet, payOut, takeBet } from '../../services/gambling';
+import { assertGamblingAllowed, netText, parseBet, payOut, placeOf, raiseBet, takeBet } from '../../services/gambling';
 import { btn, ids, NAV, row } from '../../ui/kit';
 import { resultKind } from './round';
 
@@ -32,7 +32,9 @@ export default defineCommand({
     await assertGamblingAllowed(interaction);
     const userId = interaction.user.id;
     const bet = parseBet(interaction.options.getString('bet', true), profile, 'blackjack');
-    let wallet = (await takeBet(userId, 'blackjack', bet)).wallet;
+    const opened = await takeBet(userId, 'blackjack', bet, placeOf(interaction));
+    const roundId = opened.roundId;
+    let wallet = opened.profile.wallet;
     const s = deal(defaultRng);
     let note: string | null = null;
 
@@ -51,7 +53,7 @@ export default defineCommand({
         };
       }
       const payout = Math.floor(bet * s.payout);
-      const after = await payOut(userId, 'blackjack', staked, payout);
+      const after = await payOut(userId, 'blackjack', staked, payout, roundId);
       const kind = resultKind(staked, payout);
       return {
         embeds: [embed(kind).setTitle(`${titleIcon('blackjack')} Blackjack › ${OUTCOME[s.outcome!]}`).setDescription([
@@ -76,7 +78,7 @@ export default defineCommand({
         else if (move === 'stand') stand(s);
         else if (move === 'double' && canDouble(s)) {
           try {
-            wallet = (await takeBet(userId, 'blackjack', bet, { extraStake: true })).wallet;
+            wallet = (await raiseBet(userId, 'blackjack', roundId, bet)).wallet;
             double(s);
           } catch (err) {
             if (!(err instanceof EconomyError)) throw err;

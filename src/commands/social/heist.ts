@@ -55,7 +55,7 @@ export default defineCommand({
       collector.stop('started');
       await interaction.editReply({ embeds: [embed('economy').setTitle(title).setDescription(`The crew slips into the vault…`)], components: [], allowedMentions: { parse: [] } });
       await new Promise((r) => setTimeout(r, 2_000));
-      const result = await runHeist([...crew]);
+      const result = await runHeist([...crew], undefined, { guildId: interaction.guildId, channelId: interaction.channelId });
       const droppedLine = result.dropped.length ? `-# Dropped (couldn't pay or join any more): ${result.dropped.map((id) => `<@${id}>`).join(', ')}` : null;
       if ('tooFew' in result) {
         return interaction.editReply({ embeds: [embed('warning').setTitle(title).setDescription([`${icon('warning')} Not enough of the crew could go. Nobody paid anything.`, droppedLine].filter(Boolean).join('\n'))], components: [], allowedMentions: { parse: [] } });

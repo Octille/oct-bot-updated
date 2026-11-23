@@ -116,7 +116,7 @@ export const hub: ScreenModule = {
       { label: 'Inventory', value: 'inv.all.0', description: 'Your items: use, sell or lock them' },
       { label: 'Balance', value: 'bal', description: 'Wallet, bank, deposits and withdrawals' },
       { label: 'Achievements', value: 'ach', description: 'Goals and their rewards' },
-      { label: 'Casino', value: 'casino', description: 'Games, odds and your gambling record' },
+      ...(ctx.gambling !== false ? [{ label: 'Casino', value: 'casino', description: 'Games, odds and your gambling record' }] : []),
       { label: 'Wardrobe', value: 'wardrobe', description: 'Titles, badges, themes and card styles' },
       ...(unlockAt >= PRESTIGE_MENU_LEVEL || (p.account?.prestige ?? 0) > 0 ? [{ label: 'Prestige', value: 'prestige', description: 'Reset for a permanent bonus' }] : []),
       { label: 'Help', value: 'help', description: 'Every command, by category' },

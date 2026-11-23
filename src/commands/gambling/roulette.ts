@@ -34,6 +34,6 @@ export default defineCommand({
     await quickRound(interaction, 'roulette', bet, () => {
       const r = spinRoulette(target, defaultRng);
       return { multiplier: r.multiplier, reveal: `${DOT[rouletteColor(r.number)]} **${r.number}**`, line: `You bet on ${label}.` };
-    }, '🎡 The ball is spinning…');
+    }, '🎡 The ball is spinning…', target.kind);
   },
 });

@@ -124,6 +124,9 @@ Bets ₪100 up to ₪10,000 + ₪5,000 per (best-ever) account level, max ₪250
 - **Heist** (level 10, 4h cooldown, crews of 2–6): ₪5,000 stake each; success 48% (2) → 75% (5+); success pays ₪11,000 each, failure loses the stake (40% jail chance each). It's the only social source of new coins: at most about ₪800/hour per player, under 3% of early-game income.
 - **Duel** (level 3): both stake the same; the pot minus 5% goes to whoever clicks DRAW! first.
 - **Give / trade coins**: 5% tax. Give, gift and trade need level 3, and only work with players who already have a profile.
+- **Anti-alt** (give, gift, trade, duel, being robbed, joining a heist): Discord account 30+ days old and OctBot profile 3+ days old (`antiAlt` in content/social.ts).
+- **Daily giving limit** (give, gift and your side of trades, per UTC day): coins 10,000 × account level (max ₪500,000), items 20 (`dailyGiveLimit`).
+- **Interrupted rounds**: blackjack, high-low, crash (and the quick games), duels and heists are recorded while open; a restart refunds the stakes at startup and tells the player by DM, or in the channel if DMs are closed.
 
 ## Migration ceiling (Phase 7)
 

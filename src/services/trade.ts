@@ -2,7 +2,8 @@ import { getItem, items } from '../content/items';
 import { giveTax, transferMinLevel } from '../content/social';
 import { UserError } from '../lib/errors';
 import { User } from '../models/User';
-import { settle, transfer, type Profile } from './economy';
+import { apply, inTransaction, transfer, type Profile } from './economy';
+import { assertNotAlt, useAllowance } from './antiAlt';
 import { inventoryOf } from './items';
 import { unlockLevel } from './progression';
 
@@ -20,7 +21,9 @@ export async function existingPlayer(userId: string): Promise<Profile> {
   return p;
 }
 
+/** Level, account age and profile age checks for anyone sending or receiving. */
 export function assertCanTransfer(p: Profile, who: 'You' | 'They'): void {
+  assertNotAlt(p._id, p, who);
   if (unlockLevel(p) < transferMinLevel) throw new UserError(`${who} need account level ${transferMinLevel} to send or trade coins and items.`);
 }
 
@@ -56,10 +59,15 @@ export async function settleTrade(a: string, b: string, offers: Record<string, O
     return Object.keys(out).length ? out : undefined;
   };
   const wallet = (give: Offer, get: Offer) => coinsAfterTax(get.coins) - give.coins || undefined;
-  await settle([
-    { userId: a, change: { wallet: wallet(oa, ob), items: merge(oa, ob), inc: { 'stats.trades': 1 } }, transfer: true },
-    { userId: b, change: { wallet: wallet(ob, oa), items: merge(ob, oa), inc: { 'stats.trades': 1 } }, transfer: true },
-  ], { source: 'trade', meta: { a, b } });
+  const itemCount = (o: Offer) => Object.values(o.items).reduce((s, q) => s + q, 0);
+  const [pa, pb] = await Promise.all([existingPlayer(a), existingPlayer(b)]);
+  await inTransaction(async (session) => {
+    // What each side gives away counts toward their daily giving limit
+    await useAllowance(pa, { coins: oa.coins, items: itemCount(oa) }, session);
+    await useAllowance(pb, { coins: ob.coins, items: itemCount(ob) }, session);
+    await apply(a, { wallet: wallet(oa, ob), items: merge(oa, ob), inc: { 'stats.trades': 1 } }, { source: 'trade', transfer: true, session, meta: { a, b } });
+    await apply(b, { wallet: wallet(ob, oa), items: merge(ob, oa), inc: { 'stats.trades': 1 } }, { source: 'trade', transfer: true, session, meta: { a, b } });
+  });
 }
 
 /** /give: coins to another player, taxed. */
@@ -67,8 +75,8 @@ export async function giveCoins(fromId: string, toId: string, amount: number) {
   if (fromId === toId) throw new UserError("You can't give coins to yourself.");
   const from = await existingPlayer(fromId);
   assertCanTransfer(from, 'You');
-  await existingPlayer(toId);
-  return transfer(fromId, toId, amount, { source: 'give', taxRate: giveTax });
+  assertNotAlt(toId, await existingPlayer(toId), 'They');
+  return transfer(fromId, toId, amount, { source: 'give', taxRate: giveTax, inside: (session) => useAllowance(from, { coins: amount }, session) });
 }
 
 /** /gift: items to another player (no tax). */
@@ -76,10 +84,11 @@ export async function giftItem(fromId: string, toId: string, itemId: string, qty
   if (fromId === toId) throw new UserError("You can't gift items to yourself.");
   const from = await existingPlayer(fromId);
   assertCanTransfer(from, 'You');
-  await existingPlayer(toId);
+  assertNotAlt(toId, await existingPlayer(toId), 'They');
   checkItemOffer(from, itemId, qty, 0);
-  await settle([
-    { userId: fromId, change: { items: { [itemId]: -qty } }, transfer: true },
-    { userId: toId, change: { items: { [itemId]: qty } }, transfer: true },
-  ], { source: 'gift', meta: { fromId, toId } });
+  await inTransaction(async (session) => {
+    await useAllowance(from, { items: qty }, session);
+    await apply(fromId, { items: { [itemId]: -qty } }, { source: 'gift', transfer: true, session, meta: { fromId, toId } });
+    await apply(toId, { items: { [itemId]: qty } }, { source: 'gift', transfer: true, session, meta: { fromId, toId } });
+  });
 }

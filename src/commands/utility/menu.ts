@@ -6,6 +6,6 @@ export default defineCommand({
   data: new SlashCommandBuilder().setName('menu').setDescription('Your menu: what you can do right now'),
   category: 'utility',
   async execute({ interaction }) {
-    await interaction.reply({ ...(await openHub(interaction.user)), flags: MessageFlags.Ephemeral });
+    await interaction.reply({ ...(await openHub(interaction.user, interaction.guildId)), flags: MessageFlags.Ephemeral });
   },
 });

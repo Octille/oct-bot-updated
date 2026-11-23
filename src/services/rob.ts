@@ -9,6 +9,7 @@ import * as cooldowns from './cooldowns';
 import { apply, getProfile, inTransaction, settle, type Profile } from './economy';
 import { isJailed } from './jail';
 import { unlockLevel } from './progression';
+import { altBlocker } from './antiAlt';
 
 export type RobOutcome =
   | { kind: 'padlock'; fine: number }
@@ -49,6 +50,8 @@ export async function attemptRob(robberId: string, victimId: string, rng: Rng = 
   if (victim.wallet < robRules.targetMinWallet) throw new UserError(`They have less than **${coins(robRules.targetMinWallet)}** in their wallet. Not worth it.`);
   if (now - new Date(victim.lastActiveAt ?? 0).getTime() > robRules.targetActiveHours * 3_600_000) throw new UserError("They haven't been active in the last day. Pick someone who's around.");
   if (isJailed(victim.jailUntil, now)) throw new UserError("They're in jail. Even you have standards.");
+  const alt = altBlocker(victimId, victim, 'They', now);
+  if (alt) throw new UserError(`You can't rob them yet. ${alt}`);
 
   const protection = await cooldowns.claim(victimId, 'robbed', robRules.victimProtectionMinutes * 60_000);
   if (!protection.ok) throw new UserError(`They were robbed recently and are on guard. Try again in ${Math.ceil(protection.remainingMs / 60_000)}m.`);

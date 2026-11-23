@@ -71,3 +71,23 @@ export const tradeRules = {
 /** Guard dog: protection from robbers while active. */
 export const guardDogDays = 3;
 export const maxGuardDogDays = 7;
+
+/**
+ * Anti-alt rules for give, gift, trade, duel, being robbed and joining a heist.
+ * Both sides must pass (except rob/heist, which check the target/joiner).
+ */
+export const antiAlt = {
+  /** Discord account age. */
+  minAccountDays: 30,
+  /** OctBot profile age. */
+  minProfileDays: 3,
+} as const;
+
+/** What a player can send to others per UTC day (give, gift, and their side of trades). */
+export const dailyGiveLimit = {
+  /** Coins: this × account level, capped. */
+  coinsPerLevel: 10_000,
+  maxCoins: 500_000,
+  /** Items (total quantity). */
+  items: 20,
+} as const;

@@ -1,15 +1,16 @@
 import { ButtonStyle, type ChatInputCommandInteraction } from 'discord.js';
-import { gameInfo, type GameId } from '../../content/gambling';
+import { gameInfo, type GameId, type RouletteBet } from '../../content/gambling';
 import type { IconKey } from '../../content/icons';
 import { collect } from '../../lib/collect';
 import { embed } from '../../lib/embeds';
-import { EconomyError } from '../../lib/errors';
-import { coins } from '../../lib/format';
+import { EconomyError, UserError } from '../../lib/errors';
+import { coins, relative } from '../../lib/format';
 import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { button } from '../../lib/ui';
 import { getProfile } from '../../services/economy';
-import { netText, payOut, takeBet } from '../../services/gambling';
+import { gamblingEnabled, maxBetFor, netText, payOut, placeOf, takeBet } from '../../services/gambling';
+import { isJailed } from '../../services/jail';
 import { btn, ids, NAV, row } from '../../ui/kit';
 
 export interface QuickResult {
@@ -30,15 +31,27 @@ export function resultKind(bet: number, payout: number): 'success' | 'warning' |
  * A one-shot game (coinflip, slots, roulette): take the bet, show a short spin, pay out, and offer
  * "Again" with the same bet for a minute.
  */
-export async function quickRound(interaction: ChatInputCommandInteraction, game: GameId, bet: number, play: () => QuickResult, spinning: string): Promise<void> {
+export async function quickRound(
+  interaction: ChatInputCommandInteraction, game: GameId, bet: number, play: () => QuickResult, spinning: string,
+  rouletteKind?: RouletteBet['kind'],
+): Promise<void> {
   const userId = interaction.user.id;
   const title = `${titleIcon(game as IconKey)} ${gameInfo[game].name}`;
 
+  /** Every "Again" is a new bet: re-check jail, the server's switch and the bet limit. */
+  const recheck = async () => {
+    const p = await getProfile(userId);
+    if (isJailed(p.jailUntil)) throw new UserError(`You're in jail. You'll be out ${relative(p.jailUntil!)}.`);
+    if (interaction.guildId && !(await gamblingEnabled(interaction.guildId))) throw new UserError('Gambling was switched off in this server.');
+    const max = maxBetFor(p, game, rouletteKind);
+    if (bet > max) throw new UserError(`Your max bet on ${gameInfo[game].name} is now ${coins(max)}.`);
+  };
+
   const playOnce = async () => {
-    await takeBet(userId, game, bet);
+    const { roundId } = await takeBet(userId, game, bet, placeOf(interaction));
     const result = play();
     const payout = Math.floor(bet * result.multiplier);
-    const profile = await payOut(userId, game, bet, payout);
+    const profile = await payOut(userId, game, bet, payout, roundId);
     const kind = resultKind(bet, payout);
     const e = embed(kind).setTitle(`${title} › ${payout > bet ? 'Win' : payout === bet ? 'Push' : 'Loss'}`).setDescription([
       result.reveal,
@@ -66,8 +79,14 @@ export async function quickRound(interaction: ChatInputCommandInteraction, game:
       await i.update({ embeds: [embed('economy').setTitle(title).setDescription(spinning)], components: [] });
       await new Promise((r) => setTimeout(r, 700));
       try {
+        await recheck();
         await i.editReply(await playOnce());
       } catch (err) {
+        if (err instanceof UserError) {
+          collector.stop('blocked');
+          await i.editReply({ embeds: [embed('error').setTitle(title).setDescription(`${icon('error')} ${err.message}`)], components: [] });
+          return;
+        }
         if (!(err instanceof EconomyError)) throw err;
         const p = await getProfile(userId);
         await i.editReply({ embeds: [embed('error').setTitle(title).setDescription(`${icon('error')} You need ${coins(bet)} to play again (wallet ${coins(p.wallet)}).`)], components: [] });

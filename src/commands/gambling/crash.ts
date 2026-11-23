@@ -9,7 +9,7 @@ import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { defaultRng } from '../../lib/rng';
 import { button, rows } from '../../lib/ui';
-import { assertGamblingAllowed, netText, parseBet, payOut, takeBet } from '../../services/gambling';
+import { assertGamblingAllowed, netText, parseBet, payOut, placeOf, takeBet } from '../../services/gambling';
 import { btn, ids, NAV, row } from '../../ui/kit';
 import { resultKind } from './round';
 
@@ -32,7 +32,7 @@ export default defineCommand({
     const capAt = Math.floor((MAX_PAYOUT / bet) * 100) / 100;
     const chosenAuto = interaction.options.getNumber('auto');
     const auto = Math.min(chosenAuto ?? Infinity, capAt);
-    await takeBet(userId, 'crash', bet);
+    const { roundId } = await takeBet(userId, 'crash', bet, placeOf(interaction));
     const point = crashPoint(defaultRng);
     const crashMs = crashTimeFor(point);
 
@@ -56,7 +56,7 @@ export default defineCommand({
       settled = true;
       collector.stop('done');
       const payout = cashedAt ? Math.floor(bet * cashedAt) : 0;
-      const after = await payOut(userId, 'crash', bet, payout);
+      const after = await payOut(userId, 'crash', bet, payout, roundId);
       const kind = resultKind(bet, payout);
       return {
         embeds: [embed(kind).setTitle(`${titleIcon('crash')} Crash › ${cashedAt ? `Cashed out at ${cashedAt.toFixed(2)}×` : `Crashed at ${point.toFixed(2)}×`}`).setDescription([

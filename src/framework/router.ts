@@ -82,7 +82,7 @@ const newPlayers = new Set<string>();
 
 async function greetNewPlayer(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!newPlayers.delete(interaction.user.id)) return;
-  await interaction.followUp({ ...(await welcomeHub(interaction.user)), flags: MessageFlags.Ephemeral }).catch(() => undefined);
+  await interaction.followUp({ ...(await welcomeHub(interaction.user, interaction.guildId)), flags: MessageFlags.Ephemeral }).catch(() => undefined);
 }
 
 async function runComponent(interaction: ComponentInteraction): Promise<void> {

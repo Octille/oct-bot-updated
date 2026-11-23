@@ -341,7 +341,7 @@ export async function transfer(
   fromId: string,
   toId: string,
   amount: number,
-  opts: { source: string; taxRate?: number; meta?: Record<string, unknown> },
+  opts: { source: string; taxRate?: number; meta?: Record<string, unknown>; inside?: (session: ClientSession) => Promise<void> },
 ): Promise<TransferResult> {
   assertPositive(amount);
   if (fromId === toId) throw new EconomyError('SELF_TRANSFER', "You can't send coins to yourself.");
@@ -351,6 +351,8 @@ export async function transfer(
   await inTransaction(async (session) => {
     await apply(fromId, { wallet: -amount }, { source: opts.source, session, skipLog: true });
     if (received > 0) await apply(toId, { wallet: received }, { source: opts.source, session, skipLog: true });
+    // Extra checks that must commit (or fail) with the transfer, e.g. the daily giving limit
+    await opts.inside?.(session);
 
     const meta = { ...opts.meta, from: fromId, to: toId };
     const rows = [

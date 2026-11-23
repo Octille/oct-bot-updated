@@ -115,10 +115,12 @@ describe('bets (database)', () => {
 
   it('pays out, counts stats and caps a round at the max payout', async () => {
     await User.create({ _id: 'g2', wallet: 1_000 });
-    await takeBet('g2', 'coinflip', 1_000);
-    await payOut('g2', 'coinflip', 1_000, 1_950);
-    await takeBet('g2', 'crash', 1_000);
-    await payOut('g2', 'crash', 1_000, 999_999_999);
+    const r1 = await takeBet('g2', 'coinflip', 1_000);
+    await payOut('g2', 'coinflip', 1_000, 1_950, r1.roundId);
+    const r2 = await takeBet('g2', 'crash', 1_000);
+    await payOut('g2', 'crash', 1_000, 999_999_999, r2.roundId);
+    // Paying the same round twice does nothing
+    await payOut('g2', 'crash', 1_000, 999_999_999, r2.roundId);
     const p = await getProfile('g2');
     expect(p.wallet).toBe(950 + MAX_PAYOUT);
     expect(p.stats?.gambling).toMatchObject({ played: 2, wagered: 2_000, paidOut: 1_950 + MAX_PAYOUT, biggestWin: MAX_PAYOUT - 1_000 });

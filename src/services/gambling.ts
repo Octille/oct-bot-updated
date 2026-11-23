@@ -4,7 +4,8 @@ import { parseAmount } from '../lib/amount';
 import { UserError } from '../lib/errors';
 import { coins } from '../lib/format';
 import { getGuildSettings } from '../models/GuildSettings';
-import { apply, type Profile } from './economy';
+import { apply, getProfile, inTransaction, type Profile } from './economy';
+import { addRoundStake, closeRound, openRound, type RoundPlace } from './rounds';
 import { unlockLevel } from './progression';
 
 /* ── Per-server switch (cached for a minute) ────────────────────────────────────────────── */
@@ -48,11 +49,9 @@ export function parseBet(input: string, profile: Profile, game: GameId, roulette
   return bet;
 }
 
-/** Takes the bet (atomically: fails if the wallet can't cover it) and counts the round. */
-export async function takeBet(userId: string, game: GameId, bet: number, opts: { extraStake?: boolean } = {}): Promise<Profile> {
-  // A blackjack double adds to the wager but isn't another round
-  const rounds = opts.extraStake ? 0 : 1;
-  return apply(userId, {
+function betChange(game: GameId, bet: number, newRound: boolean) {
+  const rounds = newRound ? 1 : 0;
+  return {
     wallet: -bet,
     inc: {
       'stats.gambling.played': rounds,
@@ -60,17 +59,49 @@ export async function takeBet(userId: string, game: GameId, bet: number, opts: {
       [`stats.gambling.byGame.${game}.played`]: rounds,
       [`stats.gambling.byGame.${game}.wagered`]: bet,
     },
-  }, { source: `gamble.${game}.bet`, meta: { bet } });
+  };
 }
 
-/** Pays a round out (`payout` is the total returned, including the stake; 0 for a loss). */
-export async function payOut(userId: string, game: GameId, bet: number, payout: number): Promise<Profile> {
+/**
+ * Takes the bet (atomically: fails if the wallet can't cover it), counts the round and records it
+ * as open, so a restart before the payout refunds it.
+ */
+export async function takeBet(userId: string, game: GameId, bet: number, place: RoundPlace = { guildId: null, channelId: null }): Promise<{ profile: Profile; roundId: string }> {
+  return inTransaction(async (session) => {
+    const profile = await apply(userId, betChange(game, bet, true), { source: `gamble.${game}.bet`, meta: { bet }, session });
+    const roundId = await openRound(game, [{ userId, amount: bet }], place, session);
+    return { profile, roundId };
+  });
+}
+
+/** A blackjack double: more stake on the same round. */
+export async function raiseBet(userId: string, game: GameId, roundId: string, extra: number): Promise<Profile> {
+  return inTransaction(async (session) => {
+    const profile = await apply(userId, betChange(game, extra, false), { source: `gamble.${game}.bet`, meta: { bet: extra }, session });
+    await addRoundStake(roundId, userId, extra, session);
+    return profile;
+  });
+}
+
+/**
+ * Pays a round out (`payout` is the total returned, including the stake; 0 for a loss) and closes
+ * it in the same transaction. If the round was already refunded, nothing is paid.
+ */
+export async function payOut(userId: string, game: GameId, bet: number, payout: number, roundId: string): Promise<Profile> {
   const paid = Math.min(MAX_PAYOUT, Math.max(0, Math.floor(payout)));
-  return apply(userId, {
-    wallet: paid || undefined,
-    inc: { 'stats.gambling.paidOut': paid, [`stats.gambling.byGame.${game}.paidOut`]: paid },
-    max: paid > bet ? { 'stats.gambling.biggestWin': paid - bet } : undefined,
-  }, { source: `gamble.${game}.payout`, meta: { bet, payout: paid } });
+  return inTransaction(async (session) => {
+    if (!(await closeRound(roundId, session))) return getProfile(userId, session);
+    return apply(userId, {
+      inc: { 'stats.gambling.paidOut': paid, [`stats.gambling.byGame.${game}.paidOut`]: paid },
+      ...(paid ? { wallet: paid } : {}),
+      max: paid > bet ? { 'stats.gambling.biggestWin': paid - bet } : undefined,
+    }, { source: `gamble.${game}.payout`, meta: { bet, payout: paid }, session });
+  });
+}
+
+/** Where a round is being played (for the refund notice). */
+export function placeOf(interaction: { guildId: string | null; channelId: string | null }): RoundPlace {
+  return { guildId: interaction.guildId, channelId: interaction.channelId };
 }
 
 /** "+₪1,950" / "−₪1,000" / "±₪0" */
