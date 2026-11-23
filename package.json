@@ -1,15 +1,20 @@
 {
   "name": "octbot",
-  "version": "2.0.0",
+  "version": "3.0.0-dev",
   "main": "index.js",
   "engines": {
     "node": ">=20.20.2"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "start:v3": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "deploy:guild": "tsx src/deploy-commands.ts --guild",
+    "deploy:global": "tsx src/deploy-commands.ts --global"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
     "ascii-table": "0.0.9",
@@ -17,12 +22,17 @@
     "dotenv": "^16.4.5",
     "lavalink-client": "^2.4.0",
     "mongoose": "^8.3.1",
-    "ms": "^2.1.3"
+    "ms": "^2.1.3",
+    "node-cron": "^4.6.0",
+    "zod": "^4.6.7"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Octille/Oct-Bot.git"
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "mongodb-memory-server": "^11.4.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
   },
-  "keywords": [],
-  "description": ""
+  "private": true
 }

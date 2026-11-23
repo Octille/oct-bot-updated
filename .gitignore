@@ -12,4 +12,5 @@ lavalink/plugins/
 # OS/Dependencies
 .DS_Store
 node_modules/
-__pycache__/
+__pycache__/dist/
+coverage/

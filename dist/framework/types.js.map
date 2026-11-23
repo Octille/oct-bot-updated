@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../src/framework/types.ts"],"names":[],"mappings":";;;;AAqDA,uBAA8B,OAAqB;IACjD,OAAO,OAAO,CAAC;AACjB,CAAC;AAED,yBAAgC,OAAyB;IACvD,IAAI,OAAO,CAAC,MAAM,CAAC,UAAU,CAAC,GAAG,CAAC;QAAE,MAAM,IAAI,KAAK,CAAC,4DAA4D,CAAC,CAAC;IAClH,OAAO,OAAO,CAAC;AACjB,CAAC"}
