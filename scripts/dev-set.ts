@@ -1,6 +1,7 @@
 /**
  * Play-testing helper: sets a profile's level and coins in the LOCAL dev database.
  *   npx tsx scripts/dev-set.ts --level 20 --wallet 500000 [--bank 0] [--user <discord id>]
+ *   npx tsx scripts/dev-set.ts --veteran founder --reset-welcome   (grant a veteran tier; show the welcome-back again)
  * Defaults to OWNER_ID. Refuses to run against a hosted (Atlas) database.
  */
 import mongoose from 'mongoose';
@@ -8,6 +9,8 @@ import { env, isRemoteMongo, resolveMongoUri } from '../src/config/env';
 import { User } from '../src/models/User';
 import { totalXpForLevel } from '../src/content/levels';
 import { ensureUser } from '../src/services/economy';
+import { grantVeteran } from '../src/services/veteran';
+import { veteranTiers, type VeteranTier } from '../src/content/veteran';
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -27,9 +30,16 @@ async function main(): Promise<void> {
 
   await mongoose.connect(uri);
   await ensureUser(userId);
-  await User.updateOne({ _id: userId }, { $set: set });
+  if (Object.keys(set).length) await User.updateOne({ _id: userId }, { $set: set });
+  const tier = arg('veteran');
+  if (tier !== undefined) {
+    if (!veteranTiers.includes(tier as VeteranTier)) throw new Error(`--veteran must be one of ${veteranTiers.join(', ')}`);
+    await grantVeteran(userId, tier as VeteranTier);
+  }
+  if (process.argv.includes('--reset-welcome')) await User.updateOne({ _id: userId }, { $set: { 'veteran.welcomed': false } });
   const u = await User.findById(userId).lean();
-  console.log(`${mongoose.connection.host}/${mongoose.connection.name} • ${userId}: level ${u?.account?.level}, wallet ${u?.wallet}, bank ${u?.bank}`);
+  console.log(`${mongoose.connection.host}/${mongoose.connection.name} • ${userId}: level ${u?.account?.level}, wallet ${u?.wallet}, bank ${u?.bank}` +
+    (u?.veteran?.tier ? ` • veteran ${u.veteran.tier} (welcome-back ${u.veteran.welcomed ? 'shown' : 'pending'}), badge ${u.cosmetics?.badge}, ${u.cosmetics?.owned?.length} cosmetics` : ''));
   await mongoose.disconnect();
 }
 

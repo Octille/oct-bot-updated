@@ -44,3 +44,19 @@ describe('veteran set (database)', () => {
     expect(await claimVeteranWelcome('newbie')).toBeNull();
   });
 });
+
+describe('welcome-back message', () => {
+  it('lists every unlocked cosmetic, fits Discord limits and links to the Wardrobe', async () => {
+    const { welcomeBackPayload } = await import('../src/ui/welcomeBack.js');
+    for (const tier of ['veteran', 'elite', 'founder'] as const) {
+      const p = welcomeBackPayload('123', tier);
+      const e = p.embeds[0]!.toJSON();
+      expect(e.description!.length).toBeLessThanOrEqual(4096);
+      expect(e.title).toMatch(/Welcome back/);
+      for (const id of veteranCosmetics(tier)) expect(e.description, `${tier} ${id}`).toContain(cosmetics.find((c) => c.id === id)!.name.replace(' badge', ''));
+      const button = p.components[0]!.toJSON().components[0]!;
+      expect('label' in button && button.label).toBe('Equip now');
+      expect('custom_id' in button && button.custom_id).toMatch(/^ui:123:c:wardrobe/);
+    }
+  });
+});

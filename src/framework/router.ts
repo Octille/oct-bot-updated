@@ -14,6 +14,8 @@ import { icon } from '../lib/icons';
 import type { ComponentInteraction } from './types';
 import { achievementText, checkAchievements } from '../services/achievements';
 import { embed } from '../lib/embeds';
+import { claimVeteranWelcome } from '../services/veteran';
+import { welcomeBackPayload } from '../ui/welcomeBack';
 
 /** How long to wait before telling someone a collector-managed button has expired. */
 const EXPIRED_GRACE_MS = 2_500;
@@ -60,6 +62,7 @@ export async function runCommand(interaction: ChatInputCommandInteraction, comma
 
     await command.execute({ interaction, client: interaction.client, profile });
     await greetNewPlayer(interaction);
+    await welcomeBack(interaction);
     await announceAchievements(interaction);
   } catch (err) {
     await greetNewPlayer(interaction);
@@ -130,5 +133,16 @@ async function announceAchievements(interaction: ChatInputCommandInteraction | C
     await interaction.followUp({ embeds: [embed('success').setDescription(text)], flags: MessageFlags.Ephemeral });
   } catch (err) {
     logError('achievements', err);
+  }
+}
+
+/** A veteran's first v3 command: a one-time private welcome-back (claimed atomically, so shown once). */
+async function welcomeBack(interaction: ChatInputCommandInteraction): Promise<void> {
+  try {
+    if (!(interaction.replied || interaction.deferred)) return;
+    const tier = await claimVeteranWelcome(interaction.user.id);
+    if (tier) await interaction.followUp({ ...welcomeBackPayload(interaction.user.id, tier), flags: MessageFlags.Ephemeral });
+  } catch (err) {
+    logError('welcome back', err);
   }
 }
