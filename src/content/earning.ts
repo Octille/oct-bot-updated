@@ -83,3 +83,10 @@ export function dailyMultiplier(streak: number): number {
 
 export type SearchItem = (typeof search.items)[number];
 export type { Rarity };
+
+/** Cooldowns (seconds) for the Phase 2b loops. */
+export const moreCooldowns = {
+  hunt: 240,
+  dig: 300,
+  crime: 600,
+} as const;

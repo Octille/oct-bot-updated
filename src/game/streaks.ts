@@ -20,15 +20,24 @@ export interface DailyState {
 
 export type DailyClaim =
   | { ok: false; nextAt: Date }
-  | { ok: true; streak: number; best: number; broken: boolean; multiplier: number; coins: number; milestoneBonus: number; days: number[] };
+  | {
+    ok: true; streak: number; best: number; broken: boolean; multiplier: number; coins: number; milestoneBonus: number; days: number[];
+    /** Streak freezes used up to cover missed days. */
+    freezesUsed: number;
+  };
 
-/** Once per UTC day. Claiming on consecutive days grows the streak; skipping a day resets it. */
-export function claimDaily(state: DailyState, now: Date, incomeMult: number): DailyClaim {
+/**
+ * Once per UTC day. Claiming on consecutive days grows the streak; missing a full day resets it,
+ * unless you have a streak freeze for every missed day.
+ */
+export function claimDaily(state: DailyState, now: Date, incomeMult: number, freezes = 0): DailyClaim {
   const today = dayNumber(now);
   const last = state.lastDaily ? dayNumber(state.lastDaily) : null;
   if (last === today) return { ok: false, nextAt: nextUtcMidnight(now) };
 
-  const continues = last !== null && today - last === 1;
+  const missed = last === null ? 0 : today - last - 1;
+  const freezesUsed = missed > 0 && state.count > 0 && freezes >= missed ? missed : 0;
+  const continues = last !== null && (missed === 0 || freezesUsed > 0);
   const streak = continues ? state.count + 1 : 1;
   const multiplier = dailyMultiplier(streak);
   const coins = Math.round(daily.base * multiplier * incomeMult);
@@ -43,6 +52,7 @@ export function claimDaily(state: DailyState, now: Date, incomeMult: number): Da
     coins,
     milestoneBonus,
     days,
+    freezesUsed,
   };
 }
 

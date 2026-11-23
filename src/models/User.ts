@@ -24,7 +24,25 @@ const userSchema = new Schema(
     tools: {
       pickaxe: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
       rod: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
+      weapon: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
+      shovel: { id: { type: String, default: null }, durability: { type: Number, default: 0 } },
     },
+
+    /** When each active boost runs out. */
+    boosts: {
+      xp: { type: Date, default: null },
+      coin: { type: Date, default: null },
+      luck: { type: Date, default: null },
+    },
+
+    cosmetics: {
+      owned: { type: [String], default: [] },
+      title: { type: String, default: null },
+      theme: { type: String, default: null },
+    },
+
+    /** `day:itemId` keys of daily-rotation items bought (per-player limit). Old days are pruned on purchase. */
+    rotationBought: { type: [String], default: [] },
 
     job: {
       current: { type: String, default: 'barista' },
@@ -62,6 +80,15 @@ const userSchema = new Schema(
       fishLost: { type: Number, default: 0 },
       begged: { type: Number, default: 0 },
       searched: { type: Number, default: 0 },
+      hunted: { type: Number, default: 0 },
+      missedHunts: { type: Number, default: 0 },
+      digs: { type: Number, default: 0 },
+      treasures: { type: Number, default: 0 },
+      crimes: { type: Number, default: 0 },
+      crimesFailed: { type: Number, default: 0 },
+      cratesOpened: { type: Number, default: 0 },
+      itemsSold: { type: Number, default: 0 },
+      streakFreezesUsed: { type: Number, default: 0 },
     },
 
     jailUntil: { type: Date, default: null },

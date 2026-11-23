@@ -10,7 +10,7 @@ import { cooldowns } from '../../content/earning';
 import { rarityInfo } from '../../content/rarity';
 import { freshCatchBonus, newFishdexRewards, planCast, reelWindow, rollCatch } from '../../game/fishing';
 import { fishSpecies, fishValue } from '../../content/fishing';
-import { grant } from '../../services/progression';
+import { grant, luckBonus } from '../../services/progression';
 import { apply } from '../../services/economy';
 import { describeTool, ensureStarterRod, equipped } from '../../services/tools';
 import * as cooldownService from '../../services/cooldowns';
@@ -29,7 +29,7 @@ export default defineCommand({
     const rod = equipped(profile, 'rod');
     if (!rod.tool || rod.broken) throw new UserError('Your rod is broken. `/tools` to repair it.');
 
-    const catchRoll = rollCatch(rod.tool.luck ?? 0, rod.tool.valueMult ?? 1);
+    const catchRoll = rollCatch((rod.tool.luck ?? 0) + luckBonus(profile), rod.tool.valueMult ?? 1);
     const plan = planCast();
     const windowMs = reelWindow(catchRoll.species.rarity, rod.tool.windowBonusMs ?? 0);
     const id = (label: string, style: ButtonStyle, emoji?: string, disabled = false) =>
@@ -74,7 +74,7 @@ export default defineCommand({
           addToSet: { fishdexRewards: rewards.map((r) => r.percent) },
           // The rod must still have durability, and the rewards must not have been claimed meanwhile
           where: { ...where, ...(rewards.length ? { fishdexRewards: { $nin: rewards.map((r) => r.percent) } } : {}) },
-        }, { source: 'fish', xp: 'fish', meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
+        }, { source: 'fish', xp: 'fish', profile, meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
         text = [
           `${info.emoji} **${fish.emoji} ${fish.name}** — ${num(catchRoll.kg)} kg (${info.label})`,
           `Reeled in ${((reactionMs ?? 0) / 1000).toFixed(2)}s after the bite.`,

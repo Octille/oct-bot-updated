@@ -1,20 +1,31 @@
-import { ButtonStyle, SlashCommandBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
 import { bar, coins } from '../../lib/format';
 import { collect } from '../../lib/collect';
 import { parseId } from '../../lib/customId';
-import { button, rows } from '../../lib/ui';
+import { button } from '../../lib/ui';
 import { logError } from '../../lib/logger';
 import { UserError } from '../../lib/errors';
 import { nextTool, repairCost, type ToolSlot } from '../../content/tools';
 import { getProfile, type Profile } from '../../services/economy';
 import { describeTool, equipped, repair, upgrade } from '../../services/tools';
 
-const SLOTS: { slot: ToolSlot; label: string; use: string }[] = [
-  { slot: 'pickaxe', label: '⛏️ Pickaxe', use: 'multiplies /mine hauls' },
-  { slot: 'rod', label: '🎣 Rod', use: 'better fish and more time to reel' },
+const SLOTS: { slot: ToolSlot; label: string; name: string; use: string }[] = [
+  { slot: 'pickaxe', label: '⛏️ Pickaxe', name: 'pickaxe', use: 'multiplies /mine hauls' },
+  { slot: 'rod', label: '🎣 Rod', name: 'rod', use: 'rarer, more valuable fish and more time to reel' },
+  { slot: 'weapon', label: '🏹 Weapon', name: 'weapon', use: 'rarer, more valuable /hunt trophies' },
+  { slot: 'shovel', label: '🪏 Shovel', name: 'shovel', use: 'more digs and better /dig treasure' },
 ];
+
+function nextStat(slot: ToolSlot, t: NonNullable<ReturnType<typeof nextTool>>): string {
+  switch (slot) {
+    case 'pickaxe': return `${t.mult}× haul`;
+    case 'rod': return `luck +${t.luck}, ${t.valueMult}× value, +${(t.windowBonusMs ?? 0) / 1000}s to reel`;
+    case 'weapon': return `luck +${t.luck}, ${t.valueMult}× value, +${(t.windowBonusMs ?? 0) / 1000}s to aim`;
+    case 'shovel': return `${t.digs} digs, luck +${t.luck}, ${t.valueMult}× value`;
+  }
+}
 
 function view(profile: Profile, note?: string) {
   const level = profile.account?.level ?? 0;
@@ -28,7 +39,7 @@ function view(profile: Profile, note?: string) {
     if (eq.tool && eq.durability < eq.tool.durability) lines.push(`🔧 Repair: ${coins(repairCost(eq.tool, eq.durability))}`);
     if (next) {
       const lock = next.level > level ? ` 🔒 Level ${next.level}` : '';
-      const stat = slot === 'pickaxe' ? `${next.mult}× haul` : `luck +${next.luck}, +${(next.windowBonusMs ?? 0) / 1000}s to reel`;
+      const stat = nextStat(slot, next);
       lines.push(`⬆️ Next: ${next.emoji} **${next.name}** — ${coins(next.cost)} (${stat})${lock}`);
     } else lines.push('🏆 Best in the game.');
     e.addFields({ name: `${label} — ${use}`, value: lines.join('\n') });
@@ -38,21 +49,21 @@ function view(profile: Profile, note?: string) {
 
 function controls(profile: Profile, ownerId: string) {
   const level = profile.account?.level ?? 0;
-  return rows(SLOTS.flatMap(({ slot }) => {
+  // One row per tool: buy next tier, repair
+  return SLOTS.map(({ slot, name }) => {
     const eq = equipped(profile, slot);
     const next = nextTool(slot, eq.tool?.id);
     const canRepair = !!eq.tool && eq.durability < eq.tool.durability && profile.wallet >= repairCost(eq.tool, eq.durability);
     const canUpgrade = !!next && next.level <= level && profile.wallet >= next.cost;
-    const name = slot === 'pickaxe' ? 'pickaxe' : 'rod';
-    return [
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(
       button('~tools', ownerId, ['up', slot], next ? `Buy ${next.name}` : `Max ${name}`, ButtonStyle.Success, '⬆️', !canUpgrade),
       button('~tools', ownerId, ['fix', slot], `Repair ${name}`, ButtonStyle.Secondary, '🔧', !canRepair),
-    ];
-  }));
+    );
+  });
 }
 
 export default defineCommand({
-  data: new SlashCommandBuilder().setName('tools').setDescription('Upgrade and repair your pickaxe and fishing rod'),
+  data: new SlashCommandBuilder().setName('tools').setDescription('Buy, upgrade and repair your pickaxe, rod, weapon and shovel'),
   category: 'economy',
   async execute({ interaction, profile }) {
     const userId = interaction.user.id;

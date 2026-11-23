@@ -1,6 +1,6 @@
 # OctBot 3.0 — Plan
 
-Status: **approved** — building on the `v3` branch. Phase 1 and 2a done.
+Status: **approved** — building on the `v3` branch. Phases 1, 2a and 2b done.
 
 ## 0. What I found in the current code
 
@@ -197,7 +197,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - embed palette, formatting, amount parser, RNG, models
   - economy service with atomic ops and transaction log, cooldown service, scheduler skeleton, error logging channel
   - Vitest with in-memory replset: economy service tests (concurrency included), amount parser tests.
-- [ ] **2. Core economy** (split: **2a done** — balance/bank, daily/weekly/streaks, work + jobs + minigames, mine, fish + fishdex, tools, beg, search; **2b** — hunt, dig, crime/jail, items/inventory, shop rotation, sell, use, crates, cosmetics):
+- [x] **2. Core economy** (split: **2a done** — balance/bank, daily/weekly/streaks, work + jobs + minigames, mine, fish + fishdex, tools, beg, search; **2b done** — hunt, dig, crime/jail/bail, items/inventory, shop rotation, sell, use, crates, consumables, titles and themes. Padlocks and the guard dog move to Phase 4 with /rob; profile backgrounds to Phase 3 with profile cards):
   - balance, bank (capacity), daily/weekly/streaks and streak calendar
   - work with jobs and 4 minigames, mine (tunnels, durability, gems), fish (reel timing, fishdex), hunt, dig
   - beg, search, crime/jail; item system, inventory (paginated with filter), use, sell (incl. by rarity), iteminfo

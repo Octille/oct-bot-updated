@@ -10,7 +10,8 @@ import { pick } from '../../lib/rng';
 import { cooldowns } from '../../content/earning';
 import { itemLabel } from '../../content/items';
 import { resolveMine, rollTunnels } from '../../game/mining';
-import { grant, incomeMultiplier } from '../../services/progression';
+import { grant, incomeMultiplier, luckBonus } from '../../services/progression';
+import { boostEffect } from '../../content/consumables';
 import { describeTool, equipped } from '../../services/tools';
 import * as cooldownService from '../../services/cooldowns';
 
@@ -48,7 +49,7 @@ export default defineCommand({
       chosen = true;
       (async () => {
         const tunnel = choices[Number(parseId(i.customId).args[0])]!;
-        const result = resolveMine(tunnel, toolMult, incomeMultiplier(profile));
+        const result = resolveMine(tunnel, toolMult, incomeMultiplier(profile), undefined, luckBonus(profile) ? boostEffect.gemMult : 1);
         const usesTool = !!pickaxe.tool && !pickaxe.broken;
         const used = usesTool ? Math.min(result.durabilityUsed, pickaxe.durability) : 0;
 
@@ -62,7 +63,7 @@ export default defineCommand({
             ...(used ? { 'tools.pickaxe.durability': -used } : {}),
           },
           where: used ? { 'tools.pickaxe.durability': { $gte: used } } : undefined,
-        }, { source: 'mine', xp: 'mine', meta: { tunnel: tunnel.id, ore: result.ore.id } });
+        }, { source: 'mine', xp: 'mine', profile, meta: { tunnel: tunnel.id, ore: result.ore.id } });
 
         const toolNow = equipped(after, 'pickaxe');
         const lines = result.caveIn

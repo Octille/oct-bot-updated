@@ -14,13 +14,13 @@ export interface MineResult {
   durabilityUsed: number;
 }
 
-export function resolveMine(tunnel: Tunnel, toolMult: number, incomeMult: number, rng: Rng = defaultRng): MineResult {
+export function resolveMine(tunnel: Tunnel, toolMult: number, incomeMult: number, rng: Rng = defaultRng, gemMult = 1): MineResult {
   const ore = weighted(ores, (o) => o.weight, rng);
   const base = randInt(mineBase.min, mineBase.max, rng);
   const collapsed = chance(tunnel.caveIn, rng);
   const haul = base * toolMult * ore.mult * tunnel.haul * incomeMult;
   const coins = Math.max(1, Math.round(collapsed ? haul * caveInConfig.haulKept : haul));
-  const gemId = !collapsed && chance(tunnel.gem, rng) ? weighted(gems, (g) => g.weight, rng).itemId : null;
+  const gemId = !collapsed && chance(tunnel.gem * gemMult, rng) ? weighted(gems, (g) => g.weight, rng).itemId : null;
   return { ore, coins, caveIn: collapsed, gemId, durabilityUsed: 1 + (collapsed ? caveInConfig.extraDurability : 0) };
 }
 

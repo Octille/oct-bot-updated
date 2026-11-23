@@ -2,7 +2,7 @@
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpToNext(level: number): number {
-  return Math.round(100 + 35 * level + 2.5 * level * level);
+  return Math.round(100 + 35 * level + 3.1 * level * level);
 }
 
 /** Total XP needed to reach `level` from 0. */
@@ -30,6 +30,9 @@ export const accountXp = {
   work: [20, 35],
   mine: [12, 20],
   fish: [8, 15],
+  hunt: [6, 10],
+  dig: [6, 10],
+  crime: [5, 9],
   daily: [60, 60],
   weekly: [250, 250],
 } as const satisfies Record<string, readonly [number, number]>;

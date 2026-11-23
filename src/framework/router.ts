@@ -41,7 +41,7 @@ async function runCommand(interaction: ChatInputCommandInteraction): Promise<voi
     const profile = await loadProfile(interaction.user.id);
 
     if (command.blockedInJail && profile.jailUntil && profile.jailUntil.getTime() > Date.now()) {
-      throw new UserError(`🚔 You're in jail. You'll be released ${relative(profile.jailUntil)}.`);
+      throw new UserError(`🚔 You're in jail. You'll be released ${relative(profile.jailUntil)} — or pay your way out with \`/bail\`.`);
     }
 
     if (command.cooldown) {

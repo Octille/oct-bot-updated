@@ -52,7 +52,7 @@ export default defineCommand({
           text = `${spot.emoji} **${spot.name}**: ${result.line}`;
         }
 
-        const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', meta: { spot: spot.name, outcome: result.kind } });
+        const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', profile, meta: { spot: spot.name, outcome: result.kind } });
         await i.update({
           embeds: [embed(result.kind === 'mishap' ? 'warning' : 'economy').setTitle(`${spot.emoji} ${spot.name}`)
             .setDescription([text, levelUpText(levelUp)].filter(Boolean).join('\n')).setFooter({ text: `+${xp} XP` })],

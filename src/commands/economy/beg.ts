@@ -17,7 +17,7 @@ export default defineCommand({
     const { xp, levelUp } = await grant(interaction.user.id, {
       wallet: result.kind === 'nothing' ? undefined : result.coins,
       inc: { 'stats.begged': 1 },
-    }, { source: 'beg', xp: 'beg' });
+    }, { source: 'beg', xp: 'beg', profile });
 
     const text = result.kind === 'nothing'
       ? `🙁 ${result.line}`

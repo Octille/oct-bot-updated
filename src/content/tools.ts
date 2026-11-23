@@ -12,8 +12,10 @@ export interface Tool {
   luck?: number;
   /** Rods: extra milliseconds you get to hit REEL. */
   windowBonusMs?: number;
-  /** Rods: multiplies what each catch is worth. */
+  /** Rods, weapons, shovels: multiplies what each find is worth. */
   valueMult?: number;
+  /** Shovels: how many squares you can dig per /dig. */
+  digs?: number;
 }
 
 export const pickaxes: readonly Tool[] = [
@@ -34,8 +36,26 @@ export const rods: readonly Tool[] = [
   { id: 'rod_legend', name: 'Legendary Rod', emoji: '🔱', cost: 600_000, level: 22, durability: 330, luck: 4, windowBonusMs: 600, valueMult: 4.5 },
 ];
 
-export type ToolSlot = 'pickaxe' | 'rod';
-export const toolSets: Record<ToolSlot, readonly Tool[]> = { pickaxe: pickaxes, rod: rods };
+/** Hunting weapons: luck finds rarer animals, the bonus is extra reaction time, value scales trophies. */
+export const weapons: readonly Tool[] = [
+  { id: 'weapon_slingshot', name: 'Slingshot', emoji: '🪃', cost: 1_500, level: 0, durability: 25, luck: 0, windowBonusMs: 0, valueMult: 1 },
+  { id: 'weapon_bow', name: 'Hunting Bow', emoji: '🏹', cost: 7_500, level: 2, durability: 32, luck: 1, windowBonusMs: 150, valueMult: 1.3 },
+  { id: 'weapon_crossbow', name: 'Crossbow', emoji: '🎯', cost: 35_000, level: 6, durability: 80, luck: 2, windowBonusMs: 250, valueMult: 1.8 },
+  { id: 'weapon_rifle', name: 'Rifle', emoji: '🔫', cost: 140_000, level: 12, durability: 180, luck: 3, windowBonusMs: 350, valueMult: 2.8 },
+  { id: 'weapon_harpoon', name: "Oct's Harpoon", emoji: '🔱', cost: 650_000, level: 22, durability: 420, luck: 4, windowBonusMs: 450, valueMult: 4.5 },
+];
+
+/** Shovels: more digs per /dig, luckier treasure, and more coins per square. */
+export const shovels: readonly Tool[] = [
+  { id: 'shovel_trowel', name: 'Trowel', emoji: '🥄', cost: 1_000, level: 0, durability: 25, digs: 2, luck: 0, valueMult: 1 },
+  { id: 'shovel_spade', name: 'Spade', emoji: '🪏', cost: 6_000, level: 2, durability: 32, digs: 3, luck: 1, valueMult: 1.3 },
+  { id: 'shovel_steel', name: 'Steel Shovel', emoji: '⛏️', cost: 30_000, level: 6, durability: 80, digs: 3, luck: 2, valueMult: 1.9 },
+  { id: 'shovel_auger', name: 'Power Auger', emoji: '🌀', cost: 130_000, level: 13, durability: 180, digs: 4, luck: 3, valueMult: 2.5 },
+  { id: 'shovel_treasure', name: 'Treasure Drill', emoji: '💎', cost: 600_000, level: 23, durability: 420, digs: 4, luck: 4, valueMult: 3.8 },
+];
+
+export type ToolSlot = 'pickaxe' | 'rod' | 'weapon' | 'shovel';
+export const toolSets: Record<ToolSlot, readonly Tool[]> = { pickaxe: pickaxes, rod: rods, weapon: weapons, shovel: shovels };
 
 /** A full repair costs this fraction of the tool's price (partial repairs are pro rata). */
 export const repairCostFraction = 0.22;

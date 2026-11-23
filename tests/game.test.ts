@@ -12,7 +12,7 @@ import { hourly, hoursToLevel, scenarios } from '../src/game/balance';
 import { claimDaily, claimWeekly, dayNumber, streakCalendar } from '../src/game/streaks';
 import { rollBeg, rollSearch } from '../src/game/begSearch';
 import { levelFromXp, totalXpForLevel, xpToNext } from '../src/content/levels';
-import { repairCost, pickaxes, rods, repairCostFraction } from '../src/content/tools';
+import { repairCost, pickaxes, rods, weapons, shovels, repairCostFraction } from '../src/content/tools';
 import { performance } from '../src/content/jobs';
 
 describe('minigames', () => {
@@ -235,7 +235,7 @@ describe('balance targets', () => {
   it('no single loop is more than 35% of income at any stage', () => {
     for (const s of scenarios) {
       const h = hourly(s);
-      for (const loop of ['work', 'mine', 'fish', 'beg', 'search'] as const) {
+      for (const loop of ['work', 'mine', 'fish', 'beg', 'search', 'hunt', 'dig', 'crime'] as const) {
         expect(h[loop] / h.gross, `${s.name}: ${loop}`).toBeLessThanOrEqual(0.355);
       }
     }
@@ -261,7 +261,7 @@ describe('balance targets', () => {
   });
 
   it('tools get strictly better and tougher each tier', () => {
-    for (const set of [pickaxes, rods]) {
+    for (const set of [pickaxes, rods, weapons, shovels]) {
       for (let i = 1; i < set.length; i++) {
         expect(set[i]!.cost).toBeGreaterThan(set[i - 1]!.cost);
         expect(set[i]!.durability).toBeGreaterThan(set[i - 1]!.durability);
