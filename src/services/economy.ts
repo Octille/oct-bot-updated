@@ -100,7 +100,8 @@ function isDuplicateKey(err: unknown): boolean {
 /** Creates the profile if it doesn't exist. Safe to call concurrently. */
 export async function ensureUser(userId: string, session?: ClientSession): Promise<void> {
   try {
-    await User.updateOne({ _id: userId }, { $setOnInsert: { _id: userId } }, { upsert: true, session });
+    const res = await User.updateOne({ _id: userId }, { $setOnInsert: { _id: userId } }, { upsert: true, session });
+    if (res.upsertedCount) await refreshBoard(userId, session);
   } catch (err) {
     if (!isDuplicateKey(err)) throw err; // another request created it first
   }
@@ -144,7 +145,9 @@ export async function loadProfileDetailed(userId: string): Promise<{ profile: Pr
     res = await run();
   }
   if (!res.value) throw new EconomyError('NO_PROFILE', 'Could not load your profile.');
-  return { profile: res.value as unknown as Profile, created: res.lastErrorObject?.updatedExisting === false };
+  const created = res.lastErrorObject?.updatedExisting === false;
+  if (created) await refreshBoard(userId);
+  return { profile: res.value as unknown as Profile, created };
 }
 
 export async function getProfile(userId: string, session?: ClientSession): Promise<Profile> {

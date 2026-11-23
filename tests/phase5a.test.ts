@@ -12,6 +12,8 @@ import { board, clearLeaderboardCache, rankOf } from '../src/services/leaderboar
 import { backfillBoards } from '../src/services/boardStats';
 import { dayNumber } from '../src/game/streaks';
 import { hourly, scenarios } from '../src/game/balance';
+import { expectedCrateValue } from '../src/game/crates';
+import { getCrate } from '../src/content/crates';
 
 const lvl = (n: number) => ({ xp: totalXpForLevel(n), level: n, best: n });
 const fake = (over: Record<string, unknown> = {}) => ({ _id: 'p', stats: {}, tools: {}, account: lvl(5), ...over }) as unknown as Profile;
@@ -36,13 +38,15 @@ describe('quests (pure)', () => {
     }
   });
 
-  it('quest income is about 15% of income (1.5 active hours a day) at every stage', () => {
+  it('quest income share stays in its band (crates counted at their opened value, 1.5 active hours a day)', () => {
+    const crate = (id: string) => expectedCrateValue(getCrate(id)!);
     for (const s of scenarios) {
-      // 3 daily quests + bonus crate (counted at its sell value), plus a seventh of the weekly set
-      const daily = 3 * questRewards.daily.coins(s.level) + (s.level >= 10 ? 9_000 : 2_000);
-      const weekly = (3 * questRewards.weekly.coins(s.level) + (s.level >= 20 ? 36_000 : 9_000)) / 7;
+      // 3 daily quests + the bonus crate, plus a seventh of the weekly set
+      const daily = 3 * questRewards.daily.coins(s.level) + crate(questRewards.daily.bonus(s.level));
+      const weekly = (3 * questRewards.weekly.coins(s.level) + crate(questRewards.weekly.bonus(s.level))) / 7;
       const share = (daily + weekly) / (1.5 * hourly(s).net + daily + weekly);
-      expect(share, s.name).toBeLessThan(0.18);
+      // Coins are only 4–8% of income; the bonus crates are most of the rest (see BALANCE.md)
+      expect(share, s.name).toBeLessThan(0.3);
       expect(share, s.name).toBeGreaterThan(0.1);
     }
   });
@@ -124,6 +128,10 @@ describe('reminders (database)', () => {
     await User.create({ _id: 'm4', settings: { dmReminders: true }, streak: { lastDaily: now, lastWeekly: new Date(now.getTime() - 8 * 86_400_000) } });
     expect(await claimDueReminders(now)).toEqual([{ userId: 'm4', kind: 'weekly', streak: 0 }]);
     expect(await claimDueReminders(now)).toEqual([]);
+    // A chosen hour applies to the weekly reminder too
+    await User.create({ _id: 'm7', settings: { dmReminders: true, remindHour: 18 }, streak: { lastDaily: now, lastWeekly: new Date(now.getTime() - 8 * 86_400_000) } });
+    expect(await claimDueReminders(now)).toEqual([]);
+    expect(await claimDueReminders(new Date('2026-11-24T18:05:00Z'))).toEqual([{ userId: 'm7', kind: 'weekly', streak: 0 }]);
   });
 });
 
@@ -238,6 +246,17 @@ describe('stored leaderboard values (database)', () => {
     p = await getProfile('b1');
     expect(p.board?.netWorth).toBe(6_000 + 2 * getItem('gem_ruby')!.sellPrice);
     expect((await getProfile('b2')).board?.netWorth).toBe(4_000);
+  });
+
+  it('board values follow a prestige (level and net worth drop)', async () => {
+    const { prestige } = await import('../src/services/prestige.js');
+    await User.create({ _id: 'bp', wallet: 50_000, account: { xp: totalXpForLevel(35), level: 35, best: 35, prestige: 0 } });
+    const { apply } = await import('../src/services/economy.js');
+    await apply('bp', { inc: { 'stats.fishCaught': 1 } }, { source: 'test' });
+    await prestige('bp');
+    const p = await getProfile('bp');
+    expect(p.board?.level).toBe(1e12); // prestige 1, 0 XP
+    expect(p.board?.netWorth).toBe(1_000);
   });
 
   it('the startup backfill fills in profiles without current values, once', async () => {

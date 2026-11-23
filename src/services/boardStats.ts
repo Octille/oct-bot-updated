@@ -1,6 +1,7 @@
 import type { ClientSession, PipelineStage } from 'mongoose';
 import { items } from '../content/items';
 import { User } from '../models/User';
+import { logError } from '../lib/logger';
 
 /**
  * Leaderboard values stored on each profile (`board.*`) so boards are indexed top-N queries.
@@ -8,8 +9,6 @@ import { User } from '../models/User';
  * last write always leaves them right, even with concurrent updates.
  */
 
-/** Bump when a formula changes: profiles with an older version are recomputed at startup. */
-export const BOARD_VERSION = 1;
 
 export const boardFields = ['netWorth', 'level', 'fish', 'gambling', 'streak', 'fishdex', 'achievements'] as const;
 export type BoardField = (typeof boardFields)[number];
@@ -41,13 +40,35 @@ export const boardExpr: Record<BoardField, unknown> = {
   achievements: { $size: { $objectToArray: { $ifNull: ['$achievements', {}] } } },
 };
 
+/**
+ * A hash of the formulas (including every item's sell price), so any change to them — even a shop
+ * price that feeds a buyback price — makes the startup backfill recompute every profile.
+ */
+export const BOARD_VERSION = (() => {
+  let h = 2166136261;
+  for (const ch of JSON.stringify(boardExpr)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return h >>> 0;
+})();
+
 const refreshStage: PipelineStage.Set[] = [{
   $set: { ...Object.fromEntries(boardFields.map((f) => [`board.${f}`, boardExpr[f]])), 'board.v': BOARD_VERSION },
 }];
 
-/** Recomputes one player's board values (inside the caller's transaction, if any). */
+/**
+ * Recomputes one player's board values. Inside a transaction it commits (or rolls back) with the
+ * change. Outside one, the change is already saved, so a failure here is logged, not thrown: a
+ * briefly stale board is better than reporting a saved payout as failed (and refunding a cooldown).
+ */
 export async function refreshBoard(userId: string, session?: ClientSession): Promise<void> {
-  await User.updateOne({ _id: userId }, refreshStage as never, { session });
+  if (session) {
+    await User.updateOne({ _id: userId }, refreshStage as never, { session });
+    return;
+  }
+  try {
+    await User.updateOne({ _id: userId }, refreshStage as never);
+  } catch (err) {
+    logError('board refresh', err);
+  }
 }
 
 /** Fills in board values for every profile that doesn't have the current version (startup). */

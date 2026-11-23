@@ -46,8 +46,9 @@ export async function claimDueReminders(now = new Date()): Promise<DueReminder[]
     'settings.dmReminders': true,
     'reminders.weeklyWeek': { $not: { $gte: week } },
     'streak.lastWeekly': { $not: { $gt: new Date(now.getTime() - 7 * DAY) } },
-  }, { _id: 1 }, { lean: true }).cursor();
+  }, { streak: 1, 'settings.remindHour': 1 }, { lean: true }).cursor();
   for await (const u of weekly) {
+    if (now.getUTCHours() < remindHour(u.settings?.remindHour, u.streak?.lastDaily)) continue;
     const res = await User.updateOne({ _id: u._id, 'reminders.weeklyWeek': { $not: { $gte: week } } }, { $set: { 'reminders.weeklyWeek': week } });
     if (res.modifiedCount) due.push({ userId: String(u._id), kind: 'weekly', streak: 0 });
   }
