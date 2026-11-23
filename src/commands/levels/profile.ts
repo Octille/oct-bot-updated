@@ -11,6 +11,23 @@ import { veteranInfo, type VeteranTier } from '../../content/veteran';
 import { getProfile } from '../../services/economy';
 import { inventoryOf, inventoryValue } from '../../services/items';
 import { unlockedAt } from '../../services/achievements';
+import { canPrestige } from '../../services/prestige';
+import { memberLevel } from '../../services/levels';
+import type { CardBadge } from '../../lib/cards';
+import type { Profile } from '../../services/economy';
+
+/**
+ * The profile's badge row: veteran tier, then the most impressive achievements unlocked
+ * (hidden ones first, then those with title rewards, then the biggest goals).
+ */
+export function profileBadges(p: Profile, tier: VeteranTier | null): CardBadge[] {
+  const out: CardBadge[] = [];
+  if (tier) out.push({ icon: veteranInfo[tier].badge, label: veteranInfo[tier].label });
+  const score = (a: (typeof achievements)[number]) => (a.hidden ? 2e9 : 0) + (a.reward.cosmetic ? 1e9 : 0) + a.goal;
+  const top = achievements.filter((a) => unlockedAt(p, a.id)).sort((a, b) => score(b) - score(a)).slice(0, tier ? 2 : 3);
+  for (const a of top) out.push({ icon: 'achievements', label: a.name });
+  return out;
+}
 
 export default defineCommand({
   data: new SlashCommandBuilder()
@@ -27,23 +44,23 @@ export default defineCommand({
     const { level, into, needed } = levelFromXp(p.account?.xp ?? 0);
     const who = person(target, member, p);
     const tier = p.veteran?.tier as VeteranTier | null | undefined;
-    const tierLabel = tier ? veteranInfo[tier].label : null;
+    const server = interaction.inGuild() ? await memberLevel(interaction.guildId, target.id) : null;
     const png = await profileCard({
       person: who,
       style: cardStyle(p),
       accountLevel: level,
       into,
       needed,
+      readyToPrestige: canPrestige(p).ok,
       prestige: prestigeTag(p.account?.prestige ?? 0),
-      // The tier only shows as a tag when it isn't already the equipped title
-      tag: tierLabel && tierLabel !== who.title ? `${tierLabel} of the original OctBot` : null,
+      badges: profileBadges(p, tier ?? null),
       tiles: [
         ['Net worth', coins(p.wallet + p.bank + inventoryValue(inventoryOf(p)))],
+        ['Server rank', server?.rank ? `#${num(server.rank)} of ${num(server.members)}` : '—'],
         ['Achievements', `${achievements.filter((a) => unlockedAt(p, a.id)).length} / ${achievements.length}`],
         ['Fishdex', `${Object.keys(p.fishdex ?? {}).length} / ${fishSpecies.length}`],
         ['Daily streak', `${num(p.streak?.count ?? 0)} day${p.streak?.count === 1 ? '' : 's'}`],
         ['Shifts worked', num(p.stats?.worked ?? 0)],
-        ['Crimes', num(p.stats?.crimes ?? 0)],
       ],
     });
     return interaction.editReply({ files: [new AttachmentBuilder(png, { name: 'profile.png' })] });

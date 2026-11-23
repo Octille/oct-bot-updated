@@ -29,6 +29,7 @@ export default defineCommand({
       into: lvl.into,
       needed: lvl.needed,
       rank: lvl.rank,
+      members: lvl.members,
       accountLevel: profile?.account?.level ?? 0,
       prestige: prestigeTag(profile?.account?.prestige ?? 0),
     });

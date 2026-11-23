@@ -36,9 +36,42 @@ export interface Person {
   avatarUrl: string | null;
 }
 
-const DEFAULT_BG = '#2b2f5c,#12142a';
+/** Default card background: a subtle brand-blue gradient (with a dot pattern) when none is equipped. */
+const DEFAULT_BG = '#3d4285,#151833';
 const WHITE = '#ffffff';
 const MUTED = '#b5bac1';
+/** The dark panel text sits on; accents are lightened until they read well against it. */
+const PANEL = '#1b1d35';
+
+/* ── Colour helpers ─────────────────────────────────────────────────────────────────────── */
+
+function rgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = rgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function contrast(a: string, b: string): number {
+  const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m) as [number, number];
+  return (x + 0.05) / (y + 0.05);
+}
+
+/** Mixes the colour with white until it has at least `min` contrast on the card panel. */
+export function readableAccent(hex: string, min = 4.5): string {
+  const [r, g, b] = rgb(hex);
+  for (let t = 0; t <= 1.0001; t += 0.05) {
+    const mix = [r, g, b].map((v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('');
+    if (contrast(`#${mix}`, PANEL) >= min) return `#${mix}`;
+  }
+  return WHITE;
+}
 
 /* ── Cache: identical cards within a minute are served from memory ───────────────────────── */
 
@@ -68,13 +101,17 @@ async function fetchImage(url: string | null): Promise<Image | null> {
   }
 }
 
+/** A fixed-colour icon (badges), or the white version of a regular icon. */
 async function iconImage(key: string | null): Promise<Image | null> {
   if (!key) return null;
-  try {
-    return await loadImage(join(ASSETS, 'icons', `${key}.fixed.png`));
-  } catch {
-    return null;
+  for (const variant of ['fixed', 'white']) {
+    try {
+      return await loadImage(join(ASSETS, 'icons', `${key}.${variant}.png`));
+    } catch {
+      // try the next variant
+    }
   }
+  return null;
 }
 
 function roundRect(ctx: SKRSContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -97,8 +134,17 @@ function background(ctx: SKRSContext2D, w: number, h: number, spec: string | nul
   ctx.clip();
   ctx.fillStyle = gradient(ctx, spec ?? DEFAULT_BG, 0, 0, w * 0.4, h);
   ctx.fillRect(0, 0, w, h);
+  if (!spec) {
+    // A faint dot grid so the default doesn't look flat
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    for (let y = 12; y < h; y += 22) for (let x = 12 + ((y / 22) % 2) * 11; x < w; x += 22) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
   // A soft darker panel keeps text readable on bright backgrounds
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
   roundRect(ctx, 16, 16, w - 32, h - 32, 18);
   ctx.fill();
   ctx.restore();
@@ -156,24 +202,71 @@ function bar(ctx: SKRSContext2D, x: number, y: number, w: number, h: number, rat
   roundRect(ctx, x, y, w, h, h / 2);
   ctx.fillStyle = 'rgba(255,255,255,0.14)';
   ctx.fill();
-  const fill = Math.max(h, Math.round(w * Math.min(1, Math.max(0, ratio))));
-  roundRect(ctx, x, y, fill, h, h / 2);
+  const r = Math.min(1, Math.max(0, ratio));
+  if (r <= 0) return; // 0%: just the empty track
+  const fill = Math.max(8, Math.round(w * r)); // 1–3% still shows a sliver
+  roundRect(ctx, x, y, fill, h, Math.min(h / 2, fill / 2));
   ctx.fillStyle = accent;
   ctx.fill();
 }
 
-function label(ctx: SKRSContext2D, text: string, value: string, rightX: number, y: number, accent: string): number {
+/** A stat in the top-right: small caps label above a big value, right-aligned. Returns its left edge. */
+function stat(ctx: SKRSContext2D, label: string, value: string, sub: string | null, rightX: number, y: number, color: string, size = 48): number {
   ctx.textAlign = 'right';
-  ctx.font = `bold 44px ${FONT}`;
-  ctx.fillStyle = accent;
-  ctx.fillText(value, rightX, y);
-  const vw = ctx.measureText(value).width;
-  ctx.font = `600 18px ${FONT}`;
+  ctx.font = `600 15px ${FONT}`;
   ctx.fillStyle = MUTED;
-  ctx.fillText(text, rightX - vw - 10, y);
-  const lw = ctx.measureText(text).width;
+  ctx.fillText(label, rightX, y - 46); // same label height whatever the value size
+  const lw = ctx.measureText(label).width;
+  ctx.font = `bold ${size}px ${FONT}`;
+  ctx.fillStyle = color;
+  ctx.fillText(value, rightX, y + 4);
+  let width = Math.max(lw, ctx.measureText(value).width);
+  if (sub) {
+    ctx.font = `600 15px ${FONT}`;
+    ctx.fillStyle = MUTED;
+    ctx.fillText(sub, rightX, y + 26);
+    width = Math.max(width, ctx.measureText(sub).width);
+  }
   ctx.textAlign = 'left';
-  return rightX - vw - 10 - lw - 28;
+  return rightX - width;
+}
+
+/** A five-point star, for prestige. */
+function star(ctx: SKRSContext2D, cx: number, cy: number, r: number, color: string): void {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 ? r * 0.45 : r;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+export interface CardBadge {
+  /** Fixed-colour icon key (e.g. badge_founder), or null for a text-only pill. */
+  icon: string | null;
+  label: string;
+}
+
+/** Pills ending at `rightX`, in reading order (the first badge is leftmost). */
+async function badgeRow(ctx: SKRSContext2D, badges: CardBadge[], rightX: number, y: number): Promise<void> {
+  let x = rightX;
+  ctx.font = `600 15px ${FONT}`;
+  for (const b of [...badges].reverse()) {
+    const img = await iconImage(b.icon);
+    const tw = ctx.measureText(b.label).width;
+    const w = tw + 24 + (img ? 24 : 0);
+    x -= w;
+    roundRect(ctx, x, y, w, 30, 15);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fill();
+    if (img) ctx.drawImage(img, x + 10, y + 5, 20, 20);
+    ctx.fillStyle = WHITE;
+    ctx.fillText(b.label, x + 12 + (img ? 22 : 0), y + 21);
+    x -= 8;
+  }
 }
 
 async function nameLine(ctx: SKRSContext2D, person: Person, style: CardStyle, x: number, y: number, maxWidth: number, size = 36): Promise<void> {
@@ -193,10 +286,13 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 export interface RankCardData {
   person: Person;
   style: CardStyle;
+  /** Server level */
   level: number;
   into: number;
   needed: number;
   rank: number | null;
+  /** Members with XP in this server */
+  members: number;
   accountLevel: number;
   prestige: { value: number; label: string; color: string } | null;
 }
@@ -206,35 +302,37 @@ export async function rankCard(d: RankCardData): Promise<Buffer> {
     ensureFonts();
     const W = 934;
     const H = 282;
+    const P = 40;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
+    const accent = readableAccent(d.style.accent);
+    const style = { ...d.style, accent };
     background(ctx, W, H, d.style.background);
-    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, 141, 141, 92, d.style);
+    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, P + 100, H / 2, 92, style);
 
     const left = 270;
-    // Level and rank, top right
-    let edge = label(ctx, 'LEVEL', String(d.level), W - 48, 82, d.style.accent);
-    if (d.rank) edge = label(ctx, 'RANK', `#${d.rank}`, edge, 82, WHITE);
+    // Top right: server level (big, accent) and server rank
+    let edge = stat(ctx, 'SERVER LEVEL', String(d.level), null, W - P - 8, 96, accent, 52);
+    if (d.rank) edge = stat(ctx, 'SERVER RANK', `#${fmt(d.rank)}`, `of ${fmt(d.members)}`, edge - 36, 96, WHITE, 40);
 
-    await nameLine(ctx, d.person, d.style, left, 150, W - 48 - left);
+    await nameLine(ctx, d.person, style, left, 150, edge - 24 - left);
     if (d.person.title) fitText(ctx, d.person.title, left, 182, 380, 20, '600', MUTED);
 
     ctx.textAlign = 'right';
-    ctx.font = `600 20px ${FONT}`;
+    ctx.font = `600 18px ${FONT}`;
     ctx.fillStyle = MUTED;
-    ctx.fillText(`${fmt(d.into)} / ${fmt(d.needed)} XP`, W - 48, 182);
+    ctx.fillText(`${fmt(d.into)} / ${fmt(d.needed)} XP`, W - P - 8, 184);
     ctx.textAlign = 'left';
+    bar(ctx, left, 198, W - P - 8 - left, 28, d.needed ? d.into / d.needed : 0, accent);
 
-    bar(ctx, left, 198, W - 48 - left, 30, d.needed ? d.into / d.needed : 0, d.style.accent);
-
-    ctx.font = `600 17px ${FONT}`;
+    // Bottom corner: the global account level, clearly labelled
+    ctx.font = `600 16px ${FONT}`;
     ctx.fillStyle = MUTED;
-    const foot = `Account Lv ${d.accountLevel}`;
-    ctx.fillText(foot, left, 256);
+    const foot = `Account level ${d.accountLevel}`;
+    ctx.fillText(foot, left, 252);
     if (d.prestige) {
-      const fw = ctx.measureText(foot + '   ').width;
       ctx.fillStyle = d.prestige.color;
-      ctx.fillText(`Prestige ${d.prestige.label}`, left + fw, 256);
+      ctx.fillText(`Prestige ${d.prestige.label}`, left + ctx.measureText(`${foot}   `).width, 252);
     }
     return canvas.toBuffer('image/png');
   });
@@ -248,52 +346,67 @@ export interface ProfileCardData {
   accountLevel: number;
   into: number;
   needed: number;
+  /** Level 35+ with prestige available: the bar shows "Ready to prestige". */
+  readyToPrestige: boolean;
   prestige: { value: number; label: string; color: string } | null;
+  /** Pills in the top-right: veteran tier, top achievements. */
+  badges: CardBadge[];
   /** Up to 6 stat tiles: label → value */
   tiles: [string, string][];
-  /** A short line under the title, e.g. "Founder · joined 2021". */
-  tag: string | null;
 }
 
 export async function profileCard(d: ProfileCardData): Promise<Buffer> {
   return cached(`profile:${JSON.stringify(d)}`, async () => {
     ensureFonts();
     const W = 934;
-    const H = 460;
+    const P = 40; // equal padding on every side
+    const tileH = 92;
+    const gap = 16;
+    const tilesTop = 250;
+    const rows = Math.ceil(Math.min(6, d.tiles.length) / 3);
+    const H = tilesTop + rows * tileH + (rows - 1) * gap + P;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
+    const accent = readableAccent(d.style.accent);
+    const style = { ...d.style, accent };
     background(ctx, W, H, d.style.background);
-    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, 124, 124, 76, d.style);
+    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, P + 80, P + 84, 76, style);
 
     const left = 230;
-    await nameLine(ctx, d.person, d.style, left, 104, W - 48 - left, 38);
-    const sub = [d.person.title, d.tag].filter(Boolean).join('  ·  ');
-    if (sub) fitText(ctx, sub, left, 138, W - 48 - left, 20, '600', MUTED);
+    // Top right: prestige (stars + numeral) and the badge row
+    let nameRight = W - P - 8;
+    if (d.prestige) {
+      const n = Math.min(10, d.prestige.value);
+      const size = 9;
+      for (let i = 0; i < n; i++) star(ctx, W - P - 8 - size - i * (size * 2 + 3), P + 22, size, d.prestige.color);
+      ctx.textAlign = 'right';
+      ctx.font = `bold 22px ${FONT}`;
+      ctx.fillStyle = d.prestige.color;
+      ctx.fillText(`Prestige ${d.prestige.label}`, W - P - 8, P + 60);
+      ctx.textAlign = 'left';
+      nameRight = W - P - 8 - Math.max(n * (size * 2 + 3), ctx.measureText(`Prestige ${d.prestige.label}`).width) - 24;
+    }
+    if (d.badges.length) await badgeRow(ctx, d.badges.slice(0, 3), W - P - 8, P + 74);
+
+    await nameLine(ctx, d.person, style, left, P + 64, Math.min(nameRight, W - P - 8) - left, 38);
+    if (d.person.title) fitText(ctx, d.person.title, left, P + 98, 320, 20, '600', MUTED);
 
     ctx.font = `600 18px ${FONT}`;
     ctx.fillStyle = WHITE;
-    ctx.fillText(`Account Lv ${d.accountLevel}`, left, 182);
-    if (d.prestige) {
-      const w = ctx.measureText(`Account Lv ${d.accountLevel}   `).width;
-      ctx.fillStyle = d.prestige.color;
-      ctx.fillText(`Prestige ${d.prestige.label}`, left + w, 182);
-    }
+    ctx.fillText(`Account level ${d.accountLevel}`, left, 182);
     ctx.textAlign = 'right';
-    ctx.fillStyle = MUTED;
-    ctx.fillText(`${fmt(d.into)} / ${fmt(d.needed)} XP`, W - 48, 182);
+    ctx.fillStyle = d.readyToPrestige ? accent : MUTED;
+    ctx.fillText(d.readyToPrestige ? 'Ready to prestige' : `${fmt(d.into)} / ${fmt(d.needed)} XP`, W - P - 8, 182);
     ctx.textAlign = 'left';
-    bar(ctx, left, 194, W - 48 - left, 22, d.needed ? d.into / d.needed : 0, d.style.accent);
+    bar(ctx, left, 194, W - P - 8 - left, 22, d.readyToPrestige ? 1 : d.needed ? d.into / d.needed : 0, accent);
 
-    // Stat tiles, 3 per row
+    // Stat tiles, 3 per row, inside the padding
     const cols = 3;
-    const gap = 16;
-    const tx = 40;
-    const tw = (W - 80 - gap * (cols - 1)) / cols;
-    const th = 92;
+    const tw = (W - 2 * P - gap * (cols - 1)) / cols;
     d.tiles.slice(0, 6).forEach(([name, value], i) => {
-      const x = tx + (i % cols) * (tw + gap);
-      const y = 250 + Math.floor(i / cols) * (th + gap) - 8;
-      roundRect(ctx, x, y, tw, th, 14);
+      const x = P + (i % cols) * (tw + gap);
+      const y = tilesTop + Math.floor(i / cols) * (tileH + gap);
+      roundRect(ctx, x, y, tw, tileH, 14);
       ctx.fillStyle = 'rgba(255,255,255,0.08)';
       ctx.fill();
       fitText(ctx, name.toUpperCase(), x + 18, y + 32, tw - 36, 15, '600', MUTED);
@@ -313,10 +426,10 @@ export async function levelUpCard(d: { person: Person; style: CardStyle; from: n
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
     background(ctx, W, H, d.style.background);
-    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, 98, 90, 52, d.style);
+    avatar(ctx, await fetchImage(d.person.avatarUrl), d.person.name, 98, 90, 52, { ...d.style, accent: readableAccent(d.style.accent) });
     const left = 180;
     ctx.font = `bold 18px ${FONT}`;
-    ctx.fillStyle = d.style.accent;
+    ctx.fillStyle = readableAccent(d.style.accent);
     ctx.fillText('LEVEL UP', left, 62);
     await nameLine(ctx, d.person, d.style, left, 102, W - 40 - left, 28);
     ctx.font = `bold 34px ${FONT}`;

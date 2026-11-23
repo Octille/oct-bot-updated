@@ -135,8 +135,12 @@ export async function memberLevel(guildId: string, userId: string) {
   const doc = await MemberLevel.findOne({ guildId, userId }, null, { lean: true });
   const xp = doc?.xp ?? 0;
   // Rank = members with more XP + 1 (uses the guildId+xp index)
-  const rank = doc ? (await MemberLevel.countDocuments({ guildId, xp: { $gt: xp } })) + 1 : null;
-  return { xp, messages: doc?.messages ?? 0, voiceMinutes: doc?.voiceMinutes ?? 0, rank, ...serverLevelFromXp(xp) };
+  const [above, members] = await Promise.all([
+    doc ? MemberLevel.countDocuments({ guildId, xp: { $gt: xp } }) : Promise.resolve(0),
+    MemberLevel.countDocuments({ guildId, xp: { $gt: 0 } }),
+  ]);
+  const rank = doc && xp > 0 ? above + 1 : null;
+  return { xp, messages: doc?.messages ?? 0, voiceMinutes: doc?.voiceMinutes ?? 0, rank, members, ...serverLevelFromXp(xp) };
 }
 
 /* ── Reward roles ───────────────────────────────────────────────────────────────────────── */

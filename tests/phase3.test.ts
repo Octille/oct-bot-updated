@@ -92,7 +92,7 @@ describe('help', () => {
 describe('cards', () => {
   const style = { background: '#f39c12,#6e1a0a', frame: '#af810e,#f7dc6f', accent: '#af810e', badge: 'badge_founder' };
   it('render PNGs without an avatar (no network)', async () => {
-    const rank = await rankCard({ person: { name: 'Tester', title: 'Founder', avatarUrl: null }, style, level: 4, into: 10, needed: 300, rank: 2, accountLevel: 9, prestige: null });
+    const rank = await rankCard({ person: { name: 'Tester', title: 'Founder', avatarUrl: null }, style, level: 4, into: 10, needed: 300, rank: 2, members: 5, accountLevel: 9, prestige: null });
     const up = await levelUpCard({ person: { name: 'Tester', title: null, avatarUrl: null }, style, from: 3, to: 4 });
     for (const png of [rank, up]) expect([...png.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
   });
