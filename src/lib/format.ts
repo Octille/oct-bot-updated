@@ -34,8 +34,26 @@ export function relative(date: Date | number): string {
   return `<t:${Math.floor(new Date(date).getTime() / 1000)}:R>`;
 }
 
-/** `[██████░░░░]` */
+/** `▰▰▰▰▰▰▰▱▱▱` — plain text (no code block), so it reads cleanly in light and dark mode. */
 export function bar(value: number, max: number, length = 10): string {
   const filled = max > 0 ? Math.min(length, Math.max(0, Math.round((value / max) * length))) : 0;
-  return `\`[${'█'.repeat(filled)}${'░'.repeat(length - filled)}]\``;
+  return `${'▰'.repeat(filled)}${'▱'.repeat(length - filled)}`;
+}
+
+/**
+ * Time left for cooldown buttons and status lines: whole units, rounded up, no seconds.
+ * "1m", "10m", "17h 45m", "6d 19h".
+ */
+export function timeLeft(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 24 * 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+  const hours = Math.ceil(ms / 3_600_000);
+  const d = Math.floor(hours / 24);
+  const h = hours % 24;
+  return h ? `${d}d ${h}h` : `${d}d`;
 }

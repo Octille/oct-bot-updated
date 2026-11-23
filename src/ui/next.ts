@@ -5,7 +5,7 @@ import { buttonIcon, icon } from '../lib/icons';
 import type { IconKey } from '../content/icons';
 import { activities, nextReady, statusOf, type ActivityId } from './activities';
 import { btn, ids, MAIN, NAV, row, type Row } from './kit';
-import { duration } from '../lib/format';
+import { timeLeft } from '../lib/format';
 import { achievementText, checkAchievements } from '../services/achievements';
 
 export interface AfterAction {
@@ -37,7 +37,7 @@ export async function afterAction(userId: string, current: ActivityId): Promise<
   const status = statusOf(current, profile, now);
   if (status.state === 'ready') buttons.push(btn(ids.go(userId, current), `${self.name} again`, NAV));
   else if (status.state === 'cooldown') {
-    buttons.push(btn(ids.go(userId, current), `${self.name} again · ${duration(status.readyAt.getTime() - now.getTime())}`, NAV, { disabled: true }));
+    buttons.push(btn(ids.go(userId, current), `${self.name} again · ${timeLeft(status.readyAt.getTime() - now.getTime())}`, NAV, { disabled: true }));
   }
   return { row: row(...buttons), note };
 }

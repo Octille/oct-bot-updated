@@ -47,14 +47,16 @@ export function coinsPerUse(p: Profile): Partial<Record<ActivityId, number>> {
 }
 
 /**
- * The one ready activity to highlight: whatever finishes an achievement soon, then a daily/weekly
- * claim, then the best-paying ready activity. Quests join this in Phase 5.
+ * The one thing to highlight: a ready activity that finishes an achievement soon, then a
+ * daily/weekly claim, then prestige (when available), then the best-paying ready activity.
+ * Quests join this in Phase 5.
  */
-export function suggestedActivity(p: Profile, ready: ActivityId[]): ActivityId | null {
-  if (!ready.length) return null;
+export function suggestedActivity(p: Profile, ready: ActivityId[], prestigeReady = false): ActivityId | 'prestige' | null {
   const near = nearAchievement(p, ready);
   if (near) return near;
   for (const claim of ['daily', 'weekly'] as const) if (ready.includes(claim)) return claim;
+  if (prestigeReady) return 'prestige';
+  if (!ready.length) return null;
   try {
     const value = coinsPerUse(p);
     return [...ready].sort((a, b) => (value[b] ?? 0) - (value[a] ?? 0))[0]!;

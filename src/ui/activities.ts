@@ -1,7 +1,7 @@
 import { unlockLevel } from '../services/progression';
 import { cooldowns, moreCooldowns } from '../content/earning';
 import { crimeUnlockLevel } from '../content/crime';
-import { duration } from '../lib/format';
+import { timeLeft } from '../lib/format';
 import { icon } from '../lib/icons';
 import { dayNumber } from '../game/streaks';
 import { isJailed } from '../services/jail';
@@ -73,7 +73,7 @@ export function statusOf(id: ActivityId, profile: Profile, now = new Date()): St
 export function statusText(status: Status, now = new Date()): string {
   switch (status.state) {
     case 'ready': return '**ready**';
-    case 'cooldown': return `${icon('cooldown')} ${duration(status.readyAt.getTime() - now.getTime())}`;
+    case 'cooldown': return `${icon('cooldown')} ${timeLeft(status.readyAt.getTime() - now.getTime())}`;
     case 'needs': return status.reason.toLowerCase();
     case 'locked': return `${icon('locked')} ${status.reason.toLowerCase()}`;
   }

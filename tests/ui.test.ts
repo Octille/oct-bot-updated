@@ -165,7 +165,7 @@ describe('every menu screen', () => {
         let text = `${json.title ?? ''}\n${json.description ?? ''}\n${(json.fields ?? []).map((f) => `${f.name} ${f.value}`).join('\n')}`;
         for (const f of fallbacks) text = text.split(f).join('');
         text = text.split('🧪').join(''); // the test-version notice
-        text = text.replace(/[✓★☆]/g, ''); // plain text glyphs, not emoji
+        text = text.replace(/[✓★☆▰▱✨]/g, ''); // plain text glyphs (and the prestige-ready sparkle)
         expect(emoji.test(text), `${who} ${path}: ${text.match(emoji)?.[0]}`).toBe(false);
       }
     }
@@ -209,12 +209,13 @@ describe('hub', () => {
     for (const [who, p] of Object.entries(players)) {
       const buttons = render('hub', { owner: OWNER, origin: 'h', profile: p, userName: 'Oct' }).components.slice(0, 2)
         .flatMap((r) => r.toJSON().components).filter((c) => c.type === ComponentType.Button) as { style: number; disabled?: boolean; label?: string }[];
-      const kinds = buttons.map((b) => (b.style === ButtonStyle.Primary || b.style === ButtonStyle.Success ? 0 : / · \d/.test(b.label ?? '') && b.disabled ? 2 : 1));
+      const activityOnly = buttons.filter((b) => !/^(Refresh|Prestige|Pay bail|Need )/.test(b.label ?? ''));
+      const kinds = activityOnly.map((b) => (b.style === ButtonStyle.Primary || b.style === ButtonStyle.Success ? 0 : / · \d/.test(b.label ?? '') && b.disabled ? 2 : 1));
       expect([...kinds].sort((a, b) => a - b), who).toEqual(kinds);
-      const blue = buttons.filter((b) => b.style === ButtonStyle.Primary).length;
+      const blue = activityOnly.filter((b) => b.style === ButtonStyle.Primary).length;
       const anyReady = kinds.includes(0);
       expect(blue, who).toBe(anyReady ? 1 : 0);
-      if (anyReady) expect(buttons[0]!.style, who).toBe(ButtonStyle.Primary);
+      if (anyReady) expect(activityOnly[0]!.style, who).toBe(ButtonStyle.Primary);
     }
   });
 
@@ -223,17 +224,39 @@ describe('hub', () => {
     const newbie = hubOf(players.newbie!);
     const json = newbie.embeds[0]!.toJSON();
     expect(json.fields?.some((f) => f.name === 'Activities') ?? false).toBe(false);
-    expect(json.description).toMatch(/Level 0\*\* .*XP/);
-    expect(json.description).toMatch(/Next unlock: Level \d+ unlocks /);
+    expect(json.description).toMatch(/\*\*Level 0\*\* [▰▱]{10} 0% → Level \d+ unlocks /);
     expect(json.description).toMatch(/Daily streak/);
     const moreOptions = (p: Profile) => hubOf(p).components.flatMap((r) => r.toJSON().components)
       .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
     expect(moreOptions(players.newbie!)).toEqual(['Shop', 'Inventory', 'Balance', 'Achievements', 'Wardrobe', 'Help']);
     expect(moreOptions(players.maxed!)).toContain('Prestige');
     expect(moreOptions(players.prestiged!)).toContain('Prestige');
-    // Only Refresh (and bail when jailed) as buttons outside the activity rows
-    const lastRow = newbie.components.at(-1)!.toJSON().components.map((c) => ('label' in c ? c.label : ''));
-    expect(lastRow).toEqual(['Refresh']);
+    // Refresh ends the last activity row; the More menu is the final row
+    const rows = newbie.components.map((r) => r.toJSON().components);
+    expect(rows.at(-1)![0]!.type).toBe(ComponentType.StringSelect);
+    expect(rows.at(-2)!.map((c) => ('label' in c ? c.label : '')).at(-1)).toBe('Refresh');
+  });
+
+  it('at level 35 shows the prestige line and a Prestige button instead of the XP bar', () => {
+    const json = (p: Profile) => render('hub', { owner: OWNER, origin: 'h', profile: p, userName: 'Oct' });
+    const ready = json(players.maxed!);
+    expect(ready.embeds[0]!.toJSON().description).toMatch(/You can prestige now/);
+    expect(ready.embeds[0]!.toJSON().description).not.toMatch(/▰/);
+    const labels = ready.components.flatMap((r) => r.toJSON().components).map((c) => ('label' in c ? c.label : ''));
+    expect(labels).toContain('Prestige');
+    const mid = json(players.mid!).embeds[0]!.toJSON().description!;
+    expect(mid).toMatch(/\*\*Level 8\*\* [▰▱]{10} \d+% → Level \d+ unlocks /);
+  });
+
+  it('formats time left in whole units, rounded up', async () => {
+    const { timeLeft } = await import('../src/lib/format.js');
+    const m = 60_000, h = 60 * m, d = 24 * h;
+    expect(timeLeft(5_000)).toBe('1m');
+    expect(timeLeft(9 * m + 1_000)).toBe('10m');
+    expect(timeLeft(59 * m + 30_000)).toBe('1h');
+    expect(timeLeft(17 * h + 44 * m + 10_000)).toBe('17h 45m');
+    expect(timeLeft(6 * d + 18 * h + 5 * m)).toBe('6d 19h');
+    expect(timeLeft(2 * d)).toBe('2d');
   });
 
   it('hub activity buttons expire after 15 minutes', () => {
