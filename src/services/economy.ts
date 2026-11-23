@@ -1,5 +1,6 @@
 import mongoose, { type ClientSession, type FlattenMaps } from 'mongoose';
 import { User, type UserData } from '../models/User';
+import { refreshBoard } from './boardStats';
 import { Transaction } from '../models/Transaction';
 import { EconomyError } from '../lib/errors';
 import { coins } from '../lib/format';
@@ -253,6 +254,8 @@ export async function apply(userId: string, change: Change, opts: ApplyOptions):
       { session: opts.session },
     );
   }
+  // Keep the stored leaderboard values in step with this change
+  await refreshBoard(userId, opts.session);
   return updated;
 }
 

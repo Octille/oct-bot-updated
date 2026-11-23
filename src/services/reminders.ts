@@ -11,9 +11,10 @@ export interface DueReminder {
   streak: number;
 }
 
-/** The UTC hour to remind at: the hour they usually claim, but not before `earliestHour`. */
-export function remindHour(lastDaily: Date | null | undefined): number {
-  return Math.max(reminderRules.earliestHour, lastDaily ? new Date(lastDaily).getUTCHours() : reminderRules.earliestHour);
+/** The UTC hour to remind at: the hour they picked, else the hour they usually claim their daily. */
+export function remindHour(chosen: number | null | undefined, lastDaily: Date | null | undefined): number {
+  if (chosen !== null && chosen !== undefined) return chosen;
+  return lastDaily ? new Date(lastDaily).getUTCHours() : reminderRules.defaultHour;
 }
 
 /**
@@ -34,9 +35,9 @@ export async function claimDueReminders(now = new Date()): Promise<DueReminder[]
     'settings.dmReminders': true,
     'reminders.dailyDay': { $not: { $gte: today } },
     'streak.lastDaily': { $not: { $gte: startOfToday } },
-  }, { streak: 1 }, { lean: true }).cursor();
+  }, { streak: 1, 'settings.remindHour': 1 }, { lean: true }).cursor();
   for await (const u of daily) {
-    if (now.getUTCHours() < remindHour(u.streak?.lastDaily)) continue;
+    if (now.getUTCHours() < remindHour(u.settings?.remindHour, u.streak?.lastDaily)) continue;
     const res = await User.updateOne({ _id: u._id, 'reminders.dailyDay': { $not: { $gte: today } } }, { $set: { 'reminders.dailyDay': today } });
     if (res.modifiedCount) due.push({ userId: String(u._id), kind: 'daily', streak: u.streak?.count ?? 0 });
   }

@@ -88,6 +88,18 @@ const userSchema = new Schema(
       weeklyWeek: { type: Number, default: -1 },
     },
 
+    /** Leaderboard values, recomputed after every change (services/boardStats.ts). */
+    board: {
+      v: { type: Number, default: 0 },
+      netWorth: { type: Number, default: 0 },
+      level: { type: Number, default: 0 },
+      fish: { type: Number, default: 0 },
+      gambling: { type: Number, default: 0 },
+      streak: { type: Number, default: 0 },
+      fishdex: { type: Number, default: 0 },
+      achievements: { type: Number, default: 0 },
+    },
+
     /** Coins and items sent to other players today (daily giving limit). */
     giving: {
       day: { type: Number, default: -1 },
@@ -197,12 +209,17 @@ const userSchema = new Schema(
 
     settings: {
       dmReminders: { type: Boolean, default: false },
+      /** UTC hour (0–23) to send reminders; null = the hour they usually claim their daily. */
+      remindHour: { type: Number, default: null, min: 0, max: 23 },
     },
 
     migratedFromV2: { type: Boolean, default: false },
   },
   { collection: 'players', timestamps: true, versionKey: false },
 );
+
+// Leaderboards: top-N by each stored value, ties by id
+for (const f of ['netWorth', 'level', 'fish', 'gambling', 'streak', 'fishdex', 'achievements']) userSchema.index({ [`board.${f}`]: -1, _id: 1 });
 
 // Only players who opted in to DM reminders (the hourly job reads these)
 userSchema.index({ 'settings.dmReminders': 1 }, { partialFilterExpression: { 'settings.dmReminders': true } });

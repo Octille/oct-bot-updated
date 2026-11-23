@@ -11,6 +11,7 @@ import { User } from '../src/models/User';
 import { totalXpForLevel } from '../src/content/levels';
 import { ensureUser } from '../src/services/economy';
 import { grantVeteran } from '../src/services/veteran';
+import { refreshBoard } from '../src/services/boardStats';
 import { veteranTiers, type VeteranTier } from '../src/content/veteran';
 
 function arg(name: string): string | undefined {
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
     await User.collection.updateOne({ _id: userId as never }, { $set: { createdAt: new Date(Date.now() - days * 86_400_000) } });
   }
   if (process.argv.includes('--reset-welcome')) await User.updateOne({ _id: userId }, { $set: { 'veteran.welcomed': false } });
+  await refreshBoard(userId);
   const u = await User.findById(userId).lean();
   console.log(`${mongoose.connection.host}/${mongoose.connection.name} • ${userId}: level ${u?.account?.level}, wallet ${u?.wallet}, bank ${u?.bank}` +
     (u?.veteran?.tier ? ` • veteran ${u.veteran.tier} (welcome-back ${u.veteran.welcomed ? 'shown' : 'pending'}), badge ${u.cosmetics?.badge}, ${u.cosmetics?.owned?.length} cosmetics` : ''));

@@ -134,16 +134,16 @@ Bets ₪100 up to ₪10,000 + ₪5,000 per (best-ever) account level, max ₪250
 
 | Reward | Formula | Level 5 | Level 15 | Level 35 |
 |---|---|---|---|---|
-| Daily quest | ₪800 + ₪250 × level, 40 XP | ₪2,050 | ₪4,550 | ₪9,550 |
+| Daily quest | ₪250 + ₪75 × level, 40 XP | ₪625 | ₪1,375 | ₪2,875 |
 | All 3 daily | Common Crate (Rare from level 10) | | | |
-| Weekly quest | ₪5,000 + ₪1,200 × level, 250 XP | ₪11,000 | ₪23,000 | ₪47,000 |
+| Weekly quest | ₪1,500 + ₪350 × level, 250 XP | ₪3,250 | ₪6,750 | ₪13,750 |
 | All 3 weekly | Rare Crate (Epic from level 20) | | | |
 
-Per day (dailies + a seventh of the weeklies) that's about 25–28% of a player's income if they play 1.5 active hours a day (test: under 35% at every stage). Quests only count real activity: "sell" quests are fish only (shop items sell back below cost), chat messages count once a minute across all servers, and daily/weekly claims don't count as "earned".
+Per day (dailies + a seventh of the weeklies, crates at sell value) that's about 15% of a player's income if they play 1.5 active hours a day: 17.0% new, 12.8% early, 16.3% mid, 14.8% late (test: between 10% and 18% at every stage). Quests only count real activity: "sell" quests are fish only (shop items sell back below cost), chat messages count once a minute across all servers, and daily/weekly claims don't count as "earned".
 
 ## Leaderboards (Phase 5a)
 
-Net worth (wallet + bank + item value), server level, account level (prestige first), fish caught, gambling winnings (net, only players ahead), daily streak, fishdex, achievements. This server (members) or global, 10 per page, cached for a minute.
+Values are stored on each profile (`board.*`), recomputed inside MongoDB after every change and indexed, so a board is a top-N query, not a scan. Net worth (wallet + bank + item value), server level, account level (prestige first), fish caught, gambling winnings (net, only players ahead), daily streak, fishdex, achievements. This server (members) or global, 10 per page, cached for a minute.
 
 ## Migration ceiling (Phase 7)
 

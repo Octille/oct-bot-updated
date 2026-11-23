@@ -9,6 +9,7 @@ import { claimBonus, claimQuest, ensureQuests, generateSet, nextReset, questSet,
 import { grant } from '../src/services/progression';
 import { claimDueReminders } from '../src/services/reminders';
 import { board, clearLeaderboardCache, rankOf } from '../src/services/leaderboard';
+import { backfillBoards } from '../src/services/boardStats';
 import { dayNumber } from '../src/game/streaks';
 import { hourly, scenarios } from '../src/game/balance';
 
@@ -35,13 +36,14 @@ describe('quests (pure)', () => {
     }
   });
 
-  it('quest income stays a modest share: at most 35% of 1.5 active hours a day at every stage', () => {
+  it('quest income is about 15% of income (1.5 active hours a day) at every stage', () => {
     for (const s of scenarios) {
       // 3 daily quests + bonus crate (counted at its sell value), plus a seventh of the weekly set
       const daily = 3 * questRewards.daily.coins(s.level) + (s.level >= 10 ? 9_000 : 2_000);
       const weekly = (3 * questRewards.weekly.coins(s.level) + (s.level >= 20 ? 36_000 : 9_000)) / 7;
       const share = (daily + weekly) / (1.5 * hourly(s).net + daily + weekly);
-      expect(share, s.name).toBeLessThan(0.35);
+      expect(share, s.name).toBeLessThan(0.18);
+      expect(share, s.name).toBeGreaterThan(0.1);
     }
   });
 });
@@ -101,11 +103,16 @@ describe('quests (database)', () => {
 describe('reminders (database)', () => {
   useTestDatabase();
 
-  it('reminds once a day, from the usual claim hour, only when the daily is waiting', async () => {
+  it('reminds once a day, from the usual claim hour (or a chosen hour), only when the daily is waiting', async () => {
     const day = new Date('2026-11-24T00:00:00Z');
     await User.create({ _id: 'm1', settings: { dmReminders: true }, streak: { count: 5, lastDaily: new Date('2026-11-23T18:30:00Z'), lastWeekly: new Date() } });
     await User.create({ _id: 'm2', settings: { dmReminders: true }, streak: { lastDaily: new Date('2026-11-24T01:00:00Z'), lastWeekly: new Date() } });
     await User.create({ _id: 'm3', settings: { dmReminders: false } });
+    // No floor: someone who claims at 02:00 UTC is reminded at 02:00; a chosen hour wins over the usual one
+    await User.create({ _id: 'm5', settings: { dmReminders: true }, streak: { lastDaily: new Date('2026-11-23T02:10:00Z'), lastWeekly: new Date() } });
+    await User.create({ _id: 'm6', settings: { dmReminders: true, remindHour: 3 }, streak: { lastDaily: new Date('2026-11-23T20:00:00Z'), lastWeekly: new Date() } });
+    expect((await claimDueReminders(new Date(day.getTime() + 2 * 3_600_000))).map((d) => d.userId)).toEqual(['m5']);
+    expect((await claimDueReminders(new Date(day.getTime() + 3 * 3_600_000))).map((d) => d.userId)).toEqual(['m6']);
     expect(await claimDueReminders(new Date(day.getTime() + 10 * 3_600_000))).toEqual([]);
     const at19 = new Date(day.getTime() + 19 * 3_600_000);
     expect(await claimDueReminders(at19)).toEqual([{ userId: 'm1', kind: 'daily', streak: 5 }]);
@@ -128,6 +135,7 @@ describe('leaderboards (database)', () => {
     await User.create({ _id: 'l1', wallet: 100, bank: 900, account: { ...lvl(10), prestige: 0 } });
     await User.create({ _id: 'l2', wallet: 5_000, bank: 0, account: { ...lvl(2), prestige: 1 } });
     await User.create({ _id: 'l3', wallet: 50, bank: 0, account: { ...lvl(30), prestige: 0 } });
+    await backfillBoards();
     const global = await board('coins', 0, { guildId: null, members: null });
     expect(global.rows.map((r) => r.userId)).toEqual(['l2', 'l1', 'l3']);
     const server = await board('coins', 0, { guildId: 'g', members: ['l1', 'l3'] });
@@ -191,6 +199,7 @@ describe('review fixes (database)', () => {
     await User.create({ _id: 'n1', wallet: 1_000, inventory: { gem_ruby: 1 } });
     await User.create({ _id: 'n2', wallet: 1_000 });
     await User.create({ _id: 'n3', wallet: 1_000 });
+    await backfillBoards();
     const b = await board('coins', 0, { guildId: 'x', members: null });
     expect(b.rows[0]!.userId).toBe('n1');
     expect(b.rows[0]!.value).toBeGreaterThan(1_000);
@@ -199,7 +208,7 @@ describe('review fixes (database)', () => {
     expect((await rankOf('coins', 'n2', { guildId: 'x', members: null }))?.rank).toBe(2);
     expect((await rankOf('coins', 'n3', { guildId: 'x', members: null }))?.rank).toBe(3);
     // The same global page from another server comes from the cache (same result even after a change)
-    await User.updateOne({ _id: 'n3' }, { $set: { wallet: 99_999 } });
+    await User.updateOne({ _id: 'n3' }, { $set: { wallet: 99_999, 'board.netWorth': 99_999 } });
     expect((await board('coins', 0, { guildId: 'y', members: null })).rows[0]!.userId).toBe('n1');
   });
 
@@ -207,7 +216,35 @@ describe('review fixes (database)', () => {
     clearLeaderboardCache();
     await User.create({ _id: 'gw1', stats: { gambling: { wagered: 1_000, paidOut: 5_000 } } });
     await User.create({ _id: 'gw2', stats: { gambling: { wagered: 5_000, paidOut: 1_000 } } });
+    await backfillBoards();
     const b = await board('gambling', 0, { guildId: null, members: null });
     expect(b.rows.map((r) => [r.userId, r.value])).toEqual([['gw1', 4_000]]);
+  });
+});
+
+describe('stored leaderboard values (database)', () => {
+  useTestDatabase();
+
+  it('stay in step with every change, including two-player transfers', async () => {
+    const { apply, transfer } = await import('../src/services/economy.js');
+    const { getItem } = await import('../src/content/items.js');
+    await User.create({ _id: 'b1', wallet: 0, account: { ...lvl(5), prestige: 0 } });
+    await User.create({ _id: 'b2', wallet: 0 });
+    await apply('b1', { wallet: 10_000, items: { gem_ruby: 2 }, inc: { 'stats.fishCaught': 7 } }, { source: 'test' });
+    let p = await getProfile('b1');
+    expect(p.board?.netWorth).toBe(10_000 + 2 * getItem('gem_ruby')!.sellPrice);
+    expect(p.board?.fish).toBe(7);
+    await transfer('b1', 'b2', 4_000, { source: 'test' });
+    p = await getProfile('b1');
+    expect(p.board?.netWorth).toBe(6_000 + 2 * getItem('gem_ruby')!.sellPrice);
+    expect((await getProfile('b2')).board?.netWorth).toBe(4_000);
+  });
+
+  it('the startup backfill fills in profiles without current values, once', async () => {
+    const { backfillBoards: fill } = await import('../src/services/boardStats.js');
+    await User.collection.insertOne({ _id: 'raw1' as never, wallet: 500, bank: 500 });
+    expect(await fill()).toBeGreaterThanOrEqual(1);
+    expect((await getProfile('raw1')).board?.netWorth).toBe(1_000);
+    expect(await fill()).toBe(0);
   });
 });

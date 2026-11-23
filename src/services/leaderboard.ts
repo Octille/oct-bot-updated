@@ -1,25 +1,14 @@
-import type { PipelineStage } from 'mongoose';
 import { MemberLevel } from '../models/MemberLevel';
 import { User } from '../models/User';
-import { items } from '../content/items';
+import type { BoardField } from './boardStats';
 
 export type Metric = 'coins' | 'level' | 'server' | 'fish' | 'gambling' | 'streak' | 'fishdex' | 'achievements';
 /** The brief's six boards first, then two extras. */
 export const metrics: Metric[] = ['coins', 'server', 'level', 'fish', 'gambling', 'streak', 'fishdex', 'achievements'];
 
-/** Inventory value inside MongoDB: each item's quantity × its sell price (from content/items.ts). */
-const inventoryValueExpr = {
-  $sum: {
-    $map: {
-      input: { $objectToArray: { $ifNull: ['$inventory', {}] } },
-      as: 'i',
-      in: {
-        $multiply: ['$$i.v', {
-          $switch: { branches: items.filter((it) => it.sellPrice > 0).map((it) => ({ case: { $eq: ['$$i.k', it.id] }, then: it.sellPrice })), default: 0 },
-        }],
-      },
-    },
-  },
+/** The stored, indexed value each board sorts by (see services/boardStats.ts). */
+const FIELD: Record<Exclude<Metric, 'server'>, BoardField> = {
+  coins: 'netWorth', level: 'level', fish: 'fish', gambling: 'gambling', streak: 'streak', fishdex: 'fishdex', achievements: 'achievements',
 };
 
 export interface Row {
@@ -37,31 +26,19 @@ export interface Board {
 }
 
 export const PER_PAGE = 10;
-
-/** The sortable value for each metric, computed in the database. */
-const valueExpr: Record<Exclude<Metric, 'server'>, unknown> = {
-  // Net worth: wallet + bank + item value
-  coins: { $add: [{ $ifNull: ['$wallet', 0] }, { $ifNull: ['$bank', 0] }, inventoryValueExpr] },
-  fish: { $ifNull: ['$stats.fishCaught', 0] },
-  // Net gambling winnings (paid out minus wagered); only players ahead show up
-  gambling: { $subtract: [{ $ifNull: ['$stats.gambling.paidOut', 0] }, { $ifNull: ['$stats.gambling.wagered', 0] }] },
-  // Prestige first, then XP: one number that sorts the same way
-  level: { $add: [{ $multiply: [{ $ifNull: ['$account.prestige', 0] }, 1e12] }, { $ifNull: ['$account.xp', 0] }] },
-  fishdex: { $size: { $objectToArray: { $ifNull: ['$fishdex', {}] } } },
-  streak: { $ifNull: ['$streak.count', 0] },
-  achievements: { $size: { $objectToArray: { $ifNull: ['$achievements', {}] } } },
-};
-
-const cache = new Map<string, { at: number; board: Board }>();
 const TTL = 60_000;
 
-/**
- * One page of a leaderboard. `members` limits it to a server's members (null = global).
- * Server level is always per server.
- */
-export async function board(metric: Metric, page: number, opts: { guildId: string | null; members: string[] | null }): Promise<Board> {
-  // Global boards are the same everywhere: only server-scoped (and server-level) boards key on the server
-  const key = `${metric}:${page}:${opts.members || metric === 'server' ? opts.guildId : 'global'}`;
+type Scope = { guildId: string | null; members: string[] | null };
+
+const cache = new Map<string, { at: number; board: Board }>();
+const rankCache = new Map<string, { at: number; rank: { rank: number; value: number } | null }>();
+
+/** Global boards are the same everywhere: only server-scoped (and server-level) boards key on the server. */
+const scopeKey = (metric: Metric, opts: Scope) => (opts.members || metric === 'server' ? opts.guildId : 'global');
+
+/** One page of a leaderboard (an indexed top-N query). `members` limits it to a server's members. */
+export async function board(metric: Metric, page: number, opts: Scope): Promise<Board> {
+  const key = `${metric}:${page}:${scopeKey(metric, opts)}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.board;
 
@@ -80,18 +57,20 @@ export async function board(metric: Metric, page: number, opts: { guildId: strin
       rows: docs.map((d) => ({ userId: d.userId, value: d.xp, level: d.level, prestige: byId.get(d.userId)?.account?.prestige ?? 0, badge: byId.get(d.userId)?.cosmetics?.badge ?? null })),
     };
   } else {
-    const pipeline: PipelineStage[] = [
-      ...(opts.members ? [{ $match: { _id: { $in: opts.members } } }] : []),
-      { $project: { value: valueExpr[metric], prestige: '$account.prestige', level: '$account.level', badge: '$cosmetics.badge' } },
-      { $match: { value: { $gt: 0 } } },
-      { $sort: { value: -1, _id: 1 } },
-      { $facet: { rows: [{ $skip: page * PER_PAGE }, { $limit: PER_PAGE }], total: [{ $count: 'n' }] } },
-    ] as PipelineStage[];
-    const [out] = await User.aggregate(pipeline);
+    const path = `board.${FIELD[metric]}`;
+    const filter = { ...(opts.members ? { _id: { $in: opts.members } } : {}), [path]: { $gt: 0 } };
+    const [docs, total] = await Promise.all([
+      User.find(filter, { board: 1, account: 1, 'cosmetics.badge': 1 }, { lean: true }).sort({ [path]: -1, _id: 1 }).skip(page * PER_PAGE).limit(PER_PAGE),
+      User.countDocuments(filter),
+    ]);
     result = {
-      total: out?.total?.[0]?.n ?? 0,
-      rows: (out?.rows ?? []).map((r: { _id: string; value: number; prestige?: number; level?: number; badge?: string | null }) => ({
-        userId: String(r._id), value: r.value, prestige: r.prestige ?? 0, level: r.level ?? 0, badge: r.badge ?? null,
+      total,
+      rows: docs.map((d) => ({
+        userId: String(d._id),
+        value: d.board?.[FIELD[metric]] ?? 0,
+        prestige: d.account?.prestige ?? 0,
+        level: d.account?.level ?? 0,
+        badge: d.cosmetics?.badge ?? null,
       })),
     };
   }
@@ -100,14 +79,12 @@ export async function board(metric: Metric, page: number, opts: { guildId: strin
   return result;
 }
 
-const rankCache = new Map<string, { at: number; rank: { rank: number; value: number } | null }>();
-
 /**
  * A player's rank on a board (1-based), or null if they aren't on it. Ties are ordered by id,
  * exactly like the board, so the footer always matches the list. Cached for a minute.
  */
-export async function rankOf(metric: Metric, userId: string, opts: { guildId: string | null; members: string[] | null }): Promise<{ rank: number; value: number } | null> {
-  const key = `${metric}:${userId}:${opts.members || metric === 'server' ? opts.guildId : 'global'}`;
+export async function rankOf(metric: Metric, userId: string, opts: Scope): Promise<{ rank: number; value: number } | null> {
+  const key = `${metric}:${userId}:${scopeKey(metric, opts)}`;
   const hit = rankCache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.rank;
   let rank: { rank: number; value: number } | null = null;
@@ -119,15 +96,16 @@ export async function rankOf(metric: Metric, userId: string, opts: { guildId: st
       rank = { rank: above + 1, value: me.xp };
     }
   } else {
-    const [mine] = await User.aggregate([{ $match: { _id: userId } }, { $project: { value: valueExpr[metric] } }]);
-    if (mine?.value > 0) {
-      const [above] = await User.aggregate([
-        ...(opts.members ? [{ $match: { _id: { $in: opts.members } } }] : []),
-        { $project: { value: valueExpr[metric] } },
-        { $match: { $or: [{ value: { $gt: mine.value } }, { value: mine.value, _id: { $lt: userId } }] } },
-        { $count: 'n' },
-      ] as PipelineStage[]);
-      rank = { rank: (above?.n ?? 0) + 1, value: mine.value };
+    const field = FIELD[metric];
+    const path = `board.${field}`;
+    const me = await User.findById(userId, { board: 1 }, { lean: true });
+    const value = me?.board?.[field] ?? 0;
+    if (value > 0) {
+      const above = await User.countDocuments({
+        ...(opts.members ? { _id: { $in: opts.members } } : {}),
+        $or: [{ [path]: { $gt: value } }, { [path]: value, _id: { $lt: userId } }],
+      });
+      rank = { rank: above + 1, value };
     }
   }
   if (rankCache.size > 5_000) rankCache.clear();

@@ -8,6 +8,7 @@ import { jobs } from '../scheduler/jobs';
 import { loadIcons } from '../lib/icons';
 import { runRobSweep } from '../scheduler/robSweep';
 import { refundInterruptedRounds } from '../scheduler/refunds';
+import { backfillBoards } from '../services/boardStats';
 import { logError } from '../lib/logger';
 
 export async function onReady(client: Client<true>): Promise<void> {
@@ -22,6 +23,8 @@ export async function onReady(client: Client<true>): Promise<void> {
   }
   client.user.setPresence({ activities: [{ name: '/help', type: ActivityType.Listening }], status: 'online' });
   startScheduler(client, jobs);
+  // Leaderboard values for profiles that don't have the current version yet
+  backfillBoards().then((n) => n && logInfo('leaderboard', `Computed board values for ${n} profile(s)`)).catch((err) => logError('board backfill', err));
   // Stakes from rounds a restart interrupted
   refundInterruptedRounds(client).catch((err) => logError('refunds', err));
   // Getaways that finished while the bot was offline

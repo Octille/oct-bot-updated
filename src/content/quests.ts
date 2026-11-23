@@ -42,10 +42,10 @@ export const questDefs: readonly QuestDef[] = [
 
 export const questsPerSet = 3;
 
-/** Rewards per quest and for finishing the whole set (the bonus chest). */
+/** Rewards per quest and for finishing the whole set (the bonus chest). Quests are ~15% of income (BALANCE.md). */
 export const questRewards = {
-  daily: { coins: (level: number) => 800 + 250 * level, xp: 40, bonus: (level: number) => (level >= 10 ? 'crate_rare' : 'crate_common') },
-  weekly: { coins: (level: number) => 5_000 + 1_200 * level, xp: 250, bonus: (level: number) => (level >= 20 ? 'crate_epic' : 'crate_rare') },
+  daily: { coins: (level: number) => 250 + 75 * level, xp: 40, bonus: (level: number) => (level >= 10 ? 'crate_rare' : 'crate_common') },
+  weekly: { coins: (level: number) => 1_500 + 350 * level, xp: 250, bonus: (level: number) => (level >= 20 ? 'crate_epic' : 'crate_rare') },
 } as const;
 
 /** Rerolls per set (a new random quest replaces one you haven't finished). */
@@ -53,6 +53,6 @@ export const questRerolls = { daily: 1, weekly: 1 } as const;
 
 /** DM reminders (opt-in): at most one per kind per day/week. */
 export const reminderRules = {
-  /** Remind about an unclaimed daily from this UTC hour, or the hour they usually claim, whichever is later. */
-  earliestHour: 8,
+  /** UTC hour for players who never claimed a daily and didn't pick an hour. */
+  defaultHour: 12,
 } as const;

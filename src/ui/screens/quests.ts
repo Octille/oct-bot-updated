@@ -8,7 +8,9 @@ import { itemName } from '../../content/items';
 import { apply } from '../../services/economy';
 import { unlockLevel } from '../../services/progression';
 import { bonusName, claimBonus, claimQuest, nextReset, questDone, questLabel, questProgress, questSet, rerollQuest } from '../../services/quests';
+import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { back, btn, ids, MAIN, NAV, row, select, type Payload, type ScreenCtx } from '../kit';
+import { remindHour } from '../../services/reminders';
 import type { ScreenModule } from './types';
 
 function view(ctx: ScreenCtx, scope: QuestScope): Payload {
@@ -31,7 +33,12 @@ function view(ctx: ScreenCtx, scope: QuestScope): Payload {
     '',
     `Each quest: **${coins(reward.coins(level))}** + ${reward.xp} XP · All three: **${bonusName(p, scope)}**${s.bonusClaimed ? ' (claimed)' : ''}`,
   ].filter((l) => l !== undefined).join('\n'))
-    .setFooter({ text: `DM reminders: ${p.settings?.dmReminders ? 'on' : 'off'} · ${questRerolls[scope] - s.rerolls} reroll left` });
+    .setFooter({ text: `${questRerolls[scope] - s.rerolls} reroll left` });
+  if (p.settings?.dmReminders) {
+    const hour = remindHour(p.settings?.remindHour, p.streak?.lastDaily);
+    const at = new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000 + hour * 3_600_000);
+    e.addFields({ name: 'DM reminders', value: `On, at <t:${Math.floor(at.getTime() / 1000)}:t> your time${p.settings?.remindHour === null || p.settings?.remindHour === undefined ? ' (when you usually claim)' : ''}` });
+  }
 
   const claimables = s.list.map((q, i) => ({ q, i })).filter(({ q }) => !q.claimed && questDone(p, q));
   const actions = [
@@ -50,6 +57,7 @@ function view(ctx: ScreenCtx, scope: QuestScope): Payload {
     back(ctx, null),
     btn(ids.nav(ctx.owner, ctx.origin, `quests.${scope === 'daily' ? 'weekly' : 'daily'}`), scope === 'daily' ? 'Weekly quests' : 'Daily quests', NAV),
     btn(ids.act(ctx.owner, ctx.origin, `quests.${scope}`, 'remind'), p.settings?.dmReminders ? 'Turn off reminders' : 'DM me reminders', NAV),
+    ...(p.settings?.dmReminders ? [btn(ids.act(ctx.owner, ctx.origin, `quests.${scope}`, 'hour'), 'Remind me at…', NAV)] : []),
   ));
   return { embeds: [e], components };
 }
@@ -77,6 +85,24 @@ export const questsScreen: ScreenModule = {
           if (!interaction.isStringSelectMenu()) return { path: here };
           const q = await rerollQuest(ctx.owner, scope, Number(interaction.values[0]));
           return { path: here, note: `${icon('success')} New quest: **${questLabel(q)}**.` };
+        }
+        case 'hour': {
+          if (!interaction.isButton()) return { path: here };
+          const input = new TextInputBuilder().setCustomId('hour').setLabel('Hour in UTC (0–23), or "auto"').setPlaceholder(`Now it's ${new Date().getUTCHours()}:00 UTC`)
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(5);
+          await interaction.showModal(new ModalBuilder().setCustomId(ids.act(ctx.owner, ctx.origin, here, 'hoursub')).setTitle('Remind me at…')
+            .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input)));
+          return { handled: true };
+        }
+        case 'hoursub': {
+          if (!interaction.isModalSubmit()) return { path: here };
+          const raw = interaction.fields.getTextInputValue('hour').trim().toLowerCase().replace(/:00$/, '');
+          const hour = raw === 'auto' ? null : Number(raw);
+          if (hour !== null && (!Number.isInteger(hour) || hour < 0 || hour > 23)) throw new UserError('Enter a whole hour from 0 to 23 (UTC), or "auto".');
+          await apply(ctx.owner, { set: { 'settings.remindHour': hour } }, { source: 'settings' });
+          if (hour === null) return { path: here, note: `${icon('success')} Reminders will come around when you usually claim your daily.` };
+          const at = new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000 + hour * 3_600_000);
+          return { path: here, note: `${icon('success')} Reminders will come at <t:${Math.floor(at.getTime() / 1000)}:t> your time.` };
         }
         case 'remind': {
           const on = !ctx.profile.settings?.dmReminders;
