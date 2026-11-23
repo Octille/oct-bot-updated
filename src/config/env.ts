@@ -8,6 +8,10 @@ const schema = z.object({
   CLIENT_ID: z.string().min(1, 'CLIENT_ID is required'),
   OWNER_ID: z.string().default('460509056487129090'),
   DEV_GUILD_ID: z.string().optional(),
+  /** Comma-separated servers for `npm run deploy:guild` (falls back to DEV_GUILD_ID). */
+  DEV_GUILD_IDS: z.string().optional(),
+  /** The test bot's application id. deploy:global refuses to run for it without --force. */
+  TEST_CLIENT_ID: z.string().default('816413181793665056'),
   ERROR_LOG_CHANNEL_ID: z.string().optional(),
 
   MONGODB_URI: z.string().min(1, 'MONGODB_URI (or MONGODB_SRV) is required'),
@@ -36,6 +40,17 @@ function load(): Env {
 }
 
 export const env = load();
+
+/** Servers that development commands are registered to. */
+export function devGuildIds(e: Env = env): string[] {
+  const raw = e.DEV_GUILD_IDS ?? e.DEV_GUILD_ID ?? '';
+  return [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))];
+}
+
+/** True when running as the test bot rather than the real Oct Bot. */
+export function isTestBot(e: Env = env): boolean {
+  return e.CLIENT_ID === e.TEST_CLIENT_ID;
+}
 
 /** True for hosted (Atlas) connection strings. */
 export function isRemoteMongo(uri: string): boolean {

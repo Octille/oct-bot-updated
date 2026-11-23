@@ -10,6 +10,7 @@ import { button, rows } from '../../lib/ui';
 import { EconomyError } from '../../lib/errors';
 import { logError } from '../../lib/logger';
 import { themeColor, titled } from '../../lib/theme';
+import { testNotice } from '../../lib/testMode';
 import { inventoryOf, inventoryValue } from '../../services/items';
 import { relative } from '../../lib/format';
 import { isActive } from '../../game/boosts';
@@ -30,7 +31,7 @@ function balanceEmbed(profile: Profile, name: string, avatar: string, note?: str
       { name: '💰 Net worth', value: `${coins(profile.wallet + profile.bank + items)}\n-# incl. ${coins(items)} of items`, inline: true },
       { name: `⭐ Account Level ${level}`, value: `${bar(into, needed)} ${num(into)} / ${num(needed)} XP` },
     )
-    .setFooter({ text: 'Wallet coins can be robbed. Bank coins are safe.' });
+    .setFooter({ text: [testNotice(), 'Wallet coins can be robbed. Bank coins are safe.'].filter(Boolean).join('\n') });
   if (active.length) e.addFields({ name: 'Active boosts', value: active.join('\n') });
   const color = themeColor(profile);
   if (color !== null) e.setColor(color);

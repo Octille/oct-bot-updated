@@ -1,5 +1,6 @@
 import type { SlashCommand } from '../framework/types';
 import ping from './utility/ping';
+import help from './utility/help';
 import balance from './economy/balance';
 import bank from './economy/bank';
 import daily from './economy/daily';
@@ -27,7 +28,7 @@ import cosmetics from './economy/cosmetics';
 
 /** Every slash command. Add new commands here. */
 export const commands: SlashCommand[] = [
-  ping,
+  ping, help,
   balance, bank, daily, weekly, streak,
   work, job, mine, fish, fishdex, tools, beg, search,
   hunt, dig, crime, bail,
