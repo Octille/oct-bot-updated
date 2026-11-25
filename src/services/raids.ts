@@ -10,6 +10,8 @@ import { unlockLevel } from './progression';
 import { weekNumber } from './quests';
 import { addSeasonPoints } from './seasons';
 import { isJailed } from './jail';
+import { altBlocker } from './antiAlt';
+import type { ClientSession } from 'mongoose';
 
 const DAY = 86_400_000;
 
@@ -57,13 +59,15 @@ export type AttackResult = { damage: number; hp: number; maxHp: number; defeated
 export async function attackRaid(guildId: string, userId: string, now = new Date(), rng: Rng = defaultRng): Promise<AttackResult> {
   const p = await getProfile(userId);
   if (isJailed(p.jailUntil, now.getTime())) throw new UserError("You're in jail.");
+  const alt = altBlocker(userId, p, 'You', now.getTime());
+  if (alt) throw new UserError(alt);
   const raid = await Raid.findOne({ guildId, status: 'active', endsAt: { $gt: now } }, null, { lean: true });
   if (!raid) throw new UserError('There is no boss to fight right now. A new one arrives every Monday.');
   const cd = await cooldowns.claim(userId, 'raid', raidRules.attackCooldownMinutes * 60_000);
   if (!cd.ok) throw new UserError(`You're catching your breath. Attack again in ${Math.ceil(cd.remainingMs / 60_000)}m.`);
   const damage = raidDamage(unlockLevel(p), !!p.tools?.weapon?.id, rng);
   const after = await Raid.findOneAndUpdate(
-    { _id: raid._id, status: 'active', hp: { $gt: 0 } },
+    { _id: raid._id, status: 'active', hp: { $gt: 0 }, endsAt: { $gt: now } },
     { $inc: { hp: -damage, [`damage.${userId}`]: damage } },
     { new: true, lean: true },
   );
@@ -96,23 +100,48 @@ export function raidPayouts(damage: Record<string, number>): RaidPayout[] {
   }));
 }
 
+/** Profiles that can be paid an event reward: they exist and pass the anti-alt rules. */
+async function eligible(ids: string[], session: ClientSession): Promise<Set<string>> {
+  const docs = await User.find({ _id: { $in: ids } }, { createdAt: 1 }, { lean: true, session });
+  return new Set(docs.filter((d) => !altBlocker(String(d._id), d as never, 'They')).map((d) => String(d._id)));
+}
+
+/**
+ * Claims this week's raid/goal reward for a player (one of each per week across all servers).
+ * A plain conditional update, so a player already paid this week is skipped without aborting.
+ */
+async function claimWeekly(userId: string, kind: 'raidWeek' | 'goalWeek', week: number, session: ClientSession): Promise<boolean> {
+  const res = await User.updateOne({ _id: userId, [`eventRewards.${kind}`]: { $ne: week } }, { $set: { [`eventRewards.${kind}`]: week } }, { session });
+  return res.modifiedCount === 1;
+}
+
 /** Flips a raid to defeated (once) and pays everyone who hit it, in one transaction. */
 export async function finishRaid(raidId: string): Promise<boolean> {
   return inTransaction(async (session) => {
-    const raid = await Raid.findOneAndUpdate({ _id: raidId, status: 'active' }, { $set: { status: 'defeated' } }, { session, new: true, lean: true });
+    const raid = await Raid.findOneAndUpdate({ _id: raidId, status: 'active', hp: { $lte: 0 } }, { $set: { status: 'defeated' } }, { session, new: true, lean: true });
     if (!raid) return false;
     const damage = Object.fromEntries(Object.entries((raid.damage ?? {}) as Record<string, number>));
-    const exists = new Set((await User.find({ _id: { $in: Object.keys(damage) } }, { _id: 1 }, { lean: true, session })).map((u) => String(u._id)));
-    for (const pay of raidPayouts(damage).filter((x) => exists.has(x.userId))) {
+    const ok = await eligible(Object.keys(damage), session);
+    for (const pay of raidPayouts(damage).filter((x) => ok.has(x.userId))) {
+      if (!(await claimWeekly(pay.userId, 'raidWeek', raid.week, session))) continue;
       await apply(pay.userId, { wallet: pay.coins, items: { [pay.crate]: 1 } }, { source: 'raid.reward', session, meta: { raidId } });
     }
     return true;
   });
 }
 
+/** Raids whose final blow landed but whose payout didn't finish (crash, conflict): pay them now. */
+export async function recoverRaids(): Promise<number> {
+  let n = 0;
+  for (const r of await Raid.find({ status: 'active', hp: { $lte: 0 } }, { _id: 1 }, { lean: true })) {
+    if (await finishRaid(String(r._id))) n++;
+  }
+  return n;
+}
+
 /** Marks raids whose time ran out as escaped (no rewards). */
 export async function expireRaids(now = new Date()): Promise<number> {
-  const res = await Raid.updateMany({ status: 'active', endsAt: { $lte: now } }, { $set: { status: 'escaped' } });
+  const res = await Raid.updateMany({ status: 'active', hp: { $gt: 0 }, endsAt: { $lte: now } }, { $set: { status: 'escaped' } });
   return res.modifiedCount;
 }
 
@@ -128,8 +157,9 @@ export async function settleGoals(now = new Date()): Promise<number> {
       const goal = await CommunityGoal.findOneAndUpdate({ _id: g._id, status: 'active' }, { $set: { status: 'done' } }, { session, new: true, lean: true });
       if (!goal) return false;
       const contributors = Object.entries((goal.contributors ?? {}) as Record<string, number>).filter(([, n]) => n >= goalRules.minContribution).map(([id]) => id);
-      const exists = new Set((await User.find({ _id: { $in: contributors } }, { _id: 1 }, { lean: true, session })).map((u) => String(u._id)));
-      for (const id of contributors.filter((c) => exists.has(c))) {
+      const ok = await eligible(contributors, session);
+      for (const id of contributors.filter((c) => ok.has(c))) {
+        if (!(await claimWeekly(id, 'goalWeek', goal.week, session))) continue;
         await apply(id, { wallet: goalRules.reward.coins, items: { [goalRules.reward.crate]: 1 } }, { source: 'goal.reward', session, meta: { goalId: String(goal._id) } });
       }
       return true;

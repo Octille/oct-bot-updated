@@ -69,8 +69,13 @@ export async function grabDrop(dropId: string, userId: string, now = new Date())
   });
 }
 
+/** Expires open drops past their time. Only returns the ones this call actually expired. */
 export async function expireDrops(now = new Date()) {
-  const due = await Drop.find({ status: 'open', expiresAt: { $lte: now } }, null, { lean: true });
-  await Drop.updateMany({ _id: { $in: due.map((d) => d._id) }, status: 'open' }, { $set: { status: 'expired' } });
-  return due;
+  const due = await Drop.find({ status: 'open', expiresAt: { $lte: now } }, { _id: 1 }, { lean: true });
+  const expired = [];
+  for (const d of due) {
+    const doc = await Drop.findOneAndUpdate({ _id: d._id, status: 'open' }, { $set: { status: 'expired' } }, { new: true, lean: true });
+    if (doc) expired.push(doc);
+  }
+  return expired;
 }

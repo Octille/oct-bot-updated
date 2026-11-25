@@ -123,6 +123,7 @@ describe('raids and goals (database)', () => {
   it('attacks are cooled down; the final blow pays everyone exactly once', async () => {
     const now = new Date();
     for (const id of ['r1', 'r2']) await User.create({ _id: id, account: lvl(20) });
+    await old();
     await Raid.create({ guildId: 'g3', week: weekNumber(now), bossId: 'kraken', maxHp: 1000, hp: 1000, endsAt: new Date(now.getTime() + 3_600_000) });
     const results = await Promise.allSettled([attackRaid('g3', 'r1', now, always(1)), attackRaid('g3', 'r2', now, always(1))]);
     const ok = results.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<{ defeated: boolean }>).value);
@@ -139,6 +140,7 @@ describe('raids and goals (database)', () => {
     await Raid.create({ guildId: 'g4', week: 1, bossId: 'crab', maxHp: 100, hp: 100, endsAt: new Date(now.getTime() - 1) });
     expect(await expireRaids(now)).toBe(1);
     for (const id of ['c1', 'c2']) await User.create({ _id: id });
+    await old();
     await CommunityGoal.create({ guildId: 'g5', week: 1, metric: 'fish', target: 10, progress: 10, contributors: { c1: 8, c2: 2 }, endsAt: new Date(now.getTime() + 1e6) });
     const [a, b] = await Promise.all([settleGoals(now), settleGoals(now)]);
     expect(a + b).toBe(1);
@@ -209,5 +211,69 @@ describe('balance', () => {
       const active = 1.5 * hourly(scenarios[stage[t.id]]!).net;
       expect(perDay / (active + perDay), t.id).toBeLessThan(0.26);
     }
+  });
+});
+
+describe('review fixes (database)', () => {
+  useTestDatabase();
+  const now = new Date();
+  const week = weekNumber(now);
+
+  it('one raid reward per player per week, across servers', async () => {
+    const { finishRaid } = await import('../src/services/raids.js');
+    await User.create({ _id: 'rf1' });
+    await old();
+    for (const g of ['gA', 'gB']) await Raid.create({ guildId: g, week, bossId: 'crab', maxHp: 100, hp: 0, damage: { rf1: 100 }, endsAt: new Date(now.getTime() + 3_600_000) });
+    for (const r of await Raid.find().lean()) await finishRaid(String(r._id));
+    const p = await getProfile('rf1');
+    expect(p.wallet).toBe(1_000 + raidRules.reward.base + raidRules.reward.perShare);
+    expect(await Raid.countDocuments({ status: 'defeated' })).toBe(2);
+  });
+
+  it('one goal reward per player per week; new profiles are skipped at payout', async () => {
+    await User.create({ _id: 'gf1' });
+    await old();
+    await User.create({ _id: 'gnew' });
+    for (const g of ['gA', 'gB']) await CommunityGoal.create({ guildId: g, week, metric: 'fish', target: 5, progress: 5, contributors: { gf1: 5, gnew: 5 }, endsAt: new Date(now.getTime() + 1e6) });
+    await settleGoals(now);
+    expect((await getProfile('gf1')).wallet).toBe(1_000 + goalRules.reward.coins);
+    expect((await getProfile('gnew')).wallet).toBe(1_000);
+  });
+
+  it('new profiles can\'t attack raids', async () => {
+    await User.create({ _id: 'rnew', account: lvl(10) });
+    await Raid.create({ guildId: 'gN', week, bossId: 'crab', maxHp: 1_000, hp: 1_000, endsAt: new Date(now.getTime() + 3_600_000) });
+    await expect(attackRaid('gN', 'rnew', now)).rejects.toThrow(/3 days/);
+  });
+
+  it('a raid whose payout failed is paid by recovery instead of escaping', async () => {
+    const { recoverRaids } = await import('../src/services/raids.js');
+    await User.create({ _id: 'rc1' });
+    await old();
+    await Raid.create({ guildId: 'gR', week, bossId: 'crab', maxHp: 100, hp: -20, damage: { rc1: 120 }, endsAt: new Date(now.getTime() - 1) });
+    expect(await recoverRaids()).toBe(1);
+    expect(await expireRaids(now)).toBe(0);
+    expect((await Raid.findOne({ guildId: 'gR' }).lean())?.status).toBe('defeated');
+    expect((await getProfile('rc1')).wallet).toBeGreaterThan(1_000);
+  });
+
+  it('upgrading charges the difference in hire cost for kept workers', async () => {
+    const { upgradeCost } = await import('../src/content/business.js');
+    let extra = 0;
+    for (let n = 0; n < 10; n++) extra += hireCost('factory', n) - hireCost('cafe', n);
+    expect(upgradeCost('cafe', 'factory', 10)).toBe(750_000 + extra);
+    await User.create({ _id: 'up', wallet: 10_000_000, account: lvl(15), business: { tier: 'stand', workers: 10, lastTick: new Date() } });
+    await buyTier('up', 'truck');
+    expect((await getProfile('up')).wallet).toBe(10_000_000 - upgradeCost('stand', 'truck', 10));
+  });
+
+  it('hiring a manager doesn\'t raise the cap retroactively', async () => {
+    const { hireManager } = await import('../src/services/business.js');
+    await User.create({ _id: 'mg', wallet: 100_000, business: { tier: 'stand', workers: 10, lastTick: new Date(Date.now() - 30 * 3_600_000) } });
+    await hireManager('mg');
+    const p = await getProfile('mg');
+    // Paid out the 8h cap, minus the manager's price; the clock restarted
+    expect(p.wallet).toBe(100_000 + Math.floor(45 * 10 * 8 * 0.9) - 7_500);
+    expect(pendingIncome(p).amount).toBe(0);
   });
 });

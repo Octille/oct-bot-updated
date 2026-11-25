@@ -2,7 +2,7 @@ import { icon, titleIcon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { coins } from '../../lib/format';
 import { UserError } from '../../lib/errors';
-import { businessRules, businessTiers, hireCost } from '../../content/business';
+import { businessRules, businessTiers, hireCost, upgradeCost } from '../../content/business';
 import { buyTier, capHours, collectBusiness, hireManager, hireWorker, incomePerHour, pendingIncome, tierOf } from '../../services/business';
 import { unlockLevel } from '../../services/progression';
 import { back, btn, ids, MAIN, NAV, row, type Payload, type ScreenCtx } from '../kit';
@@ -23,19 +23,20 @@ function view(ctx: ScreenCtx): Payload {
       ...businessTiers.map((x) => `${x.emoji} **${x.name}** · ${coins(x.price)} · ${coins(x.perWorkerHour)} per worker per hour · level ${x.level}`),
     ].filter((l) => l !== undefined).join('\n'));
     const can = level >= first.level;
-    return { embeds: [e], components: [row(back(ctx, null), btn(ids.act(ctx.owner, ctx.origin, 'biz', 'buy', first.id), can ? `Open a ${first.name} · ${coins(first.price)}` : `Level ${first.level} needed`, MAIN, { disabled: !can || p.wallet < first.price }))] };
+    return { embeds: [e], components: [row(back(ctx, null), btn(ids.act(ctx.owner, ctx.origin, 'biz', 'buy', first.id), can ? `Open ${first.name} · ${coins(first.price)}` : `Level ${first.level} needed`, MAIN, { disabled: !can || p.wallet < first.price }))] };
   }
   const workers = p.business?.workers ?? 0;
   const pending = pendingIncome(p);
   const cap = capHours(p);
   const full = workers >= t.maxWorkers;
   const managerCost = Math.round(t.price * businessRules.managerShare);
+  const nextPrice = next ? upgradeCost(t.id, next.id, workers) : 0;
   const e = embed('economy').setTitle(`${titleIcon('business')} Business › ${t.name}`).setDescription([
     ctx.note,
     `${t.emoji} **${t.name}** · ${workers} / ${t.maxWorkers} workers · **${coins(incomePerHour(p))}** an hour (before ${Math.round(businessRules.upkeep * 100)}% upkeep)`,
     `Ready to collect: **${coins(pending.amount)}**${pending.capped ? ` (full: it stops at ${cap}h)` : ` (fills up in ${Math.max(0, Math.ceil(cap - pending.hours))}h)`}`,
     p.business?.manager ? `Manager: collects for you every ${businessRules.managerCollectHours}h and holds up to ${businessRules.managerCapHours}h.` : `No manager: income stops after ${businessRules.offlineCapHours}h until you collect.`,
-    next ? `Next: ${next.emoji} **${next.name}** (${coins(next.perWorkerHour)} per worker per hour) · level ${next.level}` : 'This is the biggest business there is.',
+    next ? `Next: ${next.emoji} **${next.name}** (${coins(next.perWorkerHour)} per worker per hour) · level ${next.level} · ${coins(nextPrice)} (includes retraining your ${workers} worker${workers === 1 ? '' : 's'})` : 'This is the biggest business there is.',
     `-# Earned so far: ${coins(p.business?.collected ?? 0)}. Collecting sometimes brings a rush hour, or a bill.`,
   ].filter((l) => l !== undefined).join('\n'));
   const nextCan = next && level >= next.level;
@@ -45,7 +46,7 @@ function view(ctx: ScreenCtx): Payload {
       row(
         btn(ids.act(ctx.owner, ctx.origin, 'biz', 'hire'), full ? 'Fully staffed' : `Hire · ${coins(hireCost(t.id, workers))}`, NAV, { disabled: full || p.wallet < hireCost(t.id, workers) }),
         btn(ids.act(ctx.owner, ctx.origin, 'biz', 'manager'), p.business?.manager ? 'Manager hired' : `Manager · ${coins(managerCost)}`, NAV, { disabled: !!p.business?.manager || p.wallet < managerCost }),
-        ...(next ? [btn(ids.act(ctx.owner, ctx.origin, 'biz', 'buy', next.id), nextCan ? `Upgrade · ${coins(next.price)}` : `Upgrade at level ${next.level}`, NAV, { disabled: !nextCan || p.wallet < next.price })] : []),
+        ...(next ? [btn(ids.act(ctx.owner, ctx.origin, 'biz', 'buy', next.id), nextCan ? `Upgrade · ${coins(nextPrice)}` : `Upgrade at level ${next.level}`, NAV, { disabled: !nextCan || p.wallet < nextPrice })] : []),
       ),
       row(
         back(ctx, null),

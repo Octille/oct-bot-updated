@@ -42,6 +42,15 @@ export async function seasonRank(season: number, userId: string): Promise<{ rank
   return { rank: above + 1, points: me.points };
 }
 
+/** Finished seasons that haven't been paid yet (oldest first). */
+export async function unpaidSeasons(now = new Date()): Promise<number[]> {
+  const current = currentSeason(now);
+  const last = (await SeasonEnd.findOne({}, { _id: 1 }, { lean: true }).sort({ _id: -1 }))?._id ?? 0;
+  const out: number[] = [];
+  for (let s = last + 1; s < current; s++) out.push(s);
+  return out;
+}
+
 export function rewardFor(place: number) {
   return seasonRules.rewards.find((r) => place >= r.from && place <= r.to) ?? null;
 }
@@ -53,10 +62,10 @@ export function rewardFor(place: number) {
 export async function payoutSeason(season: number): Promise<{ season: number; winners: { userId: string; place: number; points: number }[] } | null> {
   if (await SeasonEnd.exists({ _id: season })) return null;
   const last = seasonRules.rewards.at(-1)!.to;
-  const top = await SeasonScore.find({ season, points: { $gte: seasonRules.minPoints } }, null, { lean: true }).sort({ points: -1, userId: 1 }).limit(last);
-  // Only players who still have a profile
+  // Only players who still have a profile; read a few extra so deleted ones don't leave places empty
+  const top = await SeasonScore.find({ season, points: { $gte: seasonRules.minPoints } }, null, { lean: true }).sort({ points: -1, userId: 1 }).limit(last * 2);
   const existing = new Set((await User.find({ _id: { $in: top.map((t) => t.userId) } }, { _id: 1 }, { lean: true })).map((u) => String(u._id)));
-  const winners = top.filter((t) => existing.has(t.userId)).map((t, i) => ({ userId: t.userId, place: i + 1, points: t.points }));
+  const winners = top.filter((t) => existing.has(t.userId)).slice(0, last).map((t, i) => ({ userId: t.userId, place: i + 1, points: t.points }));
   try {
     await inTransaction(async (session) => {
       await SeasonEnd.create([{ _id: season, winners: winners.length }], { session });

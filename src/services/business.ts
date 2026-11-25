@@ -1,4 +1,4 @@
-import { businessRules, businessTiers, hireCost, type BusinessTier } from '../content/business';
+import { businessRules, businessTiers, hireCost, upgradeCost, type BusinessTier } from '../content/business';
 import { EconomyError, UserError } from '../lib/errors';
 import { defaultRng, weighted, type Rng } from '../lib/rng';
 import { apply, getProfile, type Profile } from './economy';
@@ -38,15 +38,16 @@ export async function buyTier(userId: string, tier: BusinessTier): Promise<void>
   if (unlockLevel(p) < t.level) throw new UserError(`The ${t.name} needs account level ${t.level}.`);
   // Upgrading pays out what's pending first (at the old rate), then switches
   const pending = pendingIncome(p);
+  const price = upgradeCost((p.business?.tier as BusinessTier | null) ?? null, tier, p.business?.workers ?? 0);
   try {
     await apply(userId, {
-      wallet: pending.amount - t.price,
+      wallet: pending.amount - price,
       set: { 'business.tier': tier, 'business.lastTick': new Date() },
       inc: { 'business.collected': pending.amount },
-      where: { 'business.tier': p.business?.tier ?? null, 'business.lastTick': p.business?.lastTick ?? null },
+      where: { 'business.tier': p.business?.tier ?? null, 'business.lastTick': p.business?.lastTick ?? null, 'business.workers': p.business?.workers ?? 0 },
     }, { source: 'business.buy', meta: { tier } });
   } catch (err) {
-    if (err instanceof EconomyError) throw new UserError(err.code === 'CONFLICT' ? 'Something changed. Try again.' : `You need ${t.price.toLocaleString('en-US')} coins.`);
+    if (err instanceof EconomyError) throw new UserError(err.code === 'CONFLICT' ? 'Something changed. Try again.' : `You need ${price.toLocaleString('en-US')} coins.`);
     throw err;
   }
 }
@@ -80,8 +81,15 @@ export async function hireManager(userId: string): Promise<number> {
   if (!t) throw new UserError("You don't have a business yet.");
   if (p.business?.manager) throw new UserError('You already have a manager.');
   const cost = Math.round(t.price * businessRules.managerShare);
+  // Settle what's pending under the old (8h) cap first, so the bigger cap isn't retroactive
+  const pending = pendingIncome(p);
   try {
-    await apply(userId, { wallet: -cost, set: { 'business.manager': true }, where: { 'business.manager': { $ne: true } } }, { source: 'business.manager' });
+    await apply(userId, {
+      wallet: pending.amount - cost,
+      set: { 'business.manager': true, 'business.lastTick': new Date() },
+      inc: { 'business.collected': pending.amount },
+      where: { 'business.manager': { $ne: true }, 'business.lastTick': p.business?.lastTick ?? null },
+    }, { source: 'business.manager' });
   } catch (err) {
     if (err instanceof EconomyError) throw new UserError(`A manager costs ${cost.toLocaleString('en-US')} coins.`);
     throw err;
@@ -119,7 +127,8 @@ export async function collectBusiness(userId: string, now = new Date(), rng: Rng
 /** Managers collect automatically once enough has built up (hourly job). */
 export async function managerCollectAll(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - businessRules.managerCollectHours * 3_600_000);
-  const due = await User.find({ 'business.manager': true, 'business.lastTick': { $lte: cutoff } }, { _id: 1 }, { lean: true });
+  // Managers stop collecting for players who haven't been around for two weeks (income still caps)
+  const due = await User.find({ 'business.manager': true, 'business.lastTick': { $lte: cutoff }, lastActiveAt: { $gte: new Date(now.getTime() - 14 * 86_400_000) } }, { _id: 1 }, { lean: true });
   let n = 0;
   for (const u of due) {
     try {

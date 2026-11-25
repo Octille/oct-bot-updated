@@ -70,6 +70,8 @@ export default defineCommand({
     const message = await interaction.editReply(await render());
     const collector = collect(message, { time: 10 * 60_000, idle: 3 * 60_000, disableOnEnd: false });
     collector.on('collect', (i) => {
+      // Only the Attack button; Menu is a normal button handled elsewhere
+      if (!i.customId.startsWith('~raid:')) return;
       (async () => {
         await i.deferUpdate();
         try {

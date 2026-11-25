@@ -11,8 +11,10 @@ import { addSeasonPoints } from './seasons';
 const lastGuild = new Map<string, string | null>();
 
 export function setActiveGuild(userId: string, guildId: string | null): void {
+  lastGuild.delete(userId);
   lastGuild.set(userId, guildId);
-  if (lastGuild.size > 100_000) lastGuild.clear();
+  // Map keeps insertion order: drop the least recently active instead of forgetting everyone
+  if (lastGuild.size > 100_000) lastGuild.delete(lastGuild.keys().next().value!);
 }
 
 export function isActivity(source: string): source is ActivitySource {

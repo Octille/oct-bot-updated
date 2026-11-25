@@ -34,6 +34,17 @@ export const businessRules = {
   ],
 } as const;
 
+/**
+ * Upgrading keeps your workers, but you pay the difference in what they'd cost to hire at the new
+ * tier (otherwise filling the cheapest tier and upgrading would skip all the expensive hiring).
+ */
+export function upgradeCost(from: BusinessTier | null, to: BusinessTier, workers: number): number {
+  const t = businessTiers.find((x) => x.id === to)!;
+  let extra = 0;
+  for (let n = 0; n < workers; n++) extra += hireCost(to, n) - (from ? hireCost(from, n) : 0);
+  return t.price + Math.max(0, extra);
+}
+
 export function hireCost(tier: BusinessTier, workers: number): number {
   const t = businessTiers.find((x) => x.id === tier)!;
   return Math.round((t.price * businessRules.hireShare * businessRules.hireGrowth ** workers) / 100) * 100;

@@ -31,11 +31,14 @@ const raidSchema = new Schema(
     channelId: { type: String, default: null },
     /** The result has been posted in the events channel. */
     announced: { type: Boolean, default: false },
+    /** "A boss appears" has been posted. */
+    opened: { type: Boolean, default: false },
   },
   { collection: 'raids', timestamps: true, versionKey: false },
 );
 raidSchema.index({ guildId: 1, week: 1 }, { unique: true });
 raidSchema.index({ status: 1, endsAt: 1 });
+raidSchema.index({ status: 1 }, { partialFilterExpression: { announced: false } });
 export const Raid = model('Raid', raidSchema);
 
 /** A server's weekly community goal. `contributors` maps user id → contributions. */
@@ -51,10 +54,13 @@ const goalSchema = new Schema(
     endsAt: { type: Date, required: true },
     channelId: { type: String, default: null },
     announced: { type: Boolean, default: false },
+    opened: { type: Boolean, default: false },
   },
   { collection: 'community_goals', timestamps: true, versionKey: false },
 );
 goalSchema.index({ guildId: 1, week: 1 }, { unique: true });
+goalSchema.index({ status: 1, endsAt: 1 });
+goalSchema.index({ status: 1 }, { partialFilterExpression: { announced: false } });
 export const CommunityGoal = model('CommunityGoal', goalSchema);
 
 /** Season points per player. */

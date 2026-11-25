@@ -23,6 +23,8 @@ export async function onMessageCreate(message: Message): Promise<void> {
   // Without the intent we can't see the text, so every message counts (still once a minute)
   if (canReadContent && message.content.trim().length < chatXp.minLength && !message.attachments.size) return;
 
+  // Drops don't depend on XP rules (no-XP channels and the XP cooldown still get drops)
+  await maybeDrop(message).catch((err) => logError('drops', err));
   try {
     const levels = await levelSettings(message.guildId);
     const channel = message.channel;
@@ -41,7 +43,6 @@ export async function onMessageCreate(message: Message): Promise<void> {
   } catch (err) {
     logError('chat xp', err);
   }
-  await maybeDrop(message).catch((err) => logError('drops', err));
 }
 
 /* ── Chat drops ─────────────────────────────────────────────────────────────────────────── */

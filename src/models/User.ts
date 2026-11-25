@@ -109,6 +109,12 @@ const userSchema = new Schema(
       collected: { type: Number, default: 0 },
     },
 
+    /** The week (Monday UTC) a raid / community-goal reward was last paid: one of each per week, across all servers. */
+    eventRewards: {
+      raidWeek: { type: Number, default: -1 },
+      goalWeek: { type: Number, default: -1 },
+    },
+
     /** Chat drops grabbed today (daily cap). */
     drops: {
       day: { type: Number, default: -1 },
@@ -250,6 +256,9 @@ const userSchema = new Schema(
 
 // Leaderboards: top-N by each stored value, ties by id
 for (const f of ['netWorth', 'level', 'fish', 'gambling', 'streak', 'fishdex', 'achievements']) userSchema.index({ [`board.${f}`]: -1, _id: 1 });
+
+// Managers auto-collecting (hourly job)
+userSchema.index({ 'business.lastTick': 1 }, { partialFilterExpression: { 'business.manager': true } });
 
 // Only players who opted in to DM reminders (the hourly job reads these)
 userSchema.index({ 'settings.dmReminders': 1 }, { partialFilterExpression: { 'settings.dmReminders': true } });

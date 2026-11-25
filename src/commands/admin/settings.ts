@@ -1,6 +1,7 @@
 import { ChannelType, InteractionContextType, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { dropRules } from '../../content/events';
 import { spawnWeekly } from '../../services/raids';
+import { announceOpened } from '../../scheduler/events';
 import { invalidateDropSettings } from '../../events/messageCreate';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
@@ -48,9 +49,12 @@ export default defineCommand({
       case 'events': {
         const channel = interaction.options.getChannel('channel');
         await GuildSettings.updateOne({ _id: guildId }, { $set: { 'events.channelId': channel?.id ?? null } }, { upsert: true });
-        if (channel) await spawnWeekly(guildId, channel.id);
+        if (channel) {
+          await spawnWeekly(guildId, channel.id);
+          await announceOpened(interaction.client);
+        }
         return done(channel
-          ? `Boss raids and community goals are on, announced in <#${channel.id}>. A new boss and goal arrive every Monday (this week's goal has started; a raid only starts Monday–Tuesday). Players use \`/raid\`.`
+          ? `Boss raids and community goals are on, announced in <#${channel.id}>. A new boss and goal arrive every Monday (this week's goal starts now; a raid only appears Monday–Tuesday). Players use \`/raid\`.`
           : 'Boss raids and community goals are off.');
       }
       default: {
