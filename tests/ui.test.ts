@@ -352,3 +352,10 @@ describe('with real application emojis loaded', () => {
     for (const [k, v] of Object.entries(palette)) if (!['success', 'warning', 'error'].includes(k)) expect(v, k).toBe(BRAND);
   });
 });
+
+describe('icon set', () => {
+  it('every application emoji name fits Discord\'s 32-character limit', async () => {
+    const { iconImages, EMOJI_PREFIX, VARIANT_CODE } = await import('../src/content/icons.js');
+    for (const { key, variant } of iconImages()) expect(`${EMOJI_PREFIX}${key}_${VARIANT_CODE[variant]}_abcdef`.length, key).toBeLessThanOrEqual(32);
+  });
+});

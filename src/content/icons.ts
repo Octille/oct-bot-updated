@@ -91,9 +91,9 @@ export const iconDefs = {
   pet: { tabler: 'paw', fallback: '🐾' },
   business: { tabler: 'building-store', fallback: '🏪' },
   season: { tabler: 'calendar-event', fallback: '📅' },
-  badge_season_champion: { tabler: 'trophy', fallback: '🏆', color: '#af810e' },
-  badge_season_top10: { tabler: 'medal', fallback: '🥈', color: '#7f83be' },
-  badge_season_top100: { tabler: 'award', fallback: '🎖️', color: '#7f83be' },
+  season_gold: { tabler: 'trophy', fallback: '🏆', color: '#af810e' },
+  season_top10: { tabler: 'medal', fallback: '🥈', color: '#7f83be' },
+  season_top100: { tabler: 'award', fallback: '🎖️', color: '#7f83be' },
   // Veteran badges (exclusive, see content/veteran.ts)
   badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },
   badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },

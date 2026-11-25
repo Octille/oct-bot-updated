@@ -74,9 +74,9 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'title_ascended', kind: 'title', name: 'Ascended', value: 'Ascended', price: 0, exclusive: 'prestige', minPrestige: 5 },
 
   // Season rewards (see content/events.ts)
-  { id: 'badge_season_champion', kind: 'badge', name: 'Season Champion', value: 'badge_season_champion', price: 0, exclusive: 'season' },
-  { id: 'badge_season_top10', kind: 'badge', name: 'Season Top 10', value: 'badge_season_top10', price: 0, exclusive: 'season' },
-  { id: 'badge_season_top100', kind: 'badge', name: 'Season Top 100', value: 'badge_season_top100', price: 0, exclusive: 'season' },
+  { id: 'badge_season_champion', kind: 'badge', name: 'Season Champion', value: 'season_gold', price: 0, exclusive: 'season' },
+  { id: 'badge_season_top10', kind: 'badge', name: 'Season Top 10', value: 'season_top10', price: 0, exclusive: 'season' },
+  { id: 'badge_season_top100', kind: 'badge', name: 'Season Top 100', value: 'season_top100', price: 0, exclusive: 'season' },
 
   // Veteran set — players from the original bot. See content/veteran.ts.
   { id: 'title_veteran', kind: 'title', name: 'Veteran', value: 'Veteran', price: 0, exclusive: 'veteran' },
