@@ -38,11 +38,11 @@ export default defineCommand({
         canAttack = raid.status === 'active' && raid.endsAt > now;
         lines.push(
           `${boss.emoji} **${boss.name}** · ${boss.line}`,
-          raid.status === 'defeated' ? `${icon('success')} **Defeated!** Rewards were paid to everyone who fought.`
+          raid.status === 'defeated' ? (raid.rewarded ? `${icon('success')} **Defeated!** Rewards were paid to everyone who fought.` : `${icon('warning')} **Defeated**, but fewer than ${raidRules.minHitters} different players fought it, so no rewards.`)
             : raid.status === 'escaped' || raid.endsAt <= now ? `${icon('warning')} It got away this time.`
             : `HP ${bar(raid.hp, raid.maxHp)} ${num(Math.max(0, raid.hp))} / ${num(raid.maxHp)} · escapes <t:${Math.floor(raid.endsAt.getTime() / 1000)}:R>`,
           `Your damage: **${num(mine)}**${top.length ? ` · Top: ${top.map(([id, d], i) => `${i + 1}. <@${id}> ${num(d)}`).join(', ')}` : ''}`,
-          `-# Win: everyone gets ${coins(raidRules.reward.base)} + a share of ${coins(raidRules.reward.perShare)} by damage, and a crate (top 3 better, the MVP best).`,
+          `-# Win (with ${raidRules.minHitters}+ different fighters): everyone gets ${coins(raidRules.reward.base)} + a share of ${coins(raidRules.reward.perShare)} by damage, and a crate (top 3 better, the MVP best). One raid reward a week.`,
         );
       }
       if (goal) {

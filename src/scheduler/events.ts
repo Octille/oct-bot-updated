@@ -11,7 +11,8 @@ import { GuildSettings } from '../models/GuildSettings';
 import { managerCollectAll } from '../services/business';
 import { expireDrops } from '../services/drops';
 import { expireRaids, recoverRaids, settleGoals, spawnWeekly } from '../services/raids';
-import { payoutSeason, rewardFor, unpaidSeasons } from '../services/seasons';
+import { loadSeasonCalendar, payoutSeason, rewardFor, unpaidSeasons } from '../services/seasons';
+import { isTestBot } from '../config/env';
 import { expiredDropView } from '../ui/dropViews';
 import type { Job } from './index';
 
@@ -68,6 +69,7 @@ export const eventsHourlyJob: Job = {
     });
     // Seasons that have ended: pay each once, then tell the winners
     await step('seasons', async () => {
+      await loadSeasonCalendar(isTestBot());
       for (const s of await unpaidSeasons()) {
         const result = await payoutSeason(s);
         if (!result) continue;
@@ -106,7 +108,9 @@ export const eventsMinuteJob: Job = {
       if (!claimed.modifiedCount) continue;
       const boss = bosses.find((b) => b.id === raid.bossId)!;
       const dmg = Object.entries((raid.damage ?? {}) as Record<string, number>).sort((a, b) => b[1] - a[1]);
-      const text = raid.status === 'defeated'
+      const text = raid.status === 'defeated' && !raid.rewarded
+        ? `${icon('warning')} **${boss.name}** is down, but fewer than ${raidRules.minHitters} different players fought it, so there are no rewards this time.`
+        : raid.status === 'defeated'
         ? `${icon('success')} **${boss.name}** is down! ${dmg.length} fighter${dmg.length === 1 ? '' : 's'} got ${coins(raidRules.reward.base)}+ and a crate. MVP: <@${dmg[0]?.[0]}> with ${num(dmg[0]?.[1] ?? 0)} damage.`
         : `${icon('warning')} **${boss.name}** got away with ${num(raid.hp)} HP left. Next boss on Monday.`;
       await post(client, raid.channelId, text, `${titleIcon('raid')} Raid over`);

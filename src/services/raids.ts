@@ -122,6 +122,9 @@ export async function finishRaid(raidId: string): Promise<boolean> {
     if (!raid) return false;
     const damage = Object.fromEntries(Object.entries((raid.damage ?? {}) as Record<string, number>));
     const ok = await eligible(Object.keys(damage), session);
+    // No rewards unless enough different (eligible) players fought it: stops solo raids in tiny servers
+    if (ok.size < raidRules.minHitters) return true;
+    await Raid.updateOne({ _id: raid._id }, { $set: { rewarded: true } }, { session });
     for (const pay of raidPayouts(damage).filter((x) => ok.has(x.userId))) {
       if (!(await claimWeekly(pay.userId, 'raidWeek', raid.week, session))) continue;
       await apply(pay.userId, { wallet: pay.coins, items: { [pay.crate]: 1 } }, { source: 'raid.reward', session, meta: { raidId } });

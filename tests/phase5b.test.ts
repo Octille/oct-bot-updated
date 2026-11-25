@@ -10,7 +10,6 @@ import { dropRules, goalRules, raidRules, seasonRules } from '../src/content/eve
 import { petRules, pets } from '../src/content/pets';
 import { getProfile } from '../src/services/economy';
 import { grant } from '../src/services/progression';
-import { setActiveGuild } from '../src/services/activity';
 import { addSeasonPoints, currentSeason, payoutSeason } from '../src/services/seasons';
 import { attackRaid, expireRaids, raidPayouts, settleGoals, spawnWeekly } from '../src/services/raids';
 import { createDrop, grabDrop, noteChatter, shouldDrop } from '../src/services/drops';
@@ -84,11 +83,12 @@ describe('seasons and activity (database)', () => {
     const now = new Date();
     await User.create({ _id: 's1' });
     await CommunityGoal.create({ guildId: 'g', week: weekNumber(now), metric: 'fish', target: 100, endsAt: new Date(now.getTime() + 86_400_000) });
-    setActiveGuild('s1', 'g');
-    await grant('s1', { wallet: 100 }, { source: 'fish', xp: 'fish' });
+    await grant('s1', { wallet: 100 }, { source: 'fish', xp: 'fish', guildId: 'g' });
+    // Played in another server: no credit to g
+    await grant('s1', { wallet: 100 }, { source: 'fish', xp: 'fish', guildId: 'other' });
     await grant('s1', { wallet: 100 }, { source: 'daily', countEarned: false });
     const season = currentSeason(now);
-    expect((await SeasonScore.findOne({ season, userId: 's1' }).lean())?.points).toBe(seasonRules.points.activity);
+    expect((await SeasonScore.findOne({ season, userId: 's1' }).lean())?.points).toBe(2 * seasonRules.points.activity);
     expect((await CommunityGoal.findOne({ guildId: 'g' }).lean())?.progress).toBe(1);
   });
 
@@ -131,8 +131,10 @@ describe('raids and goals (database)', () => {
     await expect(attackRaid('g3', 'r1', now)).rejects.toThrow();
     const raid = await Raid.findOne({ guildId: 'g3' }).lean();
     expect(raid?.status).toBe('defeated');
+    // Only 2 different fighters: defeated, but no rewards (needs 3+)
+    expect(raid?.rewarded).toBe(false);
     const paid = await Promise.all(['r1', 'r2'].map((id) => getProfile(id)));
-    expect(paid.every((p) => p.wallet > 1_000)).toBe(true);
+    expect(paid.every((p) => p.wallet === 1_000)).toBe(true);
   });
 
   it('expired raids escape; goals pay contributors with enough contributions, once', async () => {
@@ -221,12 +223,12 @@ describe('review fixes (database)', () => {
 
   it('one raid reward per player per week, across servers', async () => {
     const { finishRaid } = await import('../src/services/raids.js');
-    await User.create({ _id: 'rf1' });
+    for (const id of ['rf1', 'rf2', 'rf3']) await User.create({ _id: id });
     await old();
-    for (const g of ['gA', 'gB']) await Raid.create({ guildId: g, week, bossId: 'crab', maxHp: 100, hp: 0, damage: { rf1: 100 }, endsAt: new Date(now.getTime() + 3_600_000) });
+    for (const g of ['gA', 'gB']) await Raid.create({ guildId: g, week, bossId: 'crab', maxHp: 100, hp: 0, damage: { rf1: 60, rf2: 20, rf3: 20 }, endsAt: new Date(now.getTime() + 3_600_000) });
     for (const r of await Raid.find().lean()) await finishRaid(String(r._id));
     const p = await getProfile('rf1');
-    expect(p.wallet).toBe(1_000 + raidRules.reward.base + raidRules.reward.perShare);
+    expect(p.wallet).toBe(1_000 + raidRules.reward.base + Math.floor(raidRules.reward.perShare * 0.6));
     expect(await Raid.countDocuments({ status: 'defeated' })).toBe(2);
   });
 
@@ -248,9 +250,9 @@ describe('review fixes (database)', () => {
 
   it('a raid whose payout failed is paid by recovery instead of escaping', async () => {
     const { recoverRaids } = await import('../src/services/raids.js');
-    await User.create({ _id: 'rc1' });
+    for (const id of ['rc1', 'rc2', 'rc3']) await User.create({ _id: id });
     await old();
-    await Raid.create({ guildId: 'gR', week, bossId: 'crab', maxHp: 100, hp: -20, damage: { rc1: 120 }, endsAt: new Date(now.getTime() - 1) });
+    await Raid.create({ guildId: 'gR', week, bossId: 'crab', maxHp: 100, hp: -20, damage: { rc1: 100, rc2: 10, rc3: 10 }, endsAt: new Date(now.getTime() - 1) });
     expect(await recoverRaids()).toBe(1);
     expect(await expireRaids(now)).toBe(0);
     expect((await Raid.findOne({ guildId: 'gR' }).lean())?.status).toBe('defeated');
@@ -275,5 +277,39 @@ describe('review fixes (database)', () => {
     // Paid out the 8h cap, minus the manager's price; the clock restarted
     expect(p.wallet).toBe(100_000 + Math.floor(45 * 10 * 8 * 0.9) - 7_500);
     expect(pendingIncome(p).amount).toBe(0);
+  });
+});
+
+describe('5b answers (database)', () => {
+  useTestDatabase();
+
+  it('raids pay only with 3+ different eligible players (new alts don\'t count)', async () => {
+    const { finishRaid } = await import('../src/services/raids.js');
+    for (const id of ['h1', 'h2']) await User.create({ _id: id });
+    await old();
+    await User.create({ _id: 'halt' }); // brand-new profile: not eligible
+    await Raid.create({ guildId: 'gH', week: weekNumber(new Date()), bossId: 'crab', maxHp: 100, hp: 0, damage: { h1: 50, h2: 30, halt: 20 }, endsAt: new Date(Date.now() + 3_600_000) });
+    await finishRaid(String((await Raid.findOne({ guildId: 'gH' }).lean())!._id));
+    expect((await Raid.findOne({ guildId: 'gH' }).lean())?.rewarded).toBe(false);
+    expect((await getProfile('h1')).wallet).toBe(1_000);
+  });
+
+  it('the real bot saves the season calendar once Season 1 starts and ignores later env changes', async () => {
+    const { loadSeasonCalendar, seasonConfig, resetSeasonCalendar } = await import('../src/services/seasons.js');
+    env.SEASON_1_START = '2026-11-01T00:00:00Z';
+    env.SEASON_LENGTH_DAYS = 30;
+    await loadSeasonCalendar(false, new Date('2026-11-05T00:00:00Z'));
+    env.SEASON_LENGTH_DAYS = 7;
+    env.SEASON_1_START = '2026-12-01T00:00:00Z';
+    const note = await loadSeasonCalendar(false, new Date('2026-11-06T00:00:00Z'));
+    expect(note).toMatch(/ignored/);
+    expect(seasonConfig().lengthDays).toBe(30);
+    expect(currentSeason(new Date('2026-12-02T00:00:00Z'))).toBe(2);
+    // The test bot follows the env
+    await loadSeasonCalendar(true, new Date('2026-12-02T00:00:00Z'));
+    expect(seasonConfig().lengthDays).toBe(7);
+    resetSeasonCalendar();
+    env.SEASON_1_START = '2026-11-01T00:00:00Z';
+    env.SEASON_LENGTH_DAYS = 30;
   });
 });

@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import { seasonRules } from '../content/events';
-import { SeasonEnd, SeasonScore } from '../models/Events';
+import { SeasonCalendar, SeasonEnd, SeasonScore } from '../models/Events';
 import { User } from '../models/User';
 import { apply, inTransaction } from './economy';
 
@@ -11,9 +11,52 @@ export interface SeasonConfig {
   lengthDays: number;
 }
 
-export function seasonConfig(): SeasonConfig {
+function fromEnv(): SeasonConfig {
   const start = env.SEASON_1_START ? new Date(env.SEASON_1_START) : null;
   return { start: start && !Number.isNaN(start.getTime()) ? start : null, lengthDays: env.SEASON_LENGTH_DAYS ?? seasonRules.lengthDays };
+}
+
+/** The calendar saved in the database (loaded at startup), if Season 1 has begun. */
+let saved: SeasonConfig | null = null;
+
+/**
+ * The season calendar. On the real bot, once Season 1 has begun, the saved calendar wins and env
+ * changes are ignored (changing the length mid-run would renumber seasons and break payouts).
+ * The test bot always follows the env, so it can be changed freely.
+ */
+export function seasonConfig(): SeasonConfig {
+  return saved ?? fromEnv();
+}
+
+/**
+ * Startup: load the saved calendar, or save the env's once Season 1 has started. Returns a note
+ * when the env disagrees with what's saved (so it can be logged).
+ */
+export async function loadSeasonCalendar(testBot: boolean, now = new Date()): Promise<string | null> {
+  const envCfg = fromEnv();
+  const doc = await SeasonCalendar.findById('calendar', null, { lean: true });
+  if (testBot) {
+    saved = null;
+    if (envCfg.start && now >= envCfg.start) await SeasonCalendar.updateOne({ _id: 'calendar' }, { $set: { start: envCfg.start, lengthDays: envCfg.lengthDays } }, { upsert: true });
+    return null;
+  }
+  if (doc) {
+    saved = { start: new Date(doc.start), lengthDays: doc.lengthDays };
+    const differs = (envCfg.start && envCfg.start.getTime() !== saved.start!.getTime()) || envCfg.lengthDays !== saved.lengthDays;
+    return differs ? `Season calendar is fixed in the database (Season 1 ${saved.start!.toISOString()}, ${saved.lengthDays} days); SEASON_* env changes are ignored.` : null;
+  }
+  if (envCfg.start && now >= envCfg.start) {
+    // Season 1 has begun: save the calendar (first writer wins)
+    await SeasonCalendar.updateOne({ _id: 'calendar' }, { $setOnInsert: { start: envCfg.start, lengthDays: envCfg.lengthDays } }, { upsert: true });
+    const d = await SeasonCalendar.findById('calendar', null, { lean: true });
+    saved = { start: new Date(d!.start), lengthDays: d!.lengthDays };
+  }
+  return null;
+}
+
+/** For tests. */
+export function resetSeasonCalendar(): void {
+  saved = null;
 }
 
 /** The current season number (1, 2, …), or 0 before Season 1. */

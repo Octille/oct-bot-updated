@@ -75,7 +75,7 @@ export default defineCommand({
       const { xp, levelUp } = await grant(userId, {
         wallet: pay,
         inc: { 'stats.worked': 1, [`job.shifts.${job.id}`]: 1, ...(perfect ? { 'stats.perfectShifts': 1 } : {}) },
-      }, { source: 'work', xp: 'work', profile, meta: { job: job.id, game: game.kind, success } });
+      }, { source: 'work', xp: 'work', guildId: interaction.guildId, profile, meta: { job: job.id, game: game.kind, success } });
 
       const promoted = rankFor(shifts + 1).title !== rank.title ? `\n**Promoted to ${rankFor(shifts + 1).title} ${job.name}!** Shifts pay more now.` : '';
       const next = nextRank(shifts + 1);

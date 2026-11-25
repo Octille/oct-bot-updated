@@ -54,7 +54,7 @@ export default defineCommand({
           text = `**${spot.name}**: ${result.line}`;
         }
 
-        const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', profile, meta: { spot: spot.name, outcome: result.kind } });
+        const { xp, levelUp } = await grant(userId, { ...change, inc: { 'stats.searched': 1 } }, { source: 'search', xp: 'search', guildId: interaction.guildId, profile, meta: { spot: spot.name, outcome: result.kind } });
         const next = await afterAction(userId, 'search');
         await i.update({
           embeds: [embed(result.kind === 'mishap' ? 'warning' : 'success').setTitle(`${titleIcon('search')} Search › ${spot.name}`)

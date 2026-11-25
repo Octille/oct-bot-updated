@@ -79,7 +79,7 @@ export interface GrantResult {
 export async function grant(
   userId: string,
   change: Change,
-  opts: { source: string; xp?: XpSource; meta?: Record<string, unknown>; rng?: Rng; profile?: PerkSource; /** false for claims (daily/weekly) that aren't activity earnings */ countEarned?: boolean },
+  opts: { source: string; xp?: XpSource; meta?: Record<string, unknown>; rng?: Rng; profile?: PerkSource; /** false for claims (daily/weekly) that aren't activity earnings */ countEarned?: boolean; /** where it was played (community goals) */ guildId?: string | null },
 ): Promise<GrantResult> {
   const xp = opts.xp ? rollXp(opts.xp, opts.rng, opts.profile ? xpMultiplier(opts.profile) : 1) : 0;
   const profile = await apply(
@@ -97,7 +97,7 @@ export async function grant(
   );
   const levelUp = await syncLevel(profile);
   // Season points and community goals (only for real activities that paid out)
-  if (isActivity(opts.source)) await recordActivity(userId, opts.source);
+  if (isActivity(opts.source)) await recordActivity(userId, opts.source, opts.guildId);
   return { profile, xp, levelUp };
 }
 

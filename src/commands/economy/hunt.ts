@@ -67,7 +67,7 @@ export default defineCommand({
           items: { [hunt.animal.id]: 1 },
           inc: { ...wear, 'stats.hunted': 1 },
           where,
-        }, { source: 'hunt', xp: 'hunt', profile, meta: { animal: hunt.animal.id } });
+        }, { source: 'hunt', xp: 'hunt', guildId: interaction.guildId, profile, meta: { animal: hunt.animal.id } });
         text = [
           `${icon('success')} Got a **${hunt.animal.emoji} ${hunt.animal.name}** in ${((reactionMs ?? 0) / 1000).toFixed(2)}s · ${icon(hunt.animal.rarity)} ${info.label}`,
           bonus > 0 ? `Trophy bonus **+${coins(bonus)}**. The trophy sells for ${coins(animalValue[hunt.animal.rarity])} more later.` : `The trophy sells for ${coins(animalValue[hunt.animal.rarity])}.`,

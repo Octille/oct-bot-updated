@@ -31,6 +31,8 @@ const raidSchema = new Schema(
     channelId: { type: String, default: null },
     /** The result has been posted in the events channel. */
     announced: { type: Boolean, default: false },
+    /** Rewards were paid (false if too few different players fought it). */
+    rewarded: { type: Boolean, default: false },
     /** "A boss appears" has been posted. */
     opened: { type: Boolean, default: false },
   },
@@ -75,6 +77,13 @@ const seasonScoreSchema = new Schema(
 seasonScoreSchema.index({ season: 1, userId: 1 }, { unique: true });
 seasonScoreSchema.index({ season: 1, points: -1, userId: 1 });
 export const SeasonScore = model('SeasonScore', seasonScoreSchema);
+
+/** The season calendar, saved when Season 1 begins so later env changes can't renumber seasons. */
+const seasonCalendarSchema = new Schema(
+  { _id: { type: String, default: 'calendar' }, start: { type: Date, required: true }, lengthDays: { type: Number, required: true } },
+  { collection: 'season_calendar', versionKey: false },
+);
+export const SeasonCalendar = model('SeasonCalendar', seasonCalendarSchema);
 
 /** One row per finished season once its rewards are paid (so they're paid once). */
 const seasonEndSchema = new Schema(

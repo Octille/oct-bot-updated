@@ -105,7 +105,7 @@ export default defineCommand({
         items,
         inc: { 'tools.shovel.durability': -1, 'stats.digs': 1, ...(foundTreasure ? { 'stats.treasures': 1 } : {}) },
         where: { 'tools.shovel.durability': { $gte: 1 } },
-      }, { source: 'dig', xp: 'dig', profile, meta: { digs: dug.length, treasure: foundTreasure } });
+      }, { source: 'dig', xp: 'dig', guildId: interaction.guildId, profile, meta: { digs: dug.length, treasure: foundTreasure } });
       const lvl = levelUpText(levelUp);
       if (lvl) lines.push(lvl);
 

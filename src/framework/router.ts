@@ -7,7 +7,6 @@ import { logError } from '../lib/logger';
 import { loadProfile, loadProfileDetailed } from '../services/economy';
 import { welcomeHub } from '../ui/handlers';
 import { ensureQuests } from '../services/quests';
-import { setActiveGuild } from '../services/activity';
 import * as cooldowns from '../services/cooldowns';
 import { commandRegistry, componentRegistry } from './registry';
 import { setCommandRunner } from './commandList';
@@ -47,7 +46,6 @@ export async function runCommand(interaction: ChatInputCommandInteraction, comma
       await interaction.deferReply(command.defer === 'ephemeral' ? { flags: MessageFlags.Ephemeral } : {});
     }
 
-    setActiveGuild(interaction.user.id, interaction.guildId);
     const loaded = await loadProfileDetailed(interaction.user.id);
     const created = loaded.created;
     // New quests on the first interaction after a daily/weekly reset
@@ -118,7 +116,6 @@ async function runComponent(interaction: ComponentInteraction): Promise<void> {
   }
 
   try {
-    setActiveGuild(interaction.user.id, interaction.guildId);
     const profile = await ensureQuests(await loadProfile(interaction.user.id));
     await handler.execute({ interaction, client: interaction.client, id, profile });
     await announceAchievements(interaction);

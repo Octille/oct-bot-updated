@@ -41,6 +41,8 @@ export const raidRules = {
   /** Raids run Monday 00:00 → Wednesday 00:00 UTC. */
   hours: 48,
   seasonPointsPerAttack: 3,
+  /** Rewards are only paid if at least this many different eligible players hit the boss. */
+  minHitters: 3,
 } as const;
 
 /* ── Community goals (weekly, per server) ───────────────────────────────────────────────── */

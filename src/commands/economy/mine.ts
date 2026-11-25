@@ -65,7 +65,7 @@ export default defineCommand({
             ...(used ? { 'tools.pickaxe.durability': -used } : {}),
           },
           where: used ? { 'tools.pickaxe.durability': { $gte: used } } : undefined,
-        }, { source: 'mine', xp: 'mine', profile, meta: { tunnel: tunnel.id, ore: result.ore.id } });
+        }, { source: 'mine', xp: 'mine', guildId: interaction.guildId, profile, meta: { tunnel: tunnel.id, ore: result.ore.id } });
 
         const toolNow = equipped(after, 'pickaxe');
         const lines = result.caveIn

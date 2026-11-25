@@ -9,6 +9,7 @@ import { loadIcons } from '../lib/icons';
 import { runRobSweep } from '../scheduler/robSweep';
 import { refundInterruptedRounds } from '../scheduler/refunds';
 import { backfillBoards } from '../services/boardStats';
+import { loadSeasonCalendar } from '../services/seasons';
 import { logError } from '../lib/logger';
 
 export async function onReady(client: Client<true>): Promise<void> {
@@ -25,6 +26,8 @@ export async function onReady(client: Client<true>): Promise<void> {
   startScheduler(client, jobs);
   // Leaderboard values for profiles that don't have the current version yet
   backfillBoards().then((n) => n && logInfo('leaderboard', `Computed board values for ${n} profile(s)`)).catch((err) => logError('board backfill', err));
+  // Season calendar (saved once Season 1 begins; the hourly job re-checks so it's saved on the day)
+  loadSeasonCalendar(isTestBot()).then((note) => note && logInfo('seasons', note)).catch((err) => logError('season calendar', err));
   // Stakes from rounds a restart interrupted
   refundInterruptedRounds(client).catch((err) => logError('refunds', err));
   // Getaways that finished while the bot was offline

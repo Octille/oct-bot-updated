@@ -154,6 +154,26 @@ Values are stored on each profile (`board.*`), recomputed inside MongoDB after e
 - **Business** (one per player): Lemonade Stand (level 5, ₪15k) → Food Truck (12, ₪75k) → Café (20, ₪250k) → Factory (30, ₪750k); ₪45 / 90 / 130 / 180 per worker per hour, 10 workers each; hiring costs 8% of the tier price × 1.15^workers; 10% upkeep; income stops after 8h uncollected (24h with a manager, who also collects every 6h; manager costs half the tier price). Upgrading keeps your workers but charges the difference in their hire cost at the new tier. Hiring a manager pays out what's pending under the old 8h cap first. Managers stop auto-collecting for players inactive 14+ days. Collect events average out to ~1×. Fully staffed and collected round the clock: about 18–25% of a player's income at that stage (test: under 26%). Fully staffed totals: ₪39k stand → ₪212k truck → ₪746k café → ₪2.31M factory; each upgrade pays for itself in 4 / 9 / 19 / 40 days.
 - **Seasons** (30 days; Season 1 starts on `SEASON_1_START`): points from activities (+1), daily quests (+5), weekly quests (+20) and raid attacks (+3). At the end (50+ points to place): #1 ₪250,000 + Legendary Crate + Season Champion badge; #2–3 ₪100,000 + Epic; #4–10 ₪50,000 + Epic + Top 10 badge; #11–100 ₪10,000 + Rare + Top 100 badge. Wallets don't reset.
 
+## Combined daily income (all sources, after Phase 5)
+
+An engaged player's day: 1.5 active hours of activities, all quests, 3 drops, one raid reward and one goal reward a week (5-player raids), a fully staffed business for their stage collected twice a day (factory with a manager at level 35), a parrot at pet level 1 / 5 / 10 (minus feeding), and a top-100 season finish spread over the season. Crates at their opened value. From `npx tsx scripts/income-report.ts`. ⚠️ = more than 20% above the 2a baseline (pre-Phase-5 activity income for 1.5 h).
+
+| Source (per day) | Lv 0 | Lv 5 | Lv 15 | Lv 35 |
+|---|---|---|---|---|
+| activities | ₪22,780 (50%) | ₪44,667 (59%) | ₪88,747 (67%) | ₪164,939 (64%) |
+| quests | ₪8,895 (19%) | ₪10,770 (14%) | ₪14,520 (11%) | ₪30,710 (12%) |
+| drops | ₪3,766 (8%) | ₪3,766 (5%) | ₪3,766 (3%) | ₪3,766 (1%) |
+| raid | ₪5,108 (11%) | ₪5,108 (7%) | ₪5,108 (4%) | ₪5,108 (2%) |
+| goal | ₪4,193 (9%) | ₪4,193 (6%) | ₪4,193 (3%) | ₪4,193 (2%) |
+| business | ₪0 (0%) | ₪6,480 (9%) | ₪12,960 (10%) | ₪38,880 (15%) |
+| pet | ₪0 (0%) | ₪-777 (-1%) | ₪1,219 (1%) | ₪7,247 (3%) |
+| season | ₪1,045 (2%) | ₪1,045 (1%) | ₪1,045 (1%) | ₪1,045 (0%) |
+| **Total** | **₪45,788** | **₪75,253** | **₪131,558** | **₪255,889** |
+| 2a baseline (1.5 h) | ₪22,950 | ₪46,950 | ₪103,350 | ₪194,850 |
+| vs 2a | +100% ⚠️ | +60% ⚠️ | +27% ⚠️ | +31% ⚠️ |
+
+**Reading it:** activities alone are slightly below the 2a baseline (it's measured before tool wear). Everything above that comes from the new systems. Early on, the flat rewards (quests, drops, raid, goal) dominate; late game, the business and quests do. **Flagged for a decision (2026-11-25):** every stage is over +20%.
+
 ## Migration ceiling (Phase 7)
 
 The v2 migration caps corrupt balances at a ceiling derived from the late-game row above. The plan is roughly 30 days of heavy late-game play: late-game ₪/hour × 4 hours × 30 days. With the current numbers that's **≈ ₪ 15.4M**. The exact figure is recomputed from this table when the migration runs.

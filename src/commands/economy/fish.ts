@@ -76,7 +76,7 @@ export default defineCommand({
           addToSet: { fishdexRewards: rewards.map((r) => r.percent) },
           // The rod must still have durability, and the rewards must not have been claimed meanwhile
           where: { ...where, ...(rewards.length ? { fishdexRewards: { $nin: rewards.map((r) => r.percent) } } : {}) },
-        }, { source: 'fish', xp: 'fish', profile, meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
+        }, { source: 'fish', xp: 'fish', guildId: interaction.guildId, profile, meta: { fish: fish.id, kg: catchRoll.kg, rewards: rewards.map((r) => r.percent) } });
         text = [
           `${icon('success')} Caught a **${fish.emoji} ${fish.name}** · ${num(catchRoll.kg)} kg · ${icon(fish.rarity)} ${info.label}`,
           `Reeled in ${((reactionMs ?? 0) / 1000).toFixed(2)}s after the bite.`,

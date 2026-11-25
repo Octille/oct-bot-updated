@@ -51,7 +51,7 @@ export default defineCommand({
             wallet: result.coins,
             items: result.loot ? { [result.loot]: 1 } : undefined,
             inc: { 'stats.crimes': 1, [`stats.crimeWins.${crime.id}`]: 1, ...(result.loot ? { 'stats.crimeLoot': 1, [`stats.crimeLootItems.${result.loot}`]: 1 } : {}) },
-          }, { source: 'crime', xp: 'crime', profile, meta: { crime: crime.id, loot: result.loot } });
+          }, { source: 'crime', xp: 'crime', guildId: interaction.guildId, profile, meta: { crime: crime.id, loot: result.loot } });
           const loot = result.loot
             ? `${icon(getItem(result.loot)!.rarity)} You also swiped a **${itemLabel(result.loot)}** (only found through crime)`
             : null;
