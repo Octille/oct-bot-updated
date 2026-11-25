@@ -228,6 +228,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - Remove `ANTI_ALT_*` overrides from the production `.env` (the real bot logs an error at startup if they weaken the defaults)
   - The migration sets `account.best` to the migrated level (unlocks and level achievements read it)
   - Check the real bot's privileged intents (Message Content, Server Members) in the developer portal; the bot falls back safely if they're off, but chat XP is better with Message Content
+  - `/eco stats` shows **coins created vs destroyed per day** (from the Transaction log: creation sources like activities, quests, drops and payouts, vs destruction like repairs, purchases, taxes, the casino edge and prestige wipes), net inflation, and the money supply over time, so real inflation can be watched after launch
   - BALANCE.md and README
   - Docker update (replset Mongo, build step), `.env.example`
   - full test pass, live run and fixes.
@@ -344,3 +345,14 @@ Level 35 (first prestige) takes **65 h free vs ~57 h VIP**. The +10% stacks with
 - **Gambling and loot boxes:** coins have no real-money value and can't be bought or cashed out. Keep it that way. Premium must never buy coins, crates, crate odds, drop odds or casino chances. Option B's coin boost feeds the casino indirectly; excluding boosts from gambling (above) keeps "paying" and "gambling" apart. Several countries (e.g. Belgium, the Netherlands) treat paid randomised rewards as gambling, which is another reason crates stay out of premium entirely.
 - **Fairness:** Option A is fair by design (cosmetics and convenience only). Option B is pay-to-progress at a small scale; mitigated by keeping VIP out of seasonal and net-worth rankings, capping the boost at +10% coins and +15% XP, and keeping prestige, achievements and Veteran items earnable only by playing. Expect some players to see any boost as pay-to-win.
 - **Server VIP:** 24/7 music raises hosting and Lavalink load, so price for it. Custom drop chests must stay cosmetic (same reward table) to avoid server owners selling "better drops".
+
+## 11. Aspirational sinks for rich players (Phase 5 polish or right after launch; not built)
+
+**Why:** at level 35 the only big sinks are tool wear (~10% of gross) and the prestige wipe. Everything else (pet food, taxes, casino edge, cosmetics) is about 4% combined (BALANCE.md, "Combined daily income"). **Target:** non-prestige sinks remove **~15%** of a level-35 player's gross income (~₪41k/day of ~₪272k), so ~₪14k/day more than now.
+
+- **Luxury cosmetics (₪500k–5M):** prestige-looking titles, themes and **animated card backgrounds** (rendered as short animated images; needs a GIF/APNG card path), plus a **limited monthly item** (sold for one month only, never again; shows the month on the profile).
+- **Status collectibles on the profile card:** a house, car, yacht, trophy shelf, aquarium (fishdex-themed): a "collection" row on `/profile`, each piece with tiers (₪250k → ₪5M). Pure status; no income effect, so it doesn't feed back into the economy.
+- **Pet accessories and evolutions:** collars, hats and beds (cosmetic, shown on `/pet` and the profile card), and an **evolution** at pet level 10 (expensive, cosmetic form change; the perk stays the same so it isn't pay-to-win).
+- **Server contributions:** donate coins to this week's **raid pot** (adds to the reward pool for everyone who fights) or **community goal** (adds a bonus to the goal reward). Donors get a "Patron" badge for the week and the server gets a small, capped, server-wide perk (e.g. +5% drop chance in that server for a day). Donations are destroyed (or capped below their value when paid back out) so the net effect is still a sink, and they count toward the weekly giving limit so they can't launder coins between alts.
+
+**How to check the target:** add each sink to `scripts/income-report.ts` with a "rich player" assumption (e.g. one luxury item a month, one collectible tier every two weeks, a weekly donation) and a test that non-prestige sinks are 12–18% of level-35 gross.
