@@ -126,16 +126,17 @@ export const hub: ScreenModule = {
     const rows = [];
     for (let k = 0; k < buttons.length; k += 5) rows.push(row(...buttons.slice(k, k + 5)));
 
+    // At most 10 (Discord's limit): achievements, leaderboards, season and prestige live under Progress
     const more = [
       { label: 'Quests', value: 'quests.daily', description: 'Daily and weekly goals for coins and crates' },
       { label: 'Shop', value: 'shop', description: 'Tools, consumables, crates and cosmetics' },
       { label: 'Inventory', value: 'inv.all.0', description: 'Your items: use, sell or lock them' },
       { label: 'Balance', value: 'bal', description: 'Wallet, bank, deposits and withdrawals' },
-      { label: 'Achievements', value: 'ach', description: 'Goals and their rewards' },
-      { label: 'Leaderboards', value: 'cmd.leaderboard', description: 'Top players in this server and everywhere' },
+      { label: 'Business', value: 'biz', description: 'Workers earn while you are away' },
+      { label: 'Pet', value: 'pet', description: 'A companion with a perk' },
       ...(ctx.gambling !== false ? [{ label: 'Casino', value: 'casino', description: 'Games, odds and your gambling record' }] : []),
       { label: 'Wardrobe', value: 'wardrobe', description: 'Titles, badges, themes and card styles' },
-      ...(unlockAt >= PRESTIGE_MENU_LEVEL || (p.account?.prestige ?? 0) > 0 ? [{ label: 'Prestige', value: 'prestige', description: 'Reset for a permanent bonus' }] : []),
+      { label: 'Progress', value: 'progress', description: 'Achievements, leaderboards, season, prestige' },
       { label: 'Help', value: 'help', description: 'Every command, by category' },
     ];
     rows.push(select(ids.pick(ctx.owner, 'h', MORE), 'More…', more));

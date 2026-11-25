@@ -10,6 +10,7 @@ import { apply, getProfile, inTransaction, settle, type Profile } from './econom
 import { isJailed } from './jail';
 import { unlockLevel } from './progression';
 import { altBlocker } from './antiAlt';
+import { petPerk } from './pets';
 
 export type RobOutcome =
   | { kind: 'padlock'; fine: number }
@@ -25,6 +26,8 @@ export function robChance(robber: Profile, victim: Profile, now = Date.now()): n
   const diff = unlockLevel(robber) - unlockLevel(victim);
   let chance = Math.min(robRules.maxChance, Math.max(robRules.minChance, robRules.baseChance + robRules.perLevel * diff));
   if (hasGuardDog(victim, now)) chance = Math.max(0.05, chance - robRules.guardDog);
+  // A happy pet dog also helps
+  chance = Math.max(0.05, chance - petPerk(victim, 'dog', now));
   return chance;
 }
 

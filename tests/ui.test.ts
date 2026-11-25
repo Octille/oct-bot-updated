@@ -53,6 +53,8 @@ const players: Record<string, Profile> = {
     onboarding: { crateClaimed: true },
     stats: { worked: 300, fishCaught: 40, crimeWins: { pickpocket: 12 } },
     achievements: { first_shift: new Date(), regular: new Date(), workaholic: new Date(), art_thief: new Date() },
+    pet: { species: 'cat', name: 'Whiskers', level: 7, xp: 120, happiness: 90, caredAt: new Date(), fedAt: new Date(), playedAt: null },
+    business: { tier: 'truck', workers: 6, manager: true, lastTick: new Date(Date.now() - 3 * 3_600_000), collected: 50_000 },
     quests: {
       daily: { day: 99_999, list: [{ id: 'work', target: 3, base: 300, claimed: true }, { id: 'fish', target: 5, base: 0, claimed: false }, { id: 'earn', target: 50_000, base: 0, claimed: false }], rerolls: 0, bonusClaimed: false },
       weekly: { week: 9_999, list: [{ id: 'mine', target: 30, base: 0, claimed: false }, { id: 'crime', target: 15, base: 0, claimed: false }, { id: 'dailies', target: 10, base: 0, claimed: false }], rerolls: 1, bonusClaimed: false },
@@ -93,7 +95,7 @@ function crawl(start: string, p: Profile, origin: Origin): Seen[] {
   return [...seen].map(([path, payload]) => ({ path, payload }));
 }
 
-const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm', 'casino', 'quests.daily', 'quests.weekly'];
+const ENTRY = ['hub', 'shop', 'shop.tools', 'inv.all.0', 'inv.sell.all.0.all', 'inv.sell.r-legendary.1.all', 'wardrobe', 'bal', 'job', 'dex.all', 'help', 'jail', 'ach', 'prestige', 'prestige.confirm', 'casino', 'quests.daily', 'quests.weekly', 'pet', 'biz', 'progress'];
 
 describe('every menu screen', () => {
   for (const [who, p] of Object.entries(players)) {
@@ -234,13 +236,17 @@ describe('hub', () => {
     expect(json.description).toMatch(/Daily streak/);
     const moreOptions = (p: Profile) => hubOf(p).components.flatMap((r) => r.toJSON().components)
       .flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
-    expect(moreOptions(players.newbie!)).toEqual(['Quests', 'Shop', 'Inventory', 'Balance', 'Achievements', 'Leaderboards', 'Casino', 'Wardrobe', 'Help']);
-    expect(moreOptions(players.maxed!)).toContain('Prestige');
+    expect(moreOptions(players.newbie!)).toEqual(['Quests', 'Shop', 'Inventory', 'Balance', 'Business', 'Pet', 'Casino', 'Wardrobe', 'Progress', 'Help']);
     // Hidden where gambling is off (and in DMs)
     const off = render('hub', { owner: OWNER, origin: 'h', profile: players.newbie!, userName: 'Oct', gambling: false }).components
       .flatMap((r) => r.toJSON().components).flatMap((c) => (c.type === ComponentType.StringSelect ? c.options.map((o) => o.label) : []));
     expect(off).not.toContain('Casino');
-    expect(moreOptions(players.prestiged!)).toContain('Prestige');
+    // Prestige lives under Progress: from level 30, or once you've prestiged
+    const progressLabels = (p: Profile) => render('progress', { owner: OWNER, origin: 'h', profile: p, userName: 'Oct' }).components
+      .flatMap((r) => r.toJSON().components).map((c) => ('label' in c ? c.label : ''));
+    expect(progressLabels(players.maxed!)).toContain('Prestige');
+    expect(progressLabels(players.prestiged!)).toContain('Prestige');
+    expect(progressLabels(players.newbie!)).not.toContain('Prestige');
     // Refresh ends the last activity row; the More menu is the final row
     const rows = newbie.components.map((r) => r.toJSON().components);
     expect(rows.at(-1)![0]!.type).toBe(ComponentType.StringSelect);

@@ -88,6 +88,36 @@ const userSchema = new Schema(
       weeklyWeek: { type: Number, default: -1 },
     },
 
+    /** One pet (content/pets.ts). Happiness decays from `happiness` at `caredAt`. */
+    pet: {
+      species: { type: String, default: null },
+      name: { type: String, default: null },
+      level: { type: Number, default: 1 },
+      xp: { type: Number, default: 0 },
+      happiness: { type: Number, default: 100 },
+      caredAt: { type: Date, default: null },
+      fedAt: { type: Date, default: null },
+      playedAt: { type: Date, default: null },
+    },
+
+    /** One business (content/business.ts). Income builds from `lastTick`, up to the offline cap. */
+    business: {
+      tier: { type: String, default: null },
+      workers: { type: Number, default: 0 },
+      manager: { type: Boolean, default: false },
+      lastTick: { type: Date, default: null },
+      collected: { type: Number, default: 0 },
+    },
+
+    /** Chat drops grabbed today (daily cap). */
+    drops: {
+      day: { type: Number, default: -1 },
+      count: { type: Number, default: 0 },
+    },
+
+    /** Season results (season number and place), for badges and the profile. */
+    seasonAwards: [{ season: Number, place: Number, _id: false }],
+
     /** Leaderboard values, recomputed after every change (services/boardStats.ts). */
     board: {
       v: { type: Number, default: 0 },

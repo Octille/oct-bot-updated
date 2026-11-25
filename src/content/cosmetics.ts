@@ -21,7 +21,7 @@ export interface Cosmetic {
    *   achievement — the reward for an achievement
    *   prestige    — bought with prestige tokens
    */
-  exclusive?: 'veteran' | 'achievement' | 'prestige';
+  exclusive?: 'veteran' | 'achievement' | 'prestige' | 'season';
   /** Prestige needed before it shows up in the prestige shop. */
   minPrestige?: number;
 }
@@ -72,6 +72,11 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'theme_phoenix', kind: 'theme', name: 'Phoenix', value: 0xe25822, price: 0, exclusive: 'prestige', minPrestige: 1 },
   { id: 'bg_phoenix', kind: 'background', name: 'Phoenix', value: '#f39c12,#6e1a0a', price: 0, exclusive: 'prestige', minPrestige: 3 },
   { id: 'title_ascended', kind: 'title', name: 'Ascended', value: 'Ascended', price: 0, exclusive: 'prestige', minPrestige: 5 },
+
+  // Season rewards (see content/events.ts)
+  { id: 'badge_season_champion', kind: 'badge', name: 'Season Champion', value: 'badge_season_champion', price: 0, exclusive: 'season' },
+  { id: 'badge_season_top10', kind: 'badge', name: 'Season Top 10', value: 'badge_season_top10', price: 0, exclusive: 'season' },
+  { id: 'badge_season_top100', kind: 'badge', name: 'Season Top 100', value: 'badge_season_top100', price: 0, exclusive: 'season' },
 
   // Veteran set — players from the original bot. See content/veteran.ts.
   { id: 'title_veteran', kind: 'title', name: 'Veteran', value: 'Veteran', price: 0, exclusive: 'veteran' },

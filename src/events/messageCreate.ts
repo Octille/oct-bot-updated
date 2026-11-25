@@ -1,4 +1,9 @@
 import type { Message } from 'discord.js';
+import { dropRules } from '../content/events';
+import { getGuildSettings } from '../models/GuildSettings';
+import { Drop } from '../models/Events';
+import { createDrop, noteChatter, shouldDrop } from '../services/drops';
+import { dropView, expiredDropView } from '../ui/dropViews';
 import { chatXp } from '../content/levels';
 import { logError } from '../lib/logger';
 import { checkAchievements } from '../services/achievements';
@@ -36,4 +41,39 @@ export async function onMessageCreate(message: Message): Promise<void> {
   } catch (err) {
     logError('chat xp', err);
   }
+  await maybeDrop(message).catch((err) => logError('drops', err));
+}
+
+/* ── Chat drops ─────────────────────────────────────────────────────────────────────────── */
+
+const dropSettings = new Map<string, { at: number; channelIds: string[]; perHour: number; enabled: boolean }>();
+
+export function invalidateDropSettings(guildId: string): void {
+  dropSettings.delete(guildId);
+}
+
+async function dropConfig(guildId: string) {
+  const hit = dropSettings.get(guildId);
+  if (hit && Date.now() - hit.at < 60_000) return hit;
+  const s = await getGuildSettings(guildId);
+  const cfg = { at: Date.now(), channelIds: s?.drops?.channelIds ?? [], perHour: s?.drops?.perHour ?? dropRules.defaultPerHour, enabled: !!s?.drops?.enabled };
+  dropSettings.set(guildId, cfg);
+  return cfg;
+}
+
+/** Spawns a drop now and then while enough different people are chatting in a drops channel. */
+async function maybeDrop(message: Message<true>): Promise<void> {
+  const cfg = await dropConfig(message.guildId);
+  if (!cfg.enabled || !cfg.channelIds.includes(message.channelId)) return;
+  const chatting = noteChatter(message.channelId, message.author.id);
+  if (!shouldDrop(message.channelId, chatting, cfg.perHour) || !message.channel.isSendable()) return;
+  const drop = await createDrop(message.guildId, message.channelId);
+  const sent = await message.channel.send(dropView(drop));
+  await Drop.updateOne({ _id: drop._id }, { $set: { messageId: sent.id } });
+  // Expire it if nobody grabs it (the per-minute job catches anything a restart missed)
+  setTimeout(() => {
+    Drop.findOneAndUpdate({ _id: drop._id, status: 'open' }, { $set: { status: 'expired' } }, { lean: true })
+      .then((d) => (d ? sent.edit(expiredDropView(d)) : null))
+      .catch(() => undefined);
+  }, dropRules.expireSeconds * 1000 + 500);
 }

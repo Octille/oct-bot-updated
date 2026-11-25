@@ -213,7 +213,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 - [x] **4. Gambling + social** (built: coinflip, slots, blackjack, high-low, roulette, crash with tested house edges and a ₪2.5M per-round cap; /casino; /settings gambling; rob with padlock, guard dog and a 30s escrowed getaway the victim can catch; NPC-vault heist lobby; reaction duel; trade window; give (5% tax) and gift; coins in trades and duel pots taxed like give):
   - blackjack, slots, coinflip, high-low, roulette, crash, gambling stats
   - rob with counterplay, multiplayer heist lobby, duel, trade window, give (tax), gift.
-- [ ] **5. Retention & events** (**5a done**: daily/weekly quests with rerolls and bonus chests, opt-in DM reminders, leaderboards with the brief's six boards plus fishdex and achievements; **5b next**: drops, raids, community goals, pets, business, seasons):
+- [x] **5. Retention & events** (**5b done**: chat drops, weekly boss raids and community goals, pets, business, monthly seasons with a season board and rewards; Achievements/Leaderboards/Season/Prestige grouped under Progress in the menu; **5a done**: daily/weekly quests with rerolls and bonus chests, opt-in DM reminders, leaderboards with the brief's six boards plus fishdex and achievements; **5b next**: drops, raids, community goals, pets, business, seasons):
   - daily/weekly quests (reroll, bonus chest), DM reminders
   - random drops, weekly boss raids, community goals, pets, business expansion (manager auto-collect, events, offline cap)
   - seasons and leaderboards (6 metrics, server/global, paginated).

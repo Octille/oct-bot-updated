@@ -1,13 +1,15 @@
 import { MemberLevel } from '../models/MemberLevel';
 import { User } from '../models/User';
 import type { BoardField } from './boardStats';
+import { SeasonScore } from '../models/Events';
+import { currentSeason } from './seasons';
 
-export type Metric = 'coins' | 'level' | 'server' | 'fish' | 'gambling' | 'streak' | 'fishdex' | 'achievements';
+export type Metric = 'coins' | 'level' | 'server' | 'fish' | 'gambling' | 'streak' | 'fishdex' | 'achievements' | 'season';
 /** The brief's six boards first, then two extras. */
-export const metrics: Metric[] = ['coins', 'server', 'level', 'fish', 'gambling', 'streak', 'fishdex', 'achievements'];
+export const metrics: Metric[] = ['coins', 'server', 'level', 'fish', 'gambling', 'streak', 'season', 'fishdex', 'achievements'];
 
 /** The stored, indexed value each board sorts by (see services/boardStats.ts). */
-const FIELD: Record<Exclude<Metric, 'server'>, BoardField> = {
+const FIELD: Record<Exclude<Metric, 'server' | 'season'>, BoardField> = {
   coins: 'netWorth', level: 'level', fish: 'fish', gambling: 'gambling', streak: 'streak', fishdex: 'fishdex', achievements: 'achievements',
 };
 
@@ -56,6 +58,19 @@ export async function board(metric: Metric, page: number, opts: Scope): Promise<
       total,
       rows: docs.map((d) => ({ userId: d.userId, value: d.xp, level: d.level, prestige: byId.get(d.userId)?.account?.prestige ?? 0, badge: byId.get(d.userId)?.cosmetics?.badge ?? null })),
     };
+  } else if (metric === 'season') {
+    const season = currentSeason();
+    const filter = { season, points: { $gt: 0 }, ...(opts.members ? { userId: { $in: opts.members } } : {}) };
+    const [docs, total] = await Promise.all([
+      SeasonScore.find(filter, null, { lean: true }).sort({ points: -1, userId: 1 }).skip(page * PER_PAGE).limit(PER_PAGE),
+      SeasonScore.countDocuments(filter),
+    ]);
+    const profiles = await User.find({ _id: { $in: docs.map((d) => d.userId) } }, { cosmetics: 1, account: 1 }, { lean: true });
+    const byId = new Map(profiles.map((p) => [String(p._id), p]));
+    result = {
+      total,
+      rows: docs.map((d) => ({ userId: d.userId, value: d.points, level: byId.get(d.userId)?.account?.level ?? 0, prestige: byId.get(d.userId)?.account?.prestige ?? 0, badge: byId.get(d.userId)?.cosmetics?.badge ?? null })),
+    };
   } else {
     const path = `board.${FIELD[metric]}`;
     const filter = { ...(opts.members ? { _id: { $in: opts.members } } : {}), [path]: { $gt: 0 } };
@@ -94,6 +109,13 @@ export async function rankOf(metric: Metric, userId: string, opts: Scope): Promi
     if (me?.xp) {
       const above = await MemberLevel.countDocuments({ guildId: opts.guildId, $or: [{ xp: { $gt: me.xp } }, { xp: me.xp, userId: { $lt: userId } }] });
       rank = { rank: above + 1, value: me.xp };
+    }
+  } else if (metric === 'season') {
+    const season = currentSeason();
+    const me = await SeasonScore.findOne({ season, userId }, { points: 1 }, { lean: true });
+    if (me?.points) {
+      const above = await SeasonScore.countDocuments({ season, ...(opts.members ? { userId: { $in: opts.members } } : {}), $or: [{ points: { $gt: me.points } }, { points: me.points, userId: { $lt: userId } }] });
+      rank = { rank: above + 1, value: me.points };
     }
   } else {
     const field = FIELD[metric];

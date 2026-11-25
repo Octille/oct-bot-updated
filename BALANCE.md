@@ -145,6 +145,15 @@ Per day (dailies + a seventh of the weeklies), at 1.5 active hours a day, with b
 
 Values are stored on each profile (`board.*`), recomputed inside MongoDB after every change and indexed, so a board is a top-N query, not a scan. Net worth (wallet + bank + item value), server level, account level (prestige first), fish caught, gambling winnings (net, only players ahead), daily streak, fishdex, achievements. This server (members) or global, 10 per page, cached for a minute.
 
+## Events, pets and business (Phase 5b)
+
+- **Chat drops** (admins pick channels, 1–6 an hour): only while 3+ different people chatted there in the last 10 minutes; ₪300–1,500 or (10%) a Common Crate; first grab wins; 10 grabs per player per day (at most ~₪9,000/day); new profiles and accounts blocked by the anti-alt rules.
+- **Boss raids** (weekly per server, Monday–Tuesday UTC): HP 6,000 per player active there in the last week (min 3). One attack per 30 minutes: (100 + 25 × level) × 0.8–1.2, ×1.25 with a weapon. Defeated: everyone who hit gets ₪3,000 + their share of ₪30,000 by damage, a Common Crate (Rare for the top 3, Epic for the MVP). +3 season points per attack.
+- **Community goals** (weekly per server): e.g. "Catch 30 fish per active player"; everyone with 5+ contributions gets ₪8,000 and a Rare Crate when it's reached. Only activities that pay out count.
+- **Pets** (level 5, ₪40,000–60,000): happiness −2%/hour; feed (₪500, every 4h, +30%) and play (free, every 2h, +15%); perk only at 50%+ happiness, growing to its max at pet level 10: dog −10% rob chance against you, cat +1 luck, parrot +5% coins, octopus +10% XP.
+- **Business** (one per player): Lemonade Stand (level 5, ₪15k) → Food Truck (12, ₪75k) → Café (20, ₪250k) → Factory (30, ₪750k); ₪45 / 90 / 130 / 180 per worker per hour, 10 workers each; hiring costs 8% of the tier price × 1.15^workers; 10% upkeep; income stops after 8h uncollected (24h with a manager, who also collects every 6h; manager costs half the tier price). Collect events average out to ~1×. Fully staffed and collected round the clock: about 18–25% of a player's income at that stage (test: under 26%). Payback: 4 days (stand) to ~49 days (factory).
+- **Seasons** (30 days; Season 1 starts on `SEASON_1_START`): points from activities (+1), daily quests (+5), weekly quests (+20) and raid attacks (+3). At the end (50+ points to place): #1 ₪250,000 + Legendary Crate + Season Champion badge; #2–3 ₪100,000 + Epic; #4–10 ₪50,000 + Epic + Top 10 badge; #11–100 ₪10,000 + Rare + Top 100 badge. Wallets don't reset.
+
 ## Migration ceiling (Phase 7)
 
 The v2 migration caps corrupt balances at a ceiling derived from the late-game row above. The plan is roughly 30 days of heavy late-game play: late-game ₪/hour × 4 hours × 30 days. With the current numbers that's **≈ ₪ 15.4M**. The exact figure is recomputed from this table when the migration runs.

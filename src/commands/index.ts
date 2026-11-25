@@ -27,6 +27,10 @@ import shop from './economy/shop';
 import buy from './economy/buy';
 import cosmetics from './economy/cosmetics';
 import quests from './economy/quests';
+import pet from './economy/pet';
+import business from './economy/business';
+import raid from './events/raid';
+import season from './events/season';
 import rank from './levels/rank';
 import profileCmd from './levels/profile';
 import achievementsCmd from './levels/achievements';
@@ -54,7 +58,8 @@ export const commands: SlashCommand[] = [
   balance, bank, daily, weekly, streak,
   work, job, mine, fish, fishdex, tools, beg, search,
   hunt, dig, crime, bail,
-  inventory, iteminfo, sell, use, shop, buy, cosmetics, quests,
+  inventory, iteminfo, sell, use, shop, buy, cosmetics, quests, pet, business,
+  raid, season,
   rank, profileCmd, achievementsCmd, prestigeCmd, levels, leaderboard,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,
   rob, heist, duel, trade, give, gift,

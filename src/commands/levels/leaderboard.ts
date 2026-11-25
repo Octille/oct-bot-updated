@@ -18,7 +18,7 @@ import { row, select } from '../../ui/kit';
 
 const LABEL: Record<Metric, string> = {
   coins: 'Net worth', server: 'Server level', level: 'Account level', fish: 'Fish caught', gambling: 'Gambling winnings',
-  streak: 'Daily streak', fishdex: 'Fishdex', achievements: 'Achievements',
+  streak: 'Daily streak', season: 'This season', fishdex: 'Fishdex', achievements: 'Achievements',
 };
 
 function valueText(metric: Metric, r: Pick<Row, 'value' | 'prestige' | 'level'>): string {
@@ -31,6 +31,7 @@ function valueText(metric: Metric, r: Pick<Row, 'value' | 'prestige' | 'level'>)
     case 'gambling': return `+${coins(r.value)}`;
     case 'streak': return `${num(r.value)} day${r.value === 1 ? '' : 's'}`;
     case 'achievements': return `${r.value} / ${achievements.length}`;
+    case 'season': return `${num(r.value)} points`;
   }
 }
 

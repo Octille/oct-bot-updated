@@ -7,11 +7,13 @@ import { isActive } from '../game/boosts';
 import { jobs } from '../content/jobs';
 import { pickaxes, rods } from '../content/tools';
 import { User } from '../models/User';
+import { isActivity, recordActivity } from './activity';
+import { petPerk } from './pets';
 import { defaultRng, randInt, type Rng } from '../lib/rng';
 import { apply, type Change, type Profile } from './economy';
 
-type BoostSource = Pick<Profile, 'account'> & Partial<Pick<Profile, 'boosts' | 'prestige'>>;
-type PerkSource = Partial<Pick<Profile, 'boosts' | 'prestige'>>;
+type BoostSource = Pick<Profile, 'account'> & Partial<Pick<Profile, 'boosts' | 'prestige' | 'pet'>>;
+type PerkSource = Partial<Pick<Profile, 'boosts' | 'prestige' | 'pet'>>;
 
 export function hasPerk(profile: PerkSource, perk: PerkId): boolean {
   return profile.prestige?.perks?.includes(perk) ?? false;
@@ -26,17 +28,19 @@ export function unlockLevel(profile: Partial<Pick<Profile, 'account'>>): number 
 export function incomeMultiplier(profile: BoostSource): number {
   const prestige = 1 + (profile.account?.prestige ?? 0) * prestigeIncomeBonus;
   const perk = hasPerk(profile, 'golden_touch') ? 1 + perkEffect.incomeMult : 1;
-  return prestige * perk * (isActive(profile.boosts, 'coin') ? boostEffect.coinMult : 1);
+  const pet = 1 + petPerk(profile, 'parrot');
+  return prestige * perk * pet * (isActive(profile.boosts, 'coin') ? boostEffect.coinMult : 1);
 }
 
 export function xpMultiplier(profile: PerkSource): number {
   const perk = hasPerk(profile, 'scholar') ? 1 + perkEffect.xpMult : 1;
-  return perk * (isActive(profile.boosts, 'xp') ? boostEffect.xpMult : 1);
+  const pet = 1 + petPerk(profile, 'octopus');
+  return perk * pet * (isActive(profile.boosts, 'xp') ? boostEffect.xpMult : 1);
 }
 
 /** Extra luck points from an active luck potion and the Lucky Charm perk. */
 export function luckBonus(profile: PerkSource): number {
-  return (isActive(profile.boosts, 'luck') ? boostEffect.luckPoints : 0) + (hasPerk(profile, 'lucky_charm') ? perkEffect.luckPoints : 0);
+  return (isActive(profile.boosts, 'luck') ? boostEffect.luckPoints : 0) + (hasPerk(profile, 'lucky_charm') ? perkEffect.luckPoints : 0) + petPerk(profile, 'cat');
 }
 
 export function rollXp(source: XpSource, rng: Rng = defaultRng, mult = 1): number {
@@ -92,6 +96,8 @@ export async function grant(
     { source: opts.source, meta: opts.meta },
   );
   const levelUp = await syncLevel(profile);
+  // Season points and community goals (only for real activities that paid out)
+  if (isActivity(opts.source)) await recordActivity(userId, opts.source);
   return { profile, xp, levelUp };
 }
 

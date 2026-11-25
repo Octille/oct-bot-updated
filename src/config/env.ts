@@ -22,6 +22,11 @@ const schema = z.object({
   ANTI_ALT_PROFILE_DAYS: z.coerce.number().min(0).optional(),
   ANTI_ALT_DISCORD_DAYS: z.coerce.number().min(0).optional(),
 
+  /** When Season 1 starts (ISO date). Unset = seasons haven't started. */
+  SEASON_1_START: z.string().optional(),
+  /** Season length in days (default 30; shorter on the test bot to see a season end). */
+  SEASON_LENGTH_DAYS: z.coerce.number().positive().optional(),
+
   LAVALINK_HOST: z.string().default('localhost'),
   LAVALINK_PORT: z.coerce.number().int().default(2333),
   LAVALINK_PASSWORD: z.string().default('youshallnotpass'),

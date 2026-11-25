@@ -26,6 +26,11 @@ const guildSettingsSchema = new Schema(
       perHour: { type: Number, default: 2 },
     },
 
+    /** Weekly boss raids and community goals are announced here (off when unset). */
+    events: {
+      channelId: { type: String, default: null },
+    },
+
     welcome: {
       channelId: { type: String, default: null },
       card: { type: Boolean, default: true },

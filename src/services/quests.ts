@@ -7,6 +7,8 @@ import { seededRng, type Rng } from '../lib/rng';
 import { User } from '../models/User';
 import { apply, getProfile, type Profile } from './economy';
 import { syncLevel, unlockLevel, type LevelUp } from './progression';
+import { addSeasonPoints } from './seasons';
+import { seasonRules } from '../content/events';
 
 export interface Quest {
   id: string;
@@ -144,6 +146,7 @@ export async function claimQuest(userId: string, scope: QuestScope, index: numbe
       inc: { 'account.xp': reward.xp, ...(scope === 'daily' ? { 'stats.questsDone': 1 } : {}) },
       where: { [periodField(scope)]: periodOf(scope, now), [`quests.${scope}.list.${index}.claimed`]: false, [`quests.${scope}.list.${index}.id`]: q.id },
     }, { source: `quest.${scope}`, meta: { quest: q.id } });
+    await addSeasonPoints(userId, scope === 'daily' ? seasonRules.points.dailyQuest : seasonRules.points.weeklyQuest, now);
     return { coins, xp: reward.xp, levelUp: await syncLevel(after) };
   } catch (err) {
     if (err instanceof EconomyError) throw new UserError('That quest changed. Open quests again.');
