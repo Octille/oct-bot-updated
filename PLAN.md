@@ -301,3 +301,46 @@ Each tier includes the ones below it:
 
 Rules: never sold or tradable, never earnable after launch (`exclusive: 'veteran'` in `content/cosmetics.ts`; the shop and `/buy` skip them). The badge shows before your name on `/balance`, rank cards, leaderboards and level-up messages; players can hide it in the Wardrobe. Granted by `services/veteran.ts` during the migration only. Welcome-back message (once, on the first v3 command): thanks them, shows their tier and unlocks, with an **Equip now** button to the Wardrobe.
 
+
+## 10. Phase 8: Premium (future, not built; owner chooses A or B later)
+
+**One check everywhere:** `src/services/premium.ts` exports `isPremium(user)` and `isPremiumServer(server)`, both always `false` today. Every perk below must be gated only through these, so switching premium on (Discord Premium Apps entitlements, read from the interaction) is one change in that file plus the perks.
+
+### Option A: cosmetic and convenience VIP (no income advantage)
+
+- **Player VIP:** VIP badge and name colour on cards and leaderboards, an exclusive cosmetic each month, animated card backgrounds, +1 quest reroll per set, bigger inventory (if limits are added), more reminder options (several hours, quest-ready alerts), early access to new features.
+- **Server VIP:** 24/7 music, saved playlists, audio filters, more level-reward roles (e.g. 25 → 50), custom drop chests (admin-picked names and art; rewards stay the same).
+
+**Balance impact:** none on coins or XP. The extra reroll lets a VIP swap an awkward quest for one they'd finish anyway, so it lets them finish slightly more quests: at most one more quest a day (≈ ₪250–2,900 by level), under 1% of income.
+
+| Stage | Free ₪/active hour | VIP (A) ₪/active hour |
+|---|---|---|
+| New | ₪15,187 | ₪15,187 |
+| Early (lv 5) | ₪29,778 | ₪29,778 |
+| Mid (lv 15) | ₪59,165 | ₪59,165 |
+| Late (lv 35) | ₪109,959 | ₪109,959 |
+
+### Option B: Option A plus small boosts
+
+- **Boosts:** at most **+15% account XP** and **+10% coins from activities** (work, mine, fish, hunt, dig, beg, search, crime). Never crate odds, drop odds, loot rarity or any gambling chance.
+- **Rankings:** boosted earnings are excluded from seasonal points (already counted per activity, not per coin) and from the net worth / rich-list board. That means tracking `boostedEarnings` separately and subtracting it from `board.netWorth`.
+- **Casino:** boosts never touch gambling. Either bets can't use boosted coins (needs a separate "boosted" balance, complex), or the casino simply has no premium effects and the per-round cap stays the same. **Recommended:** the second, simpler choice: VIP boosts never apply to gambling payouts, and the casino rules and edges are identical for everyone.
+
+**Balance impact (from the balance model, net coins per active hour):**
+
+| Stage | Free | VIP (B, +10% coins) | XP/hour free → VIP |
+|---|---|---|---|
+| New | ₪15,187 | ₪16,705 | 801 → 921 |
+| Early (lv 5) | ₪29,778 | ₪32,756 | 1,029 → 1,183 |
+| Mid (lv 15) | ₪59,165 | ₪65,081 | 1,029 → 1,183 |
+| Late (lv 35) | ₪109,959 | ₪120,955 | 1,029 → 1,183 |
+
+Level 35 (first prestige) takes **65 h free vs ~57 h VIP**. The +10% stacks with prestige, Golden Touch, the parrot and coin boosts, so the multiplier cap tests need a premium case, and late-game sinks (tool wear 10–15%) should be rechecked.
+
+### Risks (both options)
+
+- **Discord Premium Apps eligibility:** the developer must be **18+**, in a **supported country**, with a verified team and payout account; the app must follow Discord's monetization terms (no gambling with real-money value, no selling Discord-wide perks). Check the current eligibility list before choosing.
+- **Under-18 audience:** OctBot's players skew young. Paid perks must be clearly priced, never pushed in DMs, and not tied to time-limited pressure. Purchases happen in Discord's own flow, which handles parental controls, but the bot shouldn't advertise in kids' servers.
+- **Gambling and loot boxes:** coins have no real-money value and can't be bought or cashed out. Keep it that way. Premium must never buy coins, crates, crate odds, drop odds or casino chances. Option B's coin boost feeds the casino indirectly; excluding boosts from gambling (above) keeps "paying" and "gambling" apart. Several countries (e.g. Belgium, the Netherlands) treat paid randomised rewards as gambling, which is another reason crates stay out of premium entirely.
+- **Fairness:** Option A is fair by design (cosmetics and convenience only). Option B is pay-to-progress at a small scale; mitigated by keeping VIP out of seasonal and net-worth rankings, capping the boost at +10% coins and +15% XP, and keeping prestige, achievements and Veteran items earnable only by playing. Expect some players to see any boost as pay-to-win.
+- **Server VIP:** 24/7 music raises hosting and Lavalink load, so price for it. Custom drop chests must stay cosmetic (same reward table) to avoid server owners selling "better drops".
