@@ -151,28 +151,42 @@ Values are stored on each profile (`board.*`), recomputed inside MongoDB after e
 - **Boss raids** (weekly per server, Monday–Tuesday UTC): HP 6,000 per player active there in the last week (min 3). One attack per 30 minutes: (100 + 25 × level) × 0.8–1.2, ×1.25 with a weapon. Defeated: everyone who hit gets ₪3,000 + their share of ₪30,000 by damage, a Common Crate (Rare for the top 3, Epic for the MVP). **One raid reward per player per week** across all servers, and new profiles/accounts (anti-alt) can't attack or be paid. +3 season points per attack.
 - **Community goals** (weekly per server): e.g. "Catch 30 fish per active player"; everyone with 5+ contributions gets ₪8,000 and a Rare Crate when it's reached (**one goal reward per player per week** across servers; anti-alt applies). Only activities that pay out count.
 - **Pets** (level 5, ₪40,000–60,000): happiness −2%/hour; feed (₪500, every 4h, +30%) and play (free, every 2h, +15%); perk only at 50%+ happiness, growing to its max at pet level 10: dog −10% rob chance against you, cat +1 luck, parrot +5% coins, octopus +10% XP.
-- **Business** (one per player): Lemonade Stand (level 5, ₪15k) → Food Truck (12, ₪75k) → Café (20, ₪250k) → Factory (30, ₪750k); ₪45 / 90 / 130 / 180 per worker per hour, 10 workers each; hiring costs 8% of the tier price × 1.15^workers; 10% upkeep; income stops after 8h uncollected (24h with a manager, who also collects every 6h; manager costs half the tier price). Upgrading keeps your workers but charges the difference in their hire cost at the new tier. Hiring a manager pays out what's pending under the old 8h cap first. Managers stop auto-collecting for players inactive 14+ days. Collect events average out to ~1×. Fully staffed and collected round the clock: about 18–25% of a player's income at that stage (test: under 26%). Fully staffed totals: ₪39k stand → ₪212k truck → ₪746k café → ₪2.31M factory; each upgrade pays for itself in 4 / 9 / 19 / 40 days.
+- **Business** (one per player): Lemonade Stand (level 5, ₪15k) → Food Truck (12, ₪75k) → Café (20, ₪250k) → Factory (30, ₪750k); ₪29 / 58 / 85 / 117 per worker per hour (cut 35% on 2026-11-25), 10 workers each; hiring costs 8% of the tier price × 1.15^workers; 10% upkeep; income stops after 8h uncollected (24h with a manager, who also collects every 6h; manager costs half the tier price). Upgrading keeps your workers but charges the difference in their hire cost at the new tier. Hiring a manager pays out what's pending under the old 8h cap first. Managers stop auto-collecting for players inactive 14+ days. Collect events average out to ~1×. Fully staffed and collected round the clock: about 12–17% of a player's income at that stage (test: under 26%). Fully staffed totals: ₪39k stand → ₪212k truck → ₪746k café → ₪2.31M factory; each upgrade pays for itself in 6 / 14 / 29 / 62 days (collected round the clock).
 - **Seasons** (30 days; Season 1 starts on `SEASON_1_START`): points from activities (+1), daily quests (+5), weekly quests (+20) and raid attacks (+3). At the end (50+ points to place): #1 ₪250,000 + Legendary Crate + Season Champion badge; #2–3 ₪100,000 + Epic; #4–10 ₪50,000 + Epic + Top 10 badge; #11–100 ₪10,000 + Rare + Top 100 badge. Wallets don't reset.
 
 ## Combined daily income (all sources, after Phase 5)
 
-An engaged player's day: 1.5 active hours of activities, all quests, 3 drops, one raid reward and one goal reward a week (5-player raids), a fully staffed business for their stage collected twice a day (factory with a manager at level 35), a parrot at pet level 1 / 5 / 10 (minus feeding), and a top-100 season finish spread over the season. Crates at their opened value. From `npx tsx scripts/income-report.ts`. ⚠️ = more than 20% above the 2a baseline (pre-Phase-5 activity income for 1.5 h).
+An engaged player's day: 1.5 active hours of activities, all quests, 3 drops, one raid reward and one goal reward a week (5-player raids), a fully staffed business for their stage collected twice a day (factory with a manager at level 35), a parrot at pet level 1 / 5 / 10 (minus feeding), and a top-100 season finish spread over the season. Crates at their opened value. From `npx tsx scripts/income-report.ts` (calculation in `src/game/income.ts`). ⚠️ = more than 20% above the 2a baseline (pre-Phase-5 activity income for 1.5 h).
 
 | Source (per day) | Lv 0 | Lv 5 | Lv 15 | Lv 35 |
 |---|---|---|---|---|
-| activities | ₪22,780 (50%) | ₪44,667 (59%) | ₪88,747 (67%) | ₪164,939 (64%) |
-| quests | ₪8,895 (19%) | ₪10,770 (14%) | ₪14,520 (11%) | ₪30,710 (12%) |
-| drops | ₪3,766 (8%) | ₪3,766 (5%) | ₪3,766 (3%) | ₪3,766 (1%) |
+| activities | ₪22,780 (50%) | ₪44,667 (61%) | ₪88,747 (70%) | ₪164,939 (68%) |
+| quests | ₪8,895 (19%) | ₪10,770 (15%) | ₪14,520 (11%) | ₪30,710 (13%) |
+| drops | ₪3,766 (8%) | ₪3,766 (5%) | ₪3,766 (3%) | ₪3,766 (2%) |
 | raid | ₪5,108 (11%) | ₪5,108 (7%) | ₪5,108 (4%) | ₪5,108 (2%) |
 | goal | ₪4,193 (9%) | ₪4,193 (6%) | ₪4,193 (3%) | ₪4,193 (2%) |
-| business | ₪0 (0%) | ₪6,480 (9%) | ₪12,960 (10%) | ₪38,880 (15%) |
+| business | ₪0 (0%) | ₪4,176 (6%) | ₪8,352 (7%) | ₪25,272 (10%) |
 | pet | ₪0 (0%) | ₪-777 (-1%) | ₪1,219 (1%) | ₪7,247 (3%) |
 | season | ₪1,045 (2%) | ₪1,045 (1%) | ₪1,045 (1%) | ₪1,045 (0%) |
-| **Total** | **₪45,788** | **₪75,253** | **₪131,558** | **₪255,889** |
+| **Total** | **₪45,788** | **₪72,949** | **₪126,950** | **₪242,281** |
 | 2a baseline (1.5 h) | ₪22,950 | ₪46,950 | ₪103,350 | ₪194,850 |
-| vs 2a | +100% ⚠️ | +60% ⚠️ | +27% ⚠️ | +31% ⚠️ |
+| vs 2a | +100% ⚠️ | +55% ⚠️ | +23% ⚠️ | +24% ⚠️ |
 
-**Reading it:** activities alone are slightly below the 2a baseline (it's measured before tool wear). Everything above that comes from the new systems. Early on, the flat rewards (quests, drops, raid, goal) dominate; late game, the business and quests do. **Flagged for a decision (2026-11-25):** every stage is over +20%.
+| Sink at level 35 (per day) | ₪/day | Share of gross income | Assumption |
+|---|---|---|---|
+| Tool wear and repairs | ₪26,982 | 10% | already taken out of activity income above |
+| Business upkeep (10%) | ₪2,808 | 1% | already taken out of business income above |
+| Pet food | ₪1,000 | 0% | two feeds a day |
+| Give / trade tax (5%) | ₪1,000 | 0% | assumes ₪20k sent a day |
+| Duel tax (5% of the pot) | ₪1,000 | 0% | assumes one ₪10k duel a day |
+| Casino house edge | ₪727 | 0% | assumes 10% of income wagered at ~3% edge |
+| Cosmetics | ₪7,143 | 3% | one ₪100k cosmetic every two weeks |
+| Prestige wipe | ₪60,570 | 22% | wallet, bank and loot reset; assumes 25% of earnings still held at prestige |
+| **Total** | **₪101,230** | **37%** | gross = ₪272,071 |
+
+**Decisions (2026-11-25):** early game (levels 0–5) is high **on purpose**: raid and goal rewards stay flat so new players join events on equal terms. Business income per worker was cut 35% (₪45/90/130/180 → ₪29/58/85/117) so the late game lands at +23–24%. A test keeps levels 15 and 35 under +25%. The drop cap stays at 10.
+
+**Sinks:** tool wear (already netted out of activity income) and the prestige wipe are the big ones at level 35; together with the smaller ones they remove about a third of gross income, under the assumptions shown.
 
 ## Migration ceiling (Phase 7)
 

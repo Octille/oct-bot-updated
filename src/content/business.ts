@@ -5,11 +5,12 @@
 
 export type BusinessTier = 'stand' | 'truck' | 'cafe' | 'factory';
 
+/** Per-worker income was cut 35% (2026-11-25) so late-game combined income stays under +25% vs 2a. */
 export const businessTiers: { id: BusinessTier; name: string; emoji: string; level: number; price: number; perWorkerHour: number; maxWorkers: number }[] = [
-  { id: 'stand', name: 'Lemonade Stand', emoji: '🍋', level: 5, price: 15_000, perWorkerHour: 45, maxWorkers: 10 },
-  { id: 'truck', name: 'Food Truck', emoji: '🚚', level: 12, price: 75_000, perWorkerHour: 90, maxWorkers: 10 },
-  { id: 'cafe', name: 'Café', emoji: '☕', level: 20, price: 250_000, perWorkerHour: 130, maxWorkers: 10 },
-  { id: 'factory', name: 'Factory', emoji: '🏭', level: 30, price: 750_000, perWorkerHour: 180, maxWorkers: 10 },
+  { id: 'stand', name: 'Lemonade Stand', emoji: '🍋', level: 5, price: 15_000, perWorkerHour: 29, maxWorkers: 10 },
+  { id: 'truck', name: 'Food Truck', emoji: '🚚', level: 12, price: 75_000, perWorkerHour: 58, maxWorkers: 10 },
+  { id: 'cafe', name: 'Café', emoji: '☕', level: 20, price: 250_000, perWorkerHour: 85, maxWorkers: 10 },
+  { id: 'factory', name: 'Factory', emoji: '🏭', level: 30, price: 750_000, perWorkerHour: 117, maxWorkers: 10 },
 ];
 
 export const businessRules = {

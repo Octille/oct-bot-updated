@@ -18,6 +18,8 @@ import { buyTier, collectBusiness, hireWorker, managerCollectAll, pendingIncome 
 import { luckBonus } from '../src/services/progression';
 import { weekNumber } from '../src/services/quests';
 
+import { businessTiers as tiers } from '../src/content/business';
+const STAND = tiers[0]!.perWorkerHour;
 const lvl = (n: number) => ({ xp: totalXpForLevel(n), level: n, best: n });
 const always = (v: number) => ({ next: () => v });
 const old = () => User.collection.updateMany({}, { $set: { createdAt: new Date(Date.now() - 30 * 86_400_000) } });
@@ -71,8 +73,8 @@ describe('pure rules', () => {
   it('business income is capped offline, higher with a manager', () => {
     const now = Date.now();
     const biz = (manager: boolean) => ({ business: { tier: 'stand', workers: 10, manager, lastTick: new Date(now - 30 * 3_600_000) } }) as never;
-    expect(pendingIncome(biz(false), now).amount).toBe(Math.floor(45 * 10 * businessRules.offlineCapHours * 0.9));
-    expect(pendingIncome(biz(true), now).amount).toBe(Math.floor(45 * 10 * businessRules.managerCapHours * 0.9));
+    expect(pendingIncome(biz(false), now).amount).toBe(Math.floor(STAND * 10 * businessRules.offlineCapHours * 0.9));
+    expect(pendingIncome(biz(true), now).amount).toBe(Math.floor(STAND * 10 * businessRules.managerCapHours * 0.9));
   });
 });
 
@@ -275,7 +277,7 @@ describe('review fixes (database)', () => {
     await hireManager('mg');
     const p = await getProfile('mg');
     // Paid out the 8h cap, minus the manager's price; the clock restarted
-    expect(p.wallet).toBe(100_000 + Math.floor(45 * 10 * 8 * 0.9) - 7_500);
+    expect(p.wallet).toBe(100_000 + Math.floor(STAND * 10 * 8 * 0.9) - 7_500);
     expect(pendingIncome(p).amount).toBe(0);
   });
 });
@@ -311,5 +313,12 @@ describe('5b answers (database)', () => {
     resetSeasonCalendar();
     env.SEASON_1_START = '2026-11-01T00:00:00Z';
     env.SEASON_LENGTH_DAYS = 30;
+  });
+});
+
+describe('combined income', () => {
+  it('late game (level 15 and 35) for an engaged player stays under +25% vs the 2a baseline', async () => {
+    const { rows } = await import('../src/game/income.js');
+    for (const r of rows().filter((x) => x.level >= 15)) expect(r.over, r.name).toBeLessThan(0.25);
   });
 });
