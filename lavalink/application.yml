@@ -10,7 +10,7 @@ lavalink:
   server:
     password: "${LAVALINK_PASSWORD:youshallnotpass}"
     sources:
-      youtube: false
+      youtube: false # Lavalink's built-in source is on by default, so it must be switched off here
       bandcamp: true
       soundcloud: true
       twitch: false
@@ -23,7 +23,7 @@ lavalink:
 plugins:
   lavasrc:
     # Spotify and Apple Music links are only read for their track info; the bot then finds the song
-    # on SoundCloud itself (and says so when there's no good match). Mirroring never uses YouTube.
+    # on SoundCloud itself (and says so when there's no good match). Mirroring only searches SoundCloud.
     providers:
       - "scsearch:%QUERY%"
     sources:
@@ -32,7 +32,6 @@ plugins:
       deezer: false
       yandexmusic: false
       flowerytts: false
-      youtube: false
       vkmusic: false
       tidal: false
       qobuz: false
