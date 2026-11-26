@@ -10,13 +10,14 @@ import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
 import { logError } from '../../lib/logger';
-import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, classifyQuery, isAudioAttachment, mainArtist, mapLimit, matchRules, mirrorService, pickSoundCloud, rankSearch, resolvesPublic, sourceRules, type MatchQuality } from '../../music/sources';
+import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, classifyQuery, isAudioAttachment, isPreviewOnly, mainArtist, mapLimit, matchRules, mirrorService, pickSoundCloud, rankSearch, resolvesPublic, sourceRules, type MatchQuality } from '../../music/sources';
 import { spotifyEnabled } from '../../music/suggest';
 
 /** `note`: shown under the reply (e.g. the original wasn't found). */
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number; note?: string };
 
 const NOT_ORIGINAL = "Couldn't find the original; playing the closest version.";
+const unavailable = (song: Track) => `**${escapeTitle(song.info.title)}** by ${escapeTitle(song.info.author)} isn't available here. Try another version from the suggestions.`;
 /** SoundCloud search with more results than the default 10, for matching a song (lavaplayer's scsearch[offset,limit]). */
 const SC_MATCH = `scsearch[0,${matchRules.candidates}]`;
 
@@ -29,7 +30,7 @@ const MUSIC_DOWN = 'Music is unavailable right now. Try again in a minute.';
  */
 type Failure = 'source' | 'client' | null;
 
-async function search(player: Player, query: string, user: User, source?: 'scsearch' | 'spsearch' | typeof SC_MATCH): Promise<{ tracks: Track[]; playlist?: string; failure: Failure }> {
+async function search(player: Player, query: string, user: User, source?: 'scsearch' | 'spsearch' | typeof SC_MATCH): Promise<{ tracks: Track[]; playlist?: string; failure: Failure; previews?: number }> {
   const what = source ? `${source}:${query}` : query;
   try {
     // lavalink-client passes an unknown source (scsearch[0,20]) through to Lavalink as the prefix
@@ -40,7 +41,10 @@ async function search(player: Player, query: string, user: User, source?: 'scsea
       return { tracks: [], failure: 'source' };
     }
     if (res.loadType === 'empty') return { tracks: [], failure: null };
-    return { tracks: res.tracks as Track[], playlist: res.loadType === 'playlist' ? res.playlist?.name ?? undefined : undefined, failure: null };
+    // SoundCloud previews report the full length but stop after 30 seconds: never queue them
+    const all = res.tracks as Track[];
+    const tracks = all.filter((t) => !isPreviewOnly(t));
+    return { tracks, playlist: res.loadType === 'playlist' ? res.playlist?.name ?? undefined : undefined, failure: null, previews: all.length - tracks.length };
   } catch (err) {
     logError(`music search "${what.slice(0, 120)}"`, err);
     return { tracks: [], failure: 'client' };
@@ -66,6 +70,8 @@ async function topResult(player: Player, query: string, user: User): Promise<Fou
       const m = await onSoundCloud(player, song, user);
       if (m === 'client') throw new UserError(MUSIC_DOWN);
       if (m && typeof m === 'object') return { tracks: [m.track], note: m.quality === 'exact' ? undefined : NOT_ORIGINAL };
+      // Nothing on SoundCloud names the artist: say so rather than play a random song with the same title
+      if (m === null) throw new UserError(unavailable(song));
     }
   }
   const res = await search(player, query, user, 'scsearch');
@@ -122,9 +128,7 @@ async function fromMirror(player: Player, url: string, user: User): Promise<Foun
   if (results.every((r) => r === 'client' || r === 'source')) throw new UserError(SEARCH_DOWN);
   const matches = results.filter((r): r is { track: Track; quality: MatchQuality } => !!r && typeof r === 'object' && (single || r.quality !== 'loose'));
   if (!matches.length) {
-    throw new UserError(single
-      ? `Couldn't find **${escapeTitle(songs[0]!.info.title)}** by ${escapeTitle(songs[0]!.info.author)} on SoundCloud. Try searching the song name.`
-      : `Couldn't find good SoundCloud matches for the songs in that ${service} link.`);
+    throw new UserError(single ? unavailable(songs[0]!) : `Couldn't find good SoundCloud matches for the songs in that ${service} link.`);
   }
   const note = single && matches[0]!.quality !== 'exact' ? NOT_ORIGINAL : undefined;
   return { tracks: matches.map((m) => m.track), name: res.playlist, skipped: songs.length - matches.length, total: res.tracks.length, note };
@@ -187,6 +191,7 @@ export default defineCommand({
       } else {
         const res = await search(player, query, interaction.user);
         if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
+        if (!res.tracks.length && res.previews) throw new UserError(`SoundCloud only allows a 30-second preview of that track, so it can't be played here. Try searching the song name for another version.`);
         if (!res.tracks.length) throw new UserError(`Couldn't play that link. ${SUPPORTED}`);
         found = { tracks: res.playlist ? res.tracks : [res.tracks[0]!], name: res.playlist };
         if (found.tracks.every((t) => t.info.isStream)) throw new UserError(NO_LIVE);

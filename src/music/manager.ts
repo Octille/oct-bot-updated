@@ -83,6 +83,10 @@ export function createLavalink(client: Client): void {
     errorNotes.set(player.guildId, Date.now());
     void textChannel(client, player)?.send(`Couldn't play **${escapeTitle(track?.info.title ?? 'a track')}** (${payload.exception?.message ?? 'unknown error'}). Skipping.`).catch(() => undefined);
   });
+  // Not seen so far, but log it so a stalled stream shows up in the error channel
+  manager.on('trackStuck', (player, track, payload) => {
+    logError('music stuck', new Error(`"${track?.info.title ?? '?'}" (${track?.info.identifier ?? '?'}) stuck for ${payload.thresholdMs} ms in ${player.guildId}`));
+  });
   manager.on('queueEnd', (player) => {
     void retirePanel(client, player.guildId, 'The queue has finished.').catch(() => undefined);
   });

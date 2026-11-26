@@ -1,6 +1,6 @@
 import type { Track } from 'lavalink-client';
 import { formatTime } from './panel';
-import { rankSearch } from './sources';
+import { isPreviewOnly, rankSearch } from './sources';
 import { lavalink, nodeReady } from './manager';
 import { env } from '../config/env';
 
@@ -43,7 +43,7 @@ const nodeSearch: Search = async (query, source) => {
   if (!node || !nodeReady()) return [];
   const res = await node.search({ query, source }, null);
   if (res.loadType !== 'search' && res.loadType !== 'track') return [];
-  return (res.tracks as Track[]).filter((t) => !t.info.isStream);
+  return (res.tracks as Track[]).filter((t) => !t.info.isStream && !isPreviewOnly(t));
 };
 
 function prune(now: number): void {

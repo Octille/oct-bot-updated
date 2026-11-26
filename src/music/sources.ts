@@ -119,7 +119,16 @@ export interface SongInfo {
   author: string;
   /** Milliseconds; 0 when unknown. */
   duration: number;
+  /** Lavaplayer's track identifier (SoundCloud: the stream URL it will play). */
+  identifier?: string;
 }
+
+/**
+ * SoundCloud serves some tracks (most official major-label uploads) only as a 30-second preview,
+ * while still reporting the full length: they'd stop "midway". Lavaplayer's identifier then points
+ * at a /preview/ stream instead of /stream/.
+ */
+export const isPreviewOnly = (t: { info: { identifier?: string } }) => /\/preview\//.test(t.info.identifier ?? '');
 
 const NOISE = /\b(official|video|audio|lyrics?|lyric video|music video|hd|hq|4k|visualizer|explicit|clean|remaster(ed)?|\d{4} remaster|prod\.?|ft\.?|feat\.?|featuring)\b/g;
 
@@ -179,15 +188,18 @@ function evidence(song: SongInfo, c: SongInfo) {
 }
 
 /**
- * Finds a Spotify/Apple song on SoundCloud. The same recording is the result whose length is
- * within ±3 s and whose title and uploader name the title and artist (closest length wins). Without
- * one, the best-scoring result: title/artist match and length closeness count; other versions,
- * very short results (previews) and results over twice the length are pushed down.
+ * Finds a Spotify/Apple song on SoundCloud, among uploads that play in full (no previews). The same
+ * recording is the result whose length is within ±3 s and whose title and uploader name the title
+ * and artist (closest length wins). Without one, the best-scoring result that still names the
+ * artist in its title or uploader: title/artist match and length closeness count; other versions,
+ * very short results and results over twice the length are pushed down. Null when nothing names
+ * the artist (never a random song that happens to share the title).
  */
 export function pickSoundCloud<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): { track: T; quality: MatchQuality } | null {
-  if (!candidates.length) return null;
-  const n = candidates.length;
-  const scored = candidates.map((track, i) => {
+  const playable = candidates.filter((t) => !isPreviewOnly(t));
+  if (!playable.length) return null;
+  const n = playable.length;
+  const scored = playable.map((track, i) => {
     const c = track.info;
     const e = evidence(song, c);
     const matches = e.title >= 0.75 && e.focus >= 0.5 && e.artist >= 0.5 && !e.version;
@@ -196,14 +208,16 @@ export function pickSoundCloud<T extends { info: SongInfo }>(song: SongInfo, can
     const tooLong = song.duration > 0 && c.duration > 2 * song.duration;
     const near = Number.isFinite(diff) ? Math.max(0, 1 - diff / Math.max(10_000, song.duration * 0.1)) : 0;
     const score = 0.5 * e.title + 0.2 * e.focus + 0.3 * e.artist + 0.3 * near - (e.version ? 0.6 : 0) - (tooShort ? 1 : 0) - (tooLong ? 1 : 0) + 0.05 * (1 - i / n);
-    return { track, i, diff, matches, plausible: !tooShort && !tooLong, score };
+    return { track, i, diff, matches, namesArtist: e.artist >= 0.5, sameSong: e.title >= 0.75 && e.focus >= 0.5, plausible: !tooShort && !tooLong, score };
   });
   const exact = scored.filter((s) => s.matches && s.diff <= matchRules.toleranceMs).sort((a, b) => a.diff - b.diff || a.i - b.i)[0];
   if (exact) return { track: exact.track, quality: 'exact' };
   const byScore = [...scored].sort((a, b) => b.score - a.score);
   const close = byScore.find((s) => s.matches && s.plausible);
   if (close) return { track: close.track, quality: 'close' };
-  return { track: byScore[0]!.track, quality: 'loose' };
+  // A version of this song (remix, cover…) before another song by the same artist
+  const loose = byScore.find((s) => s.namesArtist && s.sameSong && s.plausible) ?? byScore.find((s) => s.namesArtist);
+  return loose ? { track: loose.track, quality: 'loose' } : null;
 }
 
 /** SoundCloud's 30-second previews of tracks it can't stream in full. */
@@ -221,7 +235,8 @@ export interface Ranked<T> { track: T; score: number; artistMatch: boolean }
  * - SoundCloud's own order breaks ties.
  * `originalLikelyMissing`: the query names an artist, but no uploader matches it.
  */
-export function rankSearch<T extends { info: SongInfo }>(query: string, tracks: readonly T[]): { ranked: Ranked<T>[]; originalLikelyMissing: boolean } {
+export function rankSearch<T extends { info: SongInfo }>(query: string, all: readonly T[]): { ranked: Ranked<T>[]; originalLikelyMissing: boolean } {
+  const tracks = all.filter((t) => !isPreviewOnly(t));
   const q = words(query);
   const wantVersion = VERSION.test(normalize(query));
   let namesArtist = false;
