@@ -22,7 +22,7 @@ describe('role safety', () => {
   it('refuses @everyone, managed, dangerous and too-high roles', () => {
     expect(roleBlocker(roleAt(1, { id: 'g' }), guild, me)).toMatch(/everyone/);
     expect(roleBlocker(roleAt(1, { managed: true }), guild, me)).toMatch(/managed/);
-    for (const p of [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.BanMembers, PermissionFlagsBits.MentionEveryone]) {
+    for (const p of [PermissionFlagsBits.MuteMembers, PermissionFlagsBits.MoveMembers, PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.BanMembers, PermissionFlagsBits.MentionEveryone]) {
       expect(roleBlocker(roleAt(1, { permissions: perms(p) }), guild, me)).toMatch(/moderator or admin/);
     }
     expect(roleBlocker(roleAt(10), guild, me)).toMatch(/Move my role/);
@@ -85,8 +85,17 @@ describe('tickets', () => {
     expect(ticketName(12, '___')).toBe('ticket-0012-member');
   });
 
-  describe('one open ticket per member', () => {
+  describe('database rules', () => {
     useTestDatabase();
+    it('role panels never grow past 25 roles, even with concurrent adds', async () => {
+      const { RolePanel } = await import('../src/models/RolePanel.js');
+      const p = await RolePanel.create({ guildId: 'g', channelId: 'c', title: 'T', roles: Array.from({ length: 24 }, (_, i) => ({ roleId: `r${i}` })) });
+      const add = (roleId: string) => RolePanel.findOneAndUpdate({ _id: p._id, 'roles.roleId': { $ne: roleId }, 'roles.24': { $exists: false } }, { $push: { roles: { roleId } } }, { new: true });
+      const results = await Promise.all([add('x'), add('y')]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+      expect((await RolePanel.findById(p._id))!.roles).toHaveLength(25);
+    });
+
     it('a second open ticket is refused, a new one after closing is fine', async () => {
       await Ticket.create({ guildId: 'g', ownerId: 'u', number: 1, mode: 'thread' });
       await expect(Ticket.create({ guildId: 'g', ownerId: 'u', number: 2, mode: 'thread' })).rejects.toMatchObject({ code: 11000 });

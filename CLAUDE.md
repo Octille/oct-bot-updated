@@ -2,9 +2,8 @@
 
 ## Project status
 
-- Done: phases 1–5 and 6a (music + moderation).
-- Next: **6b**: role panels, autorole, tickets, welcome, misc commands, `/settings` dashboard.
-- Then **Phase 7**: v2→v3 migration, `/eco` tools, deploy to Google Cloud, cutover. Later: Phase 8 (Premium), Phase 9 (Growth).
+- Done: phases 1–6 (6b: role panels, autorole, tickets, welcome, misc commands, `/settings` dashboard; music panel redesign).
+- Next: **Phase 7**: v2→v3 migration, `/eco` tools, deploy to Google Cloud, cutover. Later: Phase 8 (Premium), Phase 9 (Growth).
 - Key docs: `PLAN.md` (architecture, phase checklist §5, migration §6, Veteran set §9, Premium §10, Growth §12), `BALANCE.md` (economy numbers), `scripts/income-report.ts` and `scripts/balance-report.ts` (economy checks).
 
 ## Working style

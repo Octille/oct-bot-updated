@@ -220,6 +220,23 @@ describe('music panel', () => {
     clearHistory('bk');
   });
 
+  it('Back puts everything back when the previous track fails to play', async () => {
+    const { back } = await import('../src/music/actions.js');
+    const { recordStart, clearHistory, hasHistory } = await import('../src/music/history.js');
+    const calls: string[] = [];
+    const fake = { guildId: 'bf', position: 0, queue: { current: track('now'), add: async () => calls.push('add'), remove: async (i: number) => calls.push(`remove ${i}`) },
+      play: async () => { throw new Error('boom'); } } as never;
+    clearHistory('bf');
+    recordStart('bf', track('prev'), false);
+    recordStart('bf', track('now'), false);
+    await expect(back(fake)).rejects.toThrow('boom');
+    expect(calls).toEqual(['add', 'remove 0']);
+    expect(hasHistory('bf')).toBe(true);
+    // The next real start is recorded normally
+    recordStart('bf', track('next'), false);
+    clearHistory('bf');
+  });
+
   it('refresh ticker: least recently edited first, never more than the cap', async () => {
     const { pickRefreshes } = await import('../src/music/manager.js');
     const c = [{ guildId: 'a', lastEdit: 30 }, { guildId: 'b', lastEdit: 10 }, { guildId: 'c', lastEdit: 20 }];

@@ -1,3 +1,4 @@
+import { roleBlocker } from './roles';
 import { AttachmentBuilder, PermissionFlagsBits, type Guild, type GuildMember, type SendableChannels } from 'discord.js';
 import { levelUpCard } from '../lib/cards';
 import { cardStyle } from '../lib/theme';
@@ -29,7 +30,8 @@ export async function applyRewardRoles(member: GuildMember, levels: LevelSetting
   if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return [];
   const manageable = (id: string) => {
     const role = member.guild.roles.cache.get(id);
-    return role && !role.managed && role.position < me.roles.highest.position;
+    // Same rules as role panels: never hand out moderator/admin roles, even if an admin picked one
+    return !!role && !roleBlocker(role, member.guild, me);
   };
   const { add, remove } = rewardRoleChanges(levels.rewards, up.from, up.to, levels.stackRewards);
   const toAdd = add.filter((id) => manageable(id) && !member.roles.cache.has(id));

@@ -33,6 +33,11 @@ async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<voi
   // Already has one? (If its thread or channel was deleted by hand, close the record and carry on.)
   const existing = await Ticket.findOne({ guildId: guild.id, ownerId: interaction.user.id, status: 'open' });
   if (existing) {
+    // Another click is creating it right now
+    if (!existing.channelId && Date.now() - existing.get('createdAt').getTime() < 60_000) {
+      await interaction.editReply('Your ticket is being opened, one moment.');
+      return;
+    }
     const alive = existing.channelId && (guild.channels.cache.get(existing.channelId) ?? await guild.channels.fetch(existing.channelId).catch(() => null));
     if (alive) {
       await interaction.editReply(`You already have an open ticket: <#${existing.channelId}>`);
@@ -63,9 +68,9 @@ async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<voi
     throw err;
   }
 
+  let channel: GuildTextBasedChannel | null = null;
   try {
     const name = ticketName(number, interaction.user.username);
-    let channel: GuildTextBasedChannel;
     if (mode === 'thread') {
       const thread = await parent.threads.create({ name, type: ChannelType.PrivateThread, invitable: false, autoArchiveDuration: 10080, reason: `Ticket #${number}` });
       await thread.members.add(interaction.user.id);
@@ -91,7 +96,9 @@ async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<voi
     await channel.send({ ...welcome, allowedMentions: { users: [interaction.user.id], roles: staffRoleId ? [staffRoleId] : [] } });
     await interaction.editReply(`${icon('success')} Ticket opened: <#${channel.id}>`);
   } catch (err) {
+    // Don't leave a half-made ticket behind
     await ticket.deleteOne().catch(() => undefined);
+    if (channel) await channel.delete().catch(() => undefined);
     throw err;
   }
 }
@@ -111,6 +118,10 @@ export const ticketHandler = defineComponent({
     if (!interaction.isButton() || !interaction.inCachedGuild()) return;
     const [action, ticketId] = id.args;
     if (action === 'open') return openTicket(interaction);
+    // Answer first: the checks below read the database several times
+    if (action === 'tr') await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    else if (action === 'close') await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    else return;
 
     const { ticket, settings, staff } = await loadTicket(interaction, ticketId);
     const owner = ticket.ownerId === interaction.user.id;
@@ -120,7 +131,6 @@ export const ticketHandler = defineComponent({
     if (!channel || channel.id !== ticket.channelId) throw new UserError('Use this inside the ticket.');
 
     if (action === 'tr') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const file = await buildTranscript(channel, { server: interaction.guild.name, number: ticket.number, ownerId: ticket.ownerId });
       await interaction.editReply({ content: `Transcript of ticket #${ticket.number}.`, files: [file] });
       return;
@@ -129,7 +139,7 @@ export const ticketHandler = defineComponent({
 
     const closed = await Ticket.findOneAndUpdate({ _id: ticket._id, status: 'open' }, { $set: { status: 'closed', closedAt: new Date(), closedBy: interaction.user.id } });
     if (!closed) throw new UserError('This ticket is already closed.');
-    await interaction.deferUpdate();
+    await interaction.editReply(`${icon('success')} Closing the ticket…`);
     await interaction.message.edit({ components: [] }).catch(() => undefined);
 
     const file = await buildTranscript(channel, { server: interaction.guild.name, number: ticket.number, ownerId: ticket.ownerId }).catch((err) => {

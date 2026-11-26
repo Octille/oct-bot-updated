@@ -41,6 +41,13 @@ export function takePrevious(guildId: string): Track | undefined {
   return t;
 }
 
+/** Undoes takePrevious when playing the previous track failed. */
+export function putBack(guildId: string, track: Track): void {
+  const h = get(guildId);
+  h.past.unshift(track);
+  h.fromBack = false;
+}
+
 export function hasHistory(guildId: string): boolean {
   return (histories.get(guildId)?.past.length ?? 0) > 0;
 }

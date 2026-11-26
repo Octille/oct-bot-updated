@@ -60,9 +60,26 @@ export const settingsHandler = defineComponent({
       await GuildSettings.updateOne({ _id: guild.id }, u, { upsert: true });
     };
     const done = (text: string) => show(section, `${icon('success')} ${text}`);
-    const s = (await getGuildSettings(guild.id))!;
     const values = picked(interaction);
     const me = guild.members.me!;
+    const safeRole = (roleId: string | undefined) => {
+      const r = roleId ? guild.roles.cache.get(roleId) : null;
+      if (!r) throw new UserError('That role was deleted.');
+      const problem = roleBlocker(r, guild, me, interaction.member as GuildMember);
+      if (problem) throw new UserError(problem);
+      return r;
+    };
+
+    // The modal must be the first response, so nothing slow (no settings read) before it
+    if (section === 'rewards' && action === 'addrw' && interaction.isRoleSelectMenu()) {
+      const r = safeRole(values[0]);
+      await interaction.showModal(new ModalBuilder().setCustomId(makeId('st', owner, 'rewards', 'rwlvl', r.id)).setTitle(`Reward: ${r.name}`.slice(0, 45)).addComponents(
+        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId('level')
+          .setLabel(`Server level (1–${MAX_SERVER_LEVEL})`).setPlaceholder('10').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3)),
+      ));
+      return;
+    }
+    const s = (await getGuildSettings(guild.id))!;
 
     switch (`${section}:${action}`) {
       case 'general:gamble': {
@@ -95,33 +112,17 @@ export const settingsHandler = defineComponent({
         return done(`${{ voiceXp: 'Voice XP', weekendDoubleXp: 'Weekend double XP', stackRewards: 'Keeping every reward role' }[field]} ${on ? 'on' : 'off'}.`);
       }
 
-      case 'rewards:addrw': {
-        const roleId = values[0];
-        const r = roleId ? guild.roles.cache.get(roleId) : null;
-        if (!r) throw new UserError('Pick a role.');
-        if (r.managed || r.id === guild.id) throw new UserError("That role can't be given out.");
-        if ((s.levels?.rewards?.length ?? 0) >= MAX_REWARD_ROLES) throw new UserError(`At most ${MAX_REWARD_ROLES} reward roles. Remove one first.`);
-        if (!interaction.isRoleSelectMenu()) return;
-        await interaction.showModal(new ModalBuilder().setCustomId(makeId('st', owner, 'rewards', 'rwlvl', r.id)).setTitle(`Reward: ${r.name}`.slice(0, 45)).addComponents(
-          new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId('level')
-            .setLabel(`Server level (1–${MAX_SERVER_LEVEL})`).setPlaceholder('10').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(3)),
-        ));
-        return;
-      }
       case 'rewards:rwlvl': {
         if (!interaction.isModalSubmit()) return;
         const level = Number(interaction.fields.getTextInputValue('level').trim());
         if (!Number.isInteger(level) || level < 1 || level > MAX_SERVER_LEVEL) throw new UserError(`The level must be a whole number from 1 to ${MAX_SERVER_LEVEL}.`);
-        const r = arg ? guild.roles.cache.get(arg) : null;
-        if (!r) throw new UserError('That role was deleted.');
+        const r = safeRole(arg);
         const replacing = s.levels?.rewards?.some((x) => x.level === level);
         if ((s.levels?.rewards?.length ?? 0) >= MAX_REWARD_ROLES && !replacing) throw new UserError(`At most ${MAX_REWARD_ROLES} reward roles.`);
         await save({ $pull: { 'levels.rewards': { level } } });
         await save({ $push: { 'levels.rewards': { level, roleId: r.id } } });
         invalidateLevelSettings(guild.id);
-        const warn = !me.permissions.has(PermissionFlagsBits.ManageRoles) ? ` ${icon('warning')} I need **Manage Roles** to give it.`
-          : r.position >= me.roles.highest.position ? ` ${icon('warning')} Move my role above ${r} so I can give it.` : '';
-        return done(`Members get ${r} at **Server Lv ${level}**.${warn}`);
+        return done(`Members get ${r} at **Server Lv ${level}**.`);
       }
       case 'rewards:delrw': {
         const level = Number(values[0]);
@@ -212,11 +213,7 @@ export const settingsHandler = defineComponent({
 
       case 'roles:autorole': {
         const roleId = values[0] ?? null;
-        if (roleId) {
-          const r = guild.roles.cache.get(roleId);
-          const problem = r ? roleBlocker(r, guild, me, interaction.member as GuildMember) : 'That role was deleted.';
-          if (problem) throw new UserError(problem);
-        }
+        if (roleId) safeRole(roleId);
         await save({ $set: { autoRoleId: roleId } });
         return done(roleId ? `New members get <@&${roleId}>.` : 'Autorole off.');
       }

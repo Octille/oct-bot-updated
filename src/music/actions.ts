@@ -2,7 +2,7 @@ import type { Player } from 'lavalink-client';
 import { UserError } from '../lib/errors';
 import { escapeTitle } from './panel';
 import { musicRules } from '../content/music';
-import { takePrevious } from './history';
+import { putBack, takePrevious } from './history';
 
 /** Shared player actions for /music and the panel buttons. Each returns a short confirmation. */
 export async function togglePause(player: Player): Promise<string> {
@@ -34,7 +34,13 @@ export async function back(player: Player): Promise<string> {
   const prev = takePrevious(player.guildId);
   if (!prev) throw new UserError('Nothing to go back to yet.');
   if (current) await player.queue.add(current, 0);
-  await player.play({ clientTrack: prev });
+  try {
+    await player.play({ clientTrack: prev });
+  } catch (err) {
+    putBack(player.guildId, prev);
+    if (current) await player.queue.remove(0).catch(() => undefined);
+    throw err;
+  }
   return `Back to **${escapeTitle(prev.info.title)}**.`;
 }
 

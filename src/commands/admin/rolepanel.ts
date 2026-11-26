@@ -114,9 +114,8 @@ export default defineCommand({
     if (sub === 'remove') {
       if (!panel.roles.some((r) => r.roleId === role.id)) throw new UserError(`${role} isn't on that panel.`);
       if (panel.roles.length === 1) throw new UserError('That is the last role on the panel. Delete the panel instead.');
-      await RolePanel.updateOne({ _id: panel._id }, { $pull: { roles: { roleId: role.id } } });
-      panel.roles.pull({ roleId: role.id });
-      const warn = await refresh(guild, panel);
+      const fresh = await RolePanel.findOneAndUpdate({ _id: panel._id }, { $pull: { roles: { roleId: role.id } } }, { new: true });
+      const warn = fresh ? await refresh(guild, fresh) : null;
       return done(`Removed ${role} from **${panel.title}**.${warn ? `\n${icon('warning')} ${warn}` : ''}`);
     }
 
@@ -126,15 +125,14 @@ export default defineCommand({
     if (emoji === false) throw new UserError('That emoji doesn\'t work. Use a normal emoji or one from this server, like 🎮.');
     const label = interaction.options.getString('label');
     const existing = panel.roles.find((r) => r.roleId === role.id);
-    if (existing) {
-      existing.label = label ?? existing.label;
-      existing.emoji = emoji ?? existing.emoji;
-    } else {
-      if (panel.roles.length >= roleRules.maxRolesPerPanel) throw new UserError(`A panel holds at most ${roleRules.maxRolesPerPanel} roles. Make a second panel.`);
-      panel.roles.push({ roleId: role.id, label, emoji });
-    }
-    await panel.save();
-    const warn = await refresh(guild, panel);
+    // Atomic updates, so two admins editing the same panel at once don't overwrite each other
+    const changes = { ...(label !== null ? { 'roles.$.label': label } : {}), ...(emoji !== null ? { 'roles.$.emoji': emoji } : {}) };
+    const fresh = existing
+      ? Object.keys(changes).length ? await RolePanel.findOneAndUpdate({ _id: panel._id, 'roles.roleId': role.id }, { $set: changes }, { new: true }) : panel
+      : await RolePanel.findOneAndUpdate({ _id: panel._id, 'roles.roleId': { $ne: role.id }, [`roles.${roleRules.maxRolesPerPanel - 1}`]: { $exists: false } },
+        { $push: { roles: { roleId: role.id, label, emoji } } }, { new: true });
+    if (!fresh) throw new UserError(`A panel holds at most ${roleRules.maxRolesPerPanel} roles. Make a second panel.`);
+    const warn = await refresh(guild, fresh);
     return done(`${existing ? 'Updated' : 'Added'} ${role} on **${panel.title}**.${warn ? `\n${icon('warning')} ${warn}` : ''}`);
   },
 });

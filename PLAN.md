@@ -181,7 +181,7 @@ Trade, duel, heist lobbies and crash rounds are short-lived, so they live in mem
 - **Roles:** button/select role panels replace emoji reaction roles. Autorole is kept.
 - **Music:**
   - Same Lavalink setup, as slash commands.
-  - A now-playing panel with ⏯ ⏭ 🔁 🔀 ⏹ buttons is updated on track change, plus a paginated queue.
+  - A Components V2 now-playing panel (album art, requester, time + emoji progress bar) refreshed every 15s while playing (global edit cap), with Back / Play-Pause / Skip / Loop / Controls; Controls opens volume, shuffle, queue, seek and stop privately.
   - The YouTube plugin snapshot and OAuth setup stay as-is.
 - **Images (`@napi-rs/canvas`):**
   - rank card, profile card (badges, title, prestige), level-up card, welcome card
@@ -217,7 +217,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - daily/weekly quests (reroll, bonus chest), DM reminders
   - random drops, weekly boss raids, community goals, pets, business expansion (manager auto-collect, events, offline cap)
   - seasons and leaderboards (6 metrics, server/global, paginated).
-- [ ] **6. Utility port** (**6a done**: music with a now-playing panel, moderation with mod log, warnings and the invite filter; **6b next**: role panels and autorole, tickets, welcome, misc, `/settings` dashboard):
+- [x] **6. Utility port** (**6a done**: music with a now-playing panel, moderation with mod log, warnings and the invite filter; music panel redesigned as a Components V2 container with an emoji progress bar, Back/history and private Controls; **6b done**: `/rolepanel` (buttons or menu, dangerous-permission and role-order checks), autorole, thread/channel tickets with transcripts to the mod log, welcome message + card, `/afk`, `/avatar`, `/userinfo`, `/serverinfo`, `/poll`, and `/settings` as one dashboard):
   - music as slash commands with a control panel
   - ban, kick, timeout, purge, warn/warnings and mod log, invite filter automod
   - role panels, autorole, thread tickets with transcripts, welcome (card)

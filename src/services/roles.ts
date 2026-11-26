@@ -27,6 +27,7 @@ export const DANGEROUS_PERMISSIONS = [
   PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers, PermissionFlagsBits.ManageMessages,
   PermissionFlagsBits.MentionEveryone, PermissionFlagsBits.ManageGuildExpressions, PermissionFlagsBits.ManageThreads,
   PermissionFlagsBits.ManageNicknames, PermissionFlagsBits.ManageEvents, PermissionFlagsBits.ViewAuditLog,
+  PermissionFlagsBits.MuteMembers, PermissionFlagsBits.DeafenMembers, PermissionFlagsBits.MoveMembers,
 ] as const;
 
 interface RoleLike { id: string; name: string; managed: boolean; position: number; permissions: Readonly<PermissionsBitField> }

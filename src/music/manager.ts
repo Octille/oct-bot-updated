@@ -173,7 +173,10 @@ export async function refreshPanel(client: Client, player: Player): Promise<void
   const track = player.queue.current;
   if (!p || !track || editing.has(player.guildId)) return;
   const ch = client.channels.cache.get(p.channelId);
-  if (!ch?.isTextBased()) return;
+  if (!ch?.isTextBased()) {
+    panels.delete(player.guildId);
+    return;
+  }
   editing.add(player.guildId);
   try {
     p.state = panelState(player);
