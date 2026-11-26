@@ -232,6 +232,8 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - BALANCE.md and README
   - Docker update (replset Mongo, build step), `.env.example`
   - full test pass, live run and fixes.
+- [ ] **8. Premium** (future; see §10).
+- [ ] **9. Growth** (see §12; relaunch announcement ships with the Phase 7 cutover).
 
 ## 6. Migration mapping (`scripts/migrate-v2-to-v3.ts`)
 
@@ -356,3 +358,17 @@ Level 35 (first prestige) takes **65 h free vs ~57 h VIP**. The +10% stacks with
 - **Server contributions:** donate coins to this week's **raid pot** (adds to the reward pool for everyone who fights) or **community goal** (adds a bonus to the goal reward). Donors get a "Patron" badge for the week and the server gets a small, capped, server-wide perk (e.g. +5% drop chance in that server for a day). Donations are destroyed (or capped below their value when paid back out) so the net effect is still a sink, and they count toward the weekly giving limit so they can't launder coins between alts.
 
 **How to check the target:** add each sink to `scripts/income-report.ts` with a "rich player" assumption (e.g. one luxury item a month, one collectible tier every two weeks, a weekly donation) and a test that non-prestige sinks are 12–18% of level-35 gross.
+
+## 12. Phase 9: Growth (planned, not built)
+
+- **Relaunch announcement (at the Phase 7 cutover):** one short embed to each of the 317 existing servers: what's new, how to start (`/menu`), the Veteran rewards (§9) and a support server link. Posted **once** per server (flag stored on the server doc), to the system channel, or else the first text channel the bot can view, send and embed in; skip the server if none. Server admins can turn it off beforehand in `/settings`. Send rate-limited, in the background, with a summary logged.
+- **`/vote` (top.gg first, other directories later):** a modest reward every 12h: small coins plus a vote streak, no crate or paid-crate equivalent. Verified via the top.gg webhook (signed), idempotent per vote. Counted in BALANCE.md and `scripts/income-report.ts` as a creation source.
+- **Referral rewards:** both the inviter and the invited server get a reward, only once the new server reaches **5+ eligible active players over 3 days**, where "eligible" uses the anti-alt rules (`services/antiAlt.ts`). One reward per new server (ever, even if the bot is re-added), capped per player per month. Counted in BALANCE.md and the income report.
+- **Music + economy crossover:** listening in voice earns **voice XP only (no coins)**, using the existing voice XP rules (same cooldown, AFK/muted/alone checks and caps). No new XP source on top.
+- **Footer tips:** discreet tips in the footer of major embeds (support server link, a cool command to try), rotated, never more than one per message, **no upsells** (no premium or vote nagging).
+- **Directory / App Directory checklist:**
+  - Terms of Service and Privacy Policy pages (hosted, linked in the developer portal)
+  - banner and screenshots of the menu, cards and raids
+  - a support server
+  - tags: Economy, Music, Social.
+- **Premium guard:** any growth perk tied to premium must still follow §10: no paid crates and no coin boosts beyond Option B's limits (+10% activity coins, +15% XP).
