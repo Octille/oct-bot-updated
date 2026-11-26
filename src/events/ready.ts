@@ -6,6 +6,7 @@ import { logInfo } from '../lib/logger';
 import { startScheduler } from '../scheduler';
 import { jobs } from '../scheduler/jobs';
 import { loadIcons } from '../lib/icons';
+import { initLavalink } from '../music/manager';
 import { runRobSweep } from '../scheduler/robSweep';
 import { refundInterruptedRounds } from '../scheduler/refunds';
 import { backfillBoards } from '../services/boardStats';
@@ -14,6 +15,7 @@ import { logError } from '../lib/logger';
 
 export async function onReady(client: Client<true>): Promise<void> {
   await loadIcons(client);
+  await initLavalink(client);
   logInfo('ready', `Logged in as ${client.user.tag} in ${client.guilds.cache.size} server(s)`);
   const alt = altThresholds();
   if (alt.minAccountDays !== antiAlt.minAccountDays || alt.minProfileDays !== antiAlt.minProfileDays) {

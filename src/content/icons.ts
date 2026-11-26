@@ -94,6 +94,8 @@ export const iconDefs = {
   season_gold: { tabler: 'trophy', fallback: '🏆', color: '#af810e' },
   season_top10: { tabler: 'medal', fallback: '🥈', color: '#7f83be' },
   season_top100: { tabler: 'award', fallback: '🎖️', color: '#7f83be' },
+  music: { tabler: 'music', fallback: '🎵' },
+  moderation: { tabler: 'shield-check', fallback: '🛡️' },
   // Veteran badges (exclusive, see content/veteran.ts)
   badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },
   badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },

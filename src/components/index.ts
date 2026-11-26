@@ -3,6 +3,7 @@ import { uiHandlers } from '../ui/handlers';
 import { catchHandler } from './rob';
 import { remindersHandler } from './reminders';
 import { dropHandler } from './drops';
+import { musicPanelHandler } from './music';
 
 /** Persistent component handlers (menus, hub, next-step buttons; later role panels, tickets, drops). */
-export const components: ComponentHandler[] = [...uiHandlers, catchHandler, remindersHandler, dropHandler];
+export const components: ComponentHandler[] = [...uiHandlers, catchHandler, remindersHandler, dropHandler, musicPanelHandler];

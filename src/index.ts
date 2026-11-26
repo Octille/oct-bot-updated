@@ -7,6 +7,7 @@ import { routeInteraction } from './framework/router';
 import { onReady } from './events/ready';
 import { stopScheduler } from './scheduler';
 import { onMessageCreate, setMessageContentAvailable } from './events/messageCreate';
+import { checkAlone, createLavalink } from './music/manager';
 
 /** Application flags for privileged intents (enabled, or "limited" for bots under 100 servers). */
 const MESSAGE_CONTENT_FLAGS = (1 << 18) | (1 << 19);
@@ -48,6 +49,9 @@ function attachEvents(c: Client): void {
     routeInteraction(interaction).catch((err) => logError('interaction', err));
   });
   c.on(Events.MessageCreate, (message) => void onMessageCreate(message));
+  c.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    for (const s of [oldState, newState]) if (s.guild) checkAlone(c, s.guild.id);
+  });
   c.on(Events.Error, (err) => logError('client', err));
 }
 process.on('unhandledRejection', (err) => logError('unhandledRejection', err));
@@ -71,6 +75,8 @@ connectDatabase()
     if (!intents.members) console.log('[intents] Server Members intent not enabled: member lookups fall back to fetching');
     client = createClient(intents);
     attachEvents(client);
+    // Music: Lavalink gets gateway events from the start, connects on ready
+    createLavalink(client);
     await client.login(env.DISCORD_TOKEN);
   })
   .catch((err) => {

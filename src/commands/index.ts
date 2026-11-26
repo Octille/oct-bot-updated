@@ -30,6 +30,16 @@ import quests from './economy/quests';
 import pet from './economy/pet';
 import business from './economy/business';
 import raid from './events/raid';
+import play from './music/play';
+import musicCmd from './music/music';
+import banCmd from './moderation/ban';
+import unbanCmd from './moderation/unban';
+import kickCmd from './moderation/kick';
+import timeoutCmd from './moderation/timeout';
+import untimeoutCmd from './moderation/untimeout';
+import purgeCmd from './moderation/purge';
+import warnCmd from './moderation/warn';
+import warningsCmd from './moderation/warnings';
 import season from './events/season';
 import rank from './levels/rank';
 import profileCmd from './levels/profile';
@@ -60,6 +70,8 @@ export const commands: SlashCommand[] = [
   hunt, dig, crime, bail,
   inventory, iteminfo, sell, use, shop, buy, cosmetics, quests, pet, business,
   raid, season,
+  play, musicCmd,
+  banCmd, unbanCmd, kickCmd, timeoutCmd, untimeoutCmd, purgeCmd, warnCmd, warningsCmd,
   rank, profileCmd, achievementsCmd, prestigeCmd, levels, leaderboard,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,
   rob, heist, duel, trade, give, gift,

@@ -1,4 +1,5 @@
-import type { Message } from 'discord.js';
+import { PermissionFlagsBits, type Message } from 'discord.js';
+import { INVITE_RE, modLog } from '../services/moderation';
 import { dropRules } from '../content/events';
 import { getGuildSettings } from '../models/GuildSettings';
 import { Drop } from '../models/Events';
@@ -23,6 +24,7 @@ export async function onMessageCreate(message: Message): Promise<void> {
   // Without the intent we can't see the text, so every message counts (still once a minute)
   if (canReadContent && message.content.trim().length < chatXp.minLength && !message.attachments.size) return;
 
+  if (canReadContent && (await inviteFilter(message))) return;
   // Drops don't depend on XP rules (no-XP channels and the XP cooldown still get drops)
   await maybeDrop(message).catch((err) => logError('drops', err));
   try {
@@ -42,6 +44,34 @@ export async function onMessageCreate(message: Message): Promise<void> {
     if (up && message.member) await announceLevelUp(message.guild, message.member, levels, up, channel.isSendable() ? channel : null);
   } catch (err) {
     logError('chat xp', err);
+  }
+}
+
+/* ── Invite filter ──────────────────────────────────────────────────────────────────────── */
+
+const automodCache = new Map<string, { at: number; on: boolean }>();
+export function invalidateAutomod(guildId: string): void {
+  automodCache.delete(guildId);
+}
+
+/** Deletes Discord invite links when the server turned the filter on (Manage Messages is exempt). */
+async function inviteFilter(message: Message<true>): Promise<boolean> {
+  if (!INVITE_RE.test(message.content)) return false;
+  let hit = automodCache.get(message.guildId);
+  if (!hit || Date.now() - hit.at > 60_000) {
+    const s = await getGuildSettings(message.guildId);
+    hit = { at: Date.now(), on: !!s?.automod?.inviteFilter };
+    automodCache.set(message.guildId, hit);
+  }
+  if (!hit.on || message.member?.permissions.has(PermissionFlagsBits.ManageMessages)) return false;
+  try {
+    await message.delete();
+    const note = message.channel.isSendable() ? await message.channel.send({ content: `${message.author}, invite links aren't allowed here.`, allowedMentions: { users: [message.author.id] } }) : null;
+    if (note) setTimeout(() => void note.delete().catch(() => undefined), 6_000);
+    await modLog(message.client, message.guild, { action: 'invite', target: message.author, moderator: message.client.user, extra: `**Channel:** <#${message.channelId}>` });
+    return true;
+  } catch {
+    return false;
   }
 }
 

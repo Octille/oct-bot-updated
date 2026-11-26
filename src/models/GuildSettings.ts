@@ -37,6 +37,8 @@ const guildSettingsSchema = new Schema(
     },
 
     modLogChannelId: { type: String, default: null },
+    /** Moderation case numbers (warnings, bans, kicks, timeouts) count up per server. */
+    modCaseCounter: { type: Number, default: 0 },
     automod: {
       inviteFilter: { type: Boolean, default: false },
     },

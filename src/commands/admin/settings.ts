@@ -2,7 +2,7 @@ import { ChannelType, InteractionContextType, PermissionFlagsBits, SlashCommandB
 import { dropRules } from '../../content/events';
 import { spawnWeekly } from '../../services/raids';
 import { announceOpened } from '../../scheduler/events';
-import { invalidateDropSettings } from '../../events/messageCreate';
+import { invalidateAutomod, invalidateDropSettings } from '../../events/messageCreate';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
 import { icon } from '../../lib/icons';
@@ -23,6 +23,10 @@ export default defineCommand({
       .addChannelOption((o) => o.setName('channel').setDescription('Channel to turn drops on or off in').setRequired(true).addChannelTypes(ChannelType.GuildText))
       .addBooleanOption((o) => o.setName('enabled').setDescription('Drops on in that channel?').setRequired(true))
       .addIntegerOption((o) => o.setName('per_hour').setDescription(`At most this many per hour per channel (1–${dropRules.maxPerHour})`).setMinValue(1).setMaxValue(dropRules.maxPerHour)))
+    .addSubcommand((s) => s.setName('modlog').setDescription('Where moderation actions are logged')
+      .addChannelOption((o) => o.setName('channel').setDescription('Mod-log channel (leave empty to turn it off)').addChannelTypes(ChannelType.GuildText)))
+    .addSubcommand((s) => s.setName('invitefilter').setDescription('Delete Discord invite links (members with Manage Messages are exempt)')
+      .addBooleanOption((o) => o.setName('enabled').setDescription('Filter on?').setRequired(true)))
     .addSubcommand((s) => s.setName('events').setDescription('Weekly boss raids and community goals')
       .addChannelOption((o) => o.setName('channel').setDescription('Where to announce them (leave empty to turn them off)').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))),
   category: 'utility',
@@ -45,6 +49,17 @@ export default defineCommand({
         return done(enabled
           ? `Drops are on in <#${channel.id}>${perHour ? `, up to ${perHour} an hour` : ''}. They only appear while at least ${dropRules.minChatters} people are chatting there.`
           : `Drops are off in <#${channel.id}>.`);
+      }
+      case 'modlog': {
+        const channel = interaction.options.getChannel('channel');
+        await GuildSettings.updateOne({ _id: guildId }, { $set: { modLogChannelId: channel?.id ?? null } }, { upsert: true });
+        return done(channel ? `Moderation actions will be logged in <#${channel.id}>.` : 'Mod log off.');
+      }
+      case 'invitefilter': {
+        const enabled = interaction.options.getBoolean('enabled', true);
+        await GuildSettings.updateOne({ _id: guildId }, { $set: { 'automod.inviteFilter': enabled } }, { upsert: true });
+        invalidateAutomod(guildId);
+        return done(enabled ? 'Invite links will be deleted (except from members with Manage Messages).' : 'Invite links are allowed again.');
       }
       case 'events': {
         const channel = interaction.options.getChannel('channel');
