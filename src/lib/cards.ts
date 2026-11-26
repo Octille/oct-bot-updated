@@ -441,3 +441,27 @@ export async function levelUpCard(d: { person: Person; style: CardStyle; from: n
     return canvas.toBuffer('image/png');
   });
 }
+
+/* ── Welcome card ───────────────────────────────────────────────────────────────────────── */
+
+export async function welcomeCard(d: { name: string; avatarUrl: string | null; server: string; memberCount: number }): Promise<Buffer> {
+  return cached(`welcome:${JSON.stringify(d)}`, async () => {
+    ensureFonts();
+    const W = 720;
+    const H = 240;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+    background(ctx, W, H, null);
+    const style: CardStyle = { background: null, frame: null, accent: '#7f83be', badge: null };
+    avatar(ctx, await fetchImage(d.avatarUrl), d.name, 130, 120, 70, style);
+    const left = 240;
+    const max = W - 40 - left;
+    ctx.font = `bold 18px ${FONT}`;
+    ctx.fillStyle = readableAccent(style.accent);
+    ctx.fillText('WELCOME', left, 72);
+    fitText(ctx, d.name, left, 120, max, 40);
+    fitText(ctx, `to ${d.server}`, left, 160, max, 24, '600', MUTED);
+    fitText(ctx, `Member #${fmt(d.memberCount)}`, left, 196, max, 18, 'normal', MUTED);
+    return canvas.toBuffer('image/png');
+  });
+}

@@ -1,3 +1,4 @@
+import { handleAfk } from '../services/afk';
 import { PermissionFlagsBits, type Message } from 'discord.js';
 import { INVITE_RE, modLog } from '../services/moderation';
 import { dropRules } from '../content/events';
@@ -25,6 +26,7 @@ export function messageContentAvailable(): boolean {
 /** Chat XP: one message per minute per member per server counts. */
 export async function onMessageCreate(message: Message): Promise<void> {
   if (!message.inGuild() || message.author.bot || message.system || message.webhookId) return;
+  await handleAfk(message);
   // Without the intent we can't see the text, so every message counts (still once a minute)
   if (canReadContent && message.content.trim().length < chatXp.minLength && !message.attachments.size) return;
 

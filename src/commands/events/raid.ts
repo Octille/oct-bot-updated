@@ -25,7 +25,7 @@ export default defineCommand({
       const now = new Date();
       const [raid, goal] = await Promise.all([currentRaid(guildId, now), currentGoal(guildId, now)]);
       if (!raid && !goal) {
-        throw new UserError('No raid or goal this week. A server admin can turn them on with `/settings events` (they start every Monday).');
+        throw new UserError('No raid or goal this week. A server admin can turn them on with `/settings` (Events) (they start every Monday).');
       }
       const lines: string[] = [];
       if (note) lines.push(note, '');

@@ -55,6 +55,12 @@ import roulette from './gambling/roulette';
 import crash from './gambling/crash';
 import casino from './gambling/casino';
 import settings from './admin/settings';
+import rolepanel from './admin/rolepanel';
+import afk from './utility/afk';
+import avatar from './utility/avatar';
+import userinfo from './utility/userinfo';
+import serverinfo from './utility/serverinfo';
+import poll from './utility/poll';
 import rob from './social/rob';
 import heist from './social/heist';
 import duel from './social/duel';
@@ -64,7 +70,7 @@ import gift from './social/gift';
 
 /** Every slash command. Add new commands here. */
 export const commands: SlashCommand[] = [
-  menu, help, ping,
+  menu, help, ping, afk, avatar, userinfo, serverinfo, poll,
   balance, bank, daily, weekly, streak,
   work, job, mine, fish, fishdex, tools, beg, search,
   hunt, dig, crime, bail,
@@ -75,5 +81,5 @@ export const commands: SlashCommand[] = [
   rank, profileCmd, achievementsCmd, prestigeCmd, levels, leaderboard,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,
   rob, heist, duel, trade, give, gift,
-  settings,
+  settings, rolepanel,
 ];

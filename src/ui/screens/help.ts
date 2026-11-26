@@ -26,6 +26,11 @@ const EXAMPLES: Record<string, string> = {
   balance: '/balance user:@friend',
   inventory: '/inventory user:@friend',
   fishdex: '/fishdex user:@friend',
+  poll: '/poll question:Movie night? answers:Friday | Saturday hours:24',
+  afk: '/afk reason:dinner',
+  avatar: '/avatar user:@friend',
+  userinfo: '/userinfo user:@friend',
+  rolepanel: '/rolepanel create channel:#roles title:Pick your colours role:@Red',
 };
 
 /** Commands with default_member_permissions (admin commands) only show to members who have them. */

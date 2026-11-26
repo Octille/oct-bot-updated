@@ -34,6 +34,8 @@ const guildSettingsSchema = new Schema(
     welcome: {
       channelId: { type: String, default: null },
       card: { type: Boolean, default: true },
+      /** {user}, {name}, {server} and {count} are filled in. */
+      message: { type: String, default: null, maxlength: 1000 },
     },
 
     modLogChannelId: { type: String, default: null },

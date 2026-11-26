@@ -37,11 +37,11 @@ describe('moderation rules', () => {
 
   it('moderation commands are hidden from members without the permission', () => {
     const mod = getCommandList().filter((c) => c.category === 'moderation').map((c) => c.data.toJSON());
-    expect(mod.map((c) => c.name).sort()).toEqual(['ban', 'kick', 'purge', 'timeout', 'unban', 'untimeout', 'warn', 'warnings']);
+    expect(mod.map((c) => c.name).sort()).toEqual(['ban', 'kick', 'purge', 'rolepanel', 'timeout', 'unban', 'untimeout', 'warn', 'warnings']);
     for (const c of mod) {
       expect(c.default_member_permissions, c.name).toBeTruthy();
       expect(canSee(c, '0'), c.name).toBe(false);
-      expect(canSee(c, PermissionFlagsBits.Administrator.toString()) || canSee(c, (PermissionFlagsBits.BanMembers | PermissionFlagsBits.KickMembers | PermissionFlagsBits.ModerateMembers | PermissionFlagsBits.ManageMessages).toString()), c.name).toBe(true);
+      expect(canSee(c, PermissionFlagsBits.Administrator.toString()) || canSee(c, (PermissionFlagsBits.BanMembers | PermissionFlagsBits.KickMembers | PermissionFlagsBits.ModerateMembers | PermissionFlagsBits.ManageMessages | PermissionFlagsBits.ManageRoles).toString()), c.name).toBe(true);
     }
   });
 });
