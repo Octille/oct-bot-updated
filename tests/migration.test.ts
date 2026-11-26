@@ -49,26 +49,31 @@ describe('v2 conversion (pure)', () => {
     expect(corrupt.clamps.wallet).toBe(true);
     expect(corrupt.tier).toBe('veteran'); // corrupt players get base Veteran only
 
+    // The cap keeps the v2 wallet/bank split; the bank part is limited to capacity, overflow to wallet
     const rich = convert(readLegacy(v2('1', '2021-03-01', { coins: 10_000_000, bank: 694_390, commands_cooldowns: commands(2) })), NOW);
-    const cap = bankCapacity(rich.fields['account.level'] as number, 0);
-    expect(rich.wallet).toBe(migrationCaps.wallet);
-    expect(rich.bank).toBe(cap);
-    expect(rich.clamps.dropped).toBe(10_694_390 - migrationCaps.wallet - cap);
+    expect(rich.wallet + rich.bank).toBe(migrationCaps.total);
+    expect(rich.bank).toBe(Math.min(Math.floor(500_000 * (694_390 / 10_694_390)), bankCapacity(rich.fields['account.level'] as number, 0)));
+    expect(rich.clamps.dropped).toBe(10_694_390 - migrationCaps.total);
 
-    // Bank-only savings move to the wallet first
-    const saver = convert(readLegacy(v2('1', '2021-03-01', { coins: 0, bank: 300_000, commands_cooldowns: commands(2) })), NOW);
-    expect(saver.wallet).toBe(300_000);
-    expect(saver.bank).toBe(0);
+    const saver = convert(readLegacy(v2('1', '2021-03-01', { coins: 0, bank: 9_611_374, commands_cooldowns: commands(2) })), NOW);
+    const cap = bankCapacity(saver.fields['account.level'] as number, 0);
+    expect(saver.bank).toBe(cap);
+    expect(saver.wallet).toBe(migrationCaps.total - cap);
 
-    const modest = convert(readLegacy(v2('1', '2021-03-01', { coins: 520_000, bank: 3_000, commands_cooldowns: commands(2) })), NOW);
-    expect(modest.wallet).toBe(500_000);
-    expect(modest.bank).toBe(23_000);
-    expect(modest.clamps.dropped).toBe(0);
+    const modest = convert(readLegacy(v2('1', '2021-03-01', { coins: 8_000, bank: 3_000, commands_cooldowns: commands(2) })), NOW);
+    expect([modest.wallet, modest.bank, modest.clamps.dropped]).toEqual([8_000, 3_000, 0]);
+
+    // Granted balances: zero command uses and above ₪100k → reset like corrupt ones
+    const granted = convert(readLegacy(v2('1', '2021-03-01', { coins: 10_001_000, bank: 0 })), NOW);
+    expect([granted.wallet + granted.bank, granted.clamps.granted]).toEqual([migrationCaps.corruptTotal, true]);
+    const grantedActive = convert(readLegacy(v2('1', '2021-03-01', { coins: 10_001_000, commands_cooldowns: commands(1) })), NOW);
+    expect([grantedActive.wallet, grantedActive.clamps.granted]).toEqual([migrationCaps.total, false]);
+    expect(convert(readLegacy(v2('1', '2021-03-01', { coins: 1_000 })), NOW).wallet).toBe(1_000);
 
     const negative = convert(readLegacy(v2('1', '2021-03-01', { coins: -400, bank: -1, commands_cooldowns: commands(2) })), NOW);
     expect(negative.wallet).toBe(0);
     expect(negative.bank).toBe(0);
-    for (const c of [corrupt, rich, saver, modest]) expect(Number.isSafeInteger(c.wallet) && Number.isSafeInteger(c.bank)).toBe(true);
+    for (const c of [corrupt, rich, saver, modest, granted]) expect(Number.isSafeInteger(c.wallet) && Number.isSafeInteger(c.bank)).toBe(true);
   });
 
   it('re-fits levels to the v3 curve without ever lowering them', () => {

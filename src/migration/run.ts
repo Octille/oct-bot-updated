@@ -36,6 +36,8 @@ export interface MigrationSummary {
     coinsCarried: number;
     wagesPaid: number;
     clampedWallets: number;
+    /** Zero-use profiles above ₪100k (granted balances), including dormant ones imported later. */
+    grantedResets: number;
     /** v2 coins not carried over (corrupt resets and amounts above the caps). */
     coinsDropped: number;
     /** Coins carried over by everyone, including dormant profiles imported later on demand. */
@@ -71,7 +73,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
       docs: 0, users: 0, duplicates: 0, noUserId: 0, active: 0, dormant: 0, corrupt: 0,
       tiers: { veteran: 0, elite: 0, founder: 0 },
       imported: 0, alreadyImported: 0, tierGrantedToExisting: 0,
-      coinsCarried: 0, wagesPaid: 0, clampedWallets: 0, coinsDropped: 0, coinsCarriedAll: 0, clampedItems: 0, clampedWorkers: 0,
+      coinsCarried: 0, wagesPaid: 0, clampedWallets: 0, grantedResets: 0, coinsDropped: 0, coinsCarriedAll: 0, clampedItems: 0, clampedWorkers: 0,
       businesses: 0, pickaxes: 0,
       joinedByYear: {}, topLevelFields: {}, itemKeys: {}, unknownItems: {}, commandCounts: {},
     },
@@ -116,6 +118,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
     }
     for (const k of c.unknownItems) bump(s.profiles.unknownItems, k);
     s.profiles.coinsCarriedAll += c.wallet + c.bank;
+    if (c.clamps.granted) { s.profiles.grantedResets++; example('grantedReset', userId); }
     if (!c.active) {
       s.profiles.dormant++;
       continue;
@@ -206,9 +209,9 @@ export function formatSummary(s: MigrationSummary): string {
     `  Veteran tiers (highest tier only): Veteran ${n(p.tiers.veteran)} · Elite ${n(p.tiers.elite)} · Founder ${n(p.tiers.founder)}`,
     `  Any tier: ${n(p.tiers.veteran + p.tiers.elite + p.tiers.founder)} · Elite or Founder: ${n(p.tiers.elite + p.tiers.founder)} · Founder: ${n(p.tiers.founder)} (Nov 2026 check: 445 with a tier, 64 meeting the Elite rule incl. Founders with 8+ uses, 23 Founder)`,
     `  Imported now: ${n(p.imported)} ${verb} created · already in v3: ${n(p.alreadyImported)} · existing v3 profiles given their tier: ${n(p.tierGrantedToExisting)}`,
-    `  Coin caps: corrupt reset to ₪${n(migrationCaps.corruptTotal)} · others wallet up to ₪${n(migrationCaps.wallet)}, then bank up to capacity`,
+    `  Coin caps: corrupt and granted (zero-use) balances reset to ₪${n(migrationCaps.corruptTotal)} · others ₪${n(migrationCaps.total)} in total, v2 wallet/bank split kept, bank up to capacity · granted resets: ${n(p.grantedResets)}`,
     `  Coins carried over (wallet + bank): up front ₪${n(p.coinsCarried)} · incl. later on-demand imports ₪${n(p.coinsCarriedAll)} · v2 wages paid: ₪${n(p.wagesPaid)}`,
-    `  Clamped: coins ${n(p.clampedWallets)} profiles, ₪${n(p.coinsDropped)} not carried over (active players) · item stacks ${n(p.clampedItems)} · workers ${n(p.clampedWorkers)}`,
+    `  Clamped: coins ${n(p.clampedWallets)} profiles, ₪${n(p.coinsDropped)} not carried over (active, non-corrupt players) · item stacks ${n(p.clampedItems)} · workers ${n(p.clampedWorkers)}`,
     `  Businesses: ${n(p.businesses)} · pickaxes: ${n(p.pickaxes)}`,
     `  Joined by year: ${top(p.joinedByYear)}`,
     `  Command uses: ${Object.entries(p.commandCounts).sort().map(([k, v]) => `${k}: ${n(v)}`).join(', ')}`,

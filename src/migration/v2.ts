@@ -30,15 +30,17 @@ export function migrationCeiling(): number {
 }
 
 /**
- * What v2 coins turn into (owner decision, 2026-11-26):
- *  - corrupt profiles (balances above the ceiling, from old exploits): wallet + bank reset to ₪100k
- *    (at most: a negative balance is corrupt too, but becomes 0);
- *  - everyone else: wallet + bank + wages owed, filled into the wallet up to `wallet`, the rest into
- *    the bank up to its capacity at their level; anything beyond that is dropped.
- * ₪500k is about four days of early-game play (level 5, ~₪30k/h × 4 h/day) or one late-game day, so
- * veterans start ahead without topping the net-worth board for long.
+ * What v2 coins turn into (owner decisions, 2026-11-26):
+ *  - corrupt profiles (balances above the ceiling, from old exploits): reset to at most ₪100k;
+ *  - granted balances: a profile with zero command uses can't have earned anything, so above ₪100k
+ *    it came from !givecoin-style grants (₪10,001,000, ₪501,000): reset to ₪100k as well;
+ *  - everyone else: wallet + bank + wages owed, capped at ₪500k in total.
+ * The capped total keeps the v2 wallet/bank split (scaled down); the bank part is limited to the
+ * capacity at their level and any overflow goes to the wallet. ₪500k is about four days of early-game
+ * play (level 5, ~₪30k/h × 4 h/day) or one late-game day, so veterans start ahead without topping the
+ * net-worth board for long.
  */
-export const migrationCaps = { corruptTotal: 100_000, wallet: 500_000 } as const;
+export const migrationCaps = { corruptTotal: 100_000, total: 500_000 } as const;
 
 /** Each migrated item stack sells for at most this share of the player's coin cap (and never more than MAX_STACK), so items can't get around it. */
 const STACK_SHARE = 0.1;
@@ -282,9 +284,11 @@ export function owedWages(l: Legacy, now: Date): number {
 }
 
 export interface Clamps {
-  /** Coins were cut: a corrupt reset, or more than the wallet cap plus bank capacity. */
+  /** Coins were cut: a corrupt or granted-balance reset, or more than the cap. */
   wallet: boolean;
-  /** v2 coins (incl. wages owed) beyond the wallet cap and bank capacity, not carried over. */
+  /** Reset to ₪100k as a granted balance (zero command uses). */
+  granted: boolean;
+  /** v2 coins (incl. wages owed) above the cap, not carried over. */
   dropped: number;
   items: string[];
   workers: boolean;
@@ -305,7 +309,7 @@ export interface Converted {
 
 /** Converts a (merged) v2 profile to the fields of a new v3 profile. */
 export function convert(l: Legacy, now = new Date()): Converted {
-  const clamps: Clamps = { wallet: false, dropped: 0, items: [], workers: false };
+  const clamps: Clamps = { wallet: false, granted: false, dropped: 0, items: [], workers: false };
   const active = isActive(l);
   const tier = veteranTierOf(l);
 
@@ -316,17 +320,21 @@ export function convert(l: Legacy, now = new Date()): Converted {
   const level = Math.min(MAX_LEVEL, Math.max(l.level, levelFromXp(Math.min(oldTotal, totalXpForLevel(MAX_LEVEL))).level));
   const xp = Math.min(Math.max(oldTotal, totalXpForLevel(level)), totalXpForLevel(MAX_LEVEL + 1) - 1);
 
-  // Coins: corrupt profiles get a flat ₪100k; everyone else wallet first, then bank up to capacity.
-  // NaN and negatives become 0; anything unsafe (1e57, Infinity) is far above every cap anyway.
+  // Coins. NaN and negatives become 0; anything unsafe (1e57, Infinity) is far above every cap anyway.
   const safe = (n: number) => (Number.isNaN(n) || n <= 0 ? 0 : Math.min(Math.floor(n), Number.MAX_SAFE_INTEGER));
   const wagesPaid = l.corrupt ? 0 : Math.min(owedWages(l, now), Number.MAX_SAFE_INTEGER);
-  const raw = Math.min(safe(l.coins) + safe(l.bank) + wagesPaid, Number.MAX_SAFE_INTEGER);
-  const total = l.corrupt ? Math.min(raw, migrationCaps.corruptTotal) : raw; // a negative balance never becomes ₪100k
-  const coinCap = l.corrupt ? migrationCaps.corruptTotal : migrationCaps.wallet;
-  const wallet = Math.min(total, coinCap);
-  const bank = Math.min(total - wallet, bankCapacity(level, 0));
-  clamps.dropped = total - wallet - bank;
-  clamps.wallet = l.corrupt || clamps.dropped > 0;
+  const walletRaw = Math.min(safe(l.coins) + wagesPaid, Number.MAX_SAFE_INTEGER); // wages were paid to the wallet in v2
+  const bankRaw = safe(l.bank);
+  const raw = Math.min(walletRaw + bankRaw, Number.MAX_SAFE_INTEGER);
+  const granted = !l.corrupt && l.commandUses === 0 && raw > migrationCaps.corruptTotal;
+  const coinCap = l.corrupt || granted ? migrationCaps.corruptTotal : migrationCaps.total;
+  const total = Math.min(raw, coinCap); // a negative balance never becomes ₪100k
+  const bankShare = raw > 0 ? bankRaw / raw : 0;
+  const bank = Math.min(Math.floor(total * bankShare), bankCapacity(level, 0));
+  const wallet = total - bank;
+  clamps.dropped = l.corrupt ? 0 : raw - total; // corrupt amounts (1e57) aren't real coins
+  clamps.wallet = l.corrupt || granted || clamps.dropped > 0;
+  clamps.granted = granted;
 
   const fields: Record<string, unknown> = {
     wallet,

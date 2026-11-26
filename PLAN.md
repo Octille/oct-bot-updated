@@ -259,7 +259,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 
 **As built (7a).** The details:
 - **Conversion.** `src/migration/v2.ts` holds pure functions shared by the script and the on-demand import (`services/legacyImport.ts`), so a profile converts the same way whichever path imports it first.
-- **Coins (owner decision, 2026-11-26).** Corrupt profiles (wallet or bank above ₪15.4M) get wallet + bank reset to ₪100k (negatives to 0) and base Veteran only. Everyone else: wallet + bank + wages owed fill the wallet up to ₪500k, then the bank up to its capacity at their level; the rest is dropped (`migrationCaps` in `src/migration/v2.ts`). Dry run on the copy: ₪13.2M carried over by the 445 up front, ₪54.6M dropped.
+- **Coins (owner decisions, 2026-11-26).** Corrupt profiles (wallet or bank above ₪15.4M) are reset to at most ₪100k and get base Veteran only. Profiles with zero command uses above ₪100k (grants like ₪10,001,000) are reset to ₪100k as well. Everyone else: wallet + bank + wages owed, capped at ₪500k in total. The capped total keeps the v2 wallet/bank split (scaled), the bank part is limited to capacity at their level, and overflow goes to the wallet (`migrationCaps` in `src/migration/v2.ts`). Dry run on the copy: ₪12.8M carried over by the 445 up front, ₪55.0M dropped, 3 granted resets.
 - **Items.** Each stack sells for at most 10% of the player's coin cap and holds at most 10,000, so items can't get around the cap.
 - **Fish.** Mapped by old value, not by name: Common → Perch, Rare → Salmon, Mythic (₪3k in v2) → Octopus (epic, ₪2k), not the ₪40k Kraken.
 - **Other items.** Shirt, Pants and Cookies become the new `v2_*` collectibles. A v2 FishingRod becomes an equipped Fiberglass Rod.
