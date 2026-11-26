@@ -259,9 +259,8 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 
 **As built (7a).** The details:
 - **Conversion.** `src/migration/v2.ts` holds pure functions shared by the script and the on-demand import (`services/legacyImport.ts`), so a profile converts the same way whichever path imports it first.
-- **Ceiling.** Recomputed as late-game gross ₪/h × 4 × 30, which is ₪15,353,688 today.
-- **Clamp order.** Wages are paid first (capped at the ceiling). Then the bank is clamped to the level's capacity, with any overflow moved to the wallet, and then the wallet is clamped to the ceiling.
-- **Items.** Each stack is worth at most 10% of the ceiling and holds at most 10,000.
+- **Coins (owner decision, 2026-11-26).** Corrupt profiles (wallet or bank above ₪15.4M) get wallet + bank reset to ₪100k (negatives to 0) and base Veteran only. Everyone else: wallet + bank + wages owed fill the wallet up to ₪500k, then the bank up to its capacity at their level; the rest is dropped (`migrationCaps` in `src/migration/v2.ts`). Dry run on the copy: ₪13.2M carried over by the 445 up front, ₪54.6M dropped.
+- **Items.** Each stack sells for at most 10% of the player's coin cap and holds at most 10,000, so items can't get around the cap.
 - **Fish.** Mapped by old value, not by name: Common → Perch, Rare → Salmon, Mythic (₪3k in v2) → Octopus (epic, ₪2k), not the ₪40k Kraken.
 - **Other items.** Shirt, Pants and Cookies become the new `v2_*` collectibles. A v2 FishingRod becomes an equipped Fiberglass Rod.
 - **Business.** v2 workers become a Lemonade Stand with at most 10 workers, plus the manager if they had one.

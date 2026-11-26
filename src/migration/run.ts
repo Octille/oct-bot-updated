@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import { veteranCosmetics, veteranInfo, type VeteranTier } from '../content/veteran';
+import { veteranCosmetics, veteranInfo, veteranThresholds, type VeteranTier } from '../content/veteran';
 import { GuildSettings } from '../models/GuildSettings';
 import { User } from '../models/User';
 import { insertImported } from '../services/legacyImport';
 import {
-  autoroleGuildOf, convert, convertGuild, legacyCollections, mergeLegacy, migrationCeiling, readLegacy, type Legacy,
+  autoroleGuildOf, convert, convertGuild, legacyCollections, mergeLegacy, migrationCaps, readLegacy, type Legacy,
 } from './v2';
 
 /**
@@ -36,7 +36,10 @@ export interface MigrationSummary {
     coinsCarried: number;
     wagesPaid: number;
     clampedWallets: number;
-    bankOverflowToWallet: number;
+    /** v2 coins not carried over (corrupt resets and amounts above the caps). */
+    coinsDropped: number;
+    /** Coins carried over by everyone, including dormant profiles imported later on demand. */
+    coinsCarriedAll: number;
     clampedItems: number;
     clampedWorkers: number;
     businesses: number;
@@ -60,7 +63,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
   const now = opts.now ?? new Date();
   const log = opts.log ?? (() => undefined);
   const db = mongoose.connection.db!;
-  const ceiling = migrationCeiling();
+  const ceiling = veteranThresholds.corruptAbove;
   const s: MigrationSummary = {
     dryRun: opts.dryRun,
     ceiling,
@@ -68,7 +71,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
       docs: 0, users: 0, duplicates: 0, noUserId: 0, active: 0, dormant: 0, corrupt: 0,
       tiers: { veteran: 0, elite: 0, founder: 0 },
       imported: 0, alreadyImported: 0, tierGrantedToExisting: 0,
-      coinsCarried: 0, wagesPaid: 0, clampedWallets: 0, bankOverflowToWallet: 0, clampedItems: 0, clampedWorkers: 0,
+      coinsCarried: 0, wagesPaid: 0, clampedWallets: 0, coinsDropped: 0, coinsCarriedAll: 0, clampedItems: 0, clampedWorkers: 0,
       businesses: 0, pickaxes: 0,
       joinedByYear: {}, topLevelFields: {}, itemKeys: {}, unknownItems: {}, commandCounts: {},
     },
@@ -104,7 +107,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
       example('duplicate', userId);
     }
     const merged = mergeLegacy(legacy);
-    const c = convert(merged, now, ceiling);
+    const c = convert(merged, now);
     bump(s.profiles.joinedByYear, String(merged.createdAt.getUTCFullYear()));
     bump(s.profiles.commandCounts, merged.commandUses >= 10 ? '10+' : String(merged.commandUses));
     if (merged.corrupt) {
@@ -112,6 +115,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
       example('corrupt', userId);
     }
     for (const k of c.unknownItems) bump(s.profiles.unknownItems, k);
+    s.profiles.coinsCarriedAll += c.wallet + c.bank;
     if (!c.active) {
       s.profiles.dormant++;
       continue;
@@ -125,7 +129,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
     s.profiles.coinsCarried += c.wallet + c.bank;
     s.profiles.wagesPaid += c.wagesPaid;
     if (c.clamps.wallet) { s.profiles.clampedWallets++; example('clampedWallet', userId); }
-    if (c.clamps.bankOverflow > 0) s.profiles.bankOverflowToWallet++;
+    s.profiles.coinsDropped += c.clamps.dropped;
     if (c.clamps.items.length) { s.profiles.clampedItems++; example('clampedItems', userId); }
     if (c.clamps.workers) s.profiles.clampedWorkers++;
     if (c.fields['business.tier']) s.profiles.businesses++;
@@ -194,7 +198,7 @@ export function formatSummary(s: MigrationSummary): string {
   const verb = s.dryRun ? 'would be' : 'were';
   return [
     `v2 → v3 migration ${s.dryRun ? '(DRY RUN, nothing written)' : '(WRITTEN)'}`,
-    `Balance ceiling: ₪${n(s.ceiling)}`,
+    `Corrupt above: ₪${n(s.ceiling)} (wallet or bank)`,
     '',
     'Profiles',
     `  v2 documents: ${n(p.docs)} · users: ${n(p.users)} · users with duplicate docs (merged): ${n(p.duplicates)} · docs without a user id: ${n(p.noUserId)}`,
@@ -202,8 +206,9 @@ export function formatSummary(s: MigrationSummary): string {
     `  Veteran tiers (highest tier only): Veteran ${n(p.tiers.veteran)} · Elite ${n(p.tiers.elite)} · Founder ${n(p.tiers.founder)}`,
     `  Any tier: ${n(p.tiers.veteran + p.tiers.elite + p.tiers.founder)} · Elite or Founder: ${n(p.tiers.elite + p.tiers.founder)} · Founder: ${n(p.tiers.founder)} (Nov 2026 check: 445 with a tier, 64 meeting the Elite rule incl. Founders with 8+ uses, 23 Founder)`,
     `  Imported now: ${n(p.imported)} ${verb} created · already in v3: ${n(p.alreadyImported)} · existing v3 profiles given their tier: ${n(p.tierGrantedToExisting)}`,
-    `  Coins carried over (wallet + bank): ₪${n(p.coinsCarried)} · v2 wages paid: ₪${n(p.wagesPaid)}`,
-    `  Clamped: wallets ${n(p.clampedWallets)} · bank overflow moved to wallet ${n(p.bankOverflowToWallet)} · item stacks ${n(p.clampedItems)} · workers ${n(p.clampedWorkers)}`,
+    `  Coin caps: corrupt reset to ₪${n(migrationCaps.corruptTotal)} · others wallet up to ₪${n(migrationCaps.wallet)}, then bank up to capacity`,
+    `  Coins carried over (wallet + bank): up front ₪${n(p.coinsCarried)} · incl. later on-demand imports ₪${n(p.coinsCarriedAll)} · v2 wages paid: ₪${n(p.wagesPaid)}`,
+    `  Clamped: coins ${n(p.clampedWallets)} profiles, ₪${n(p.coinsDropped)} not carried over (active players) · item stacks ${n(p.clampedItems)} · workers ${n(p.clampedWorkers)}`,
     `  Businesses: ${n(p.businesses)} · pickaxes: ${n(p.pickaxes)}`,
     `  Joined by year: ${top(p.joinedByYear)}`,
     `  Command uses: ${Object.entries(p.commandCounts).sort().map(([k, v]) => `${k}: ${n(v)}`).join(', ')}`,

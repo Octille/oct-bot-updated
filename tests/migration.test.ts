@@ -7,7 +7,7 @@ import { bankCapacity, economyConfig } from '../src/content/economy';
 import { veteranThresholds } from '../src/content/veteran';
 import { getItem } from '../src/content/items';
 import {
-  convert, convertGuild, isActive, itemMap, mergeLegacy, migrationCeiling, MIGRATION_SOURCE, readLegacy, veteranTierOf,
+  convert, convertGuild, isActive, itemMap, mergeLegacy, migrationCaps, migrationCeiling, MIGRATION_SOURCE, readLegacy, veteranTierOf,
 } from '../src/migration/v2';
 import { runMigration } from '../src/migration/run';
 import { User } from '../src/models/User';
@@ -42,21 +42,33 @@ describe('v2 conversion (pure)', () => {
     expect(l.workers).toBe(0);
   });
 
-  it('clamps corrupt wallets and moves bank overflow to the wallet, capped at the ceiling', () => {
-    const corrupt = convert(readLegacy(v2('1', '2021-03-01', { coins: 1.49e57, bank: 5e31, Mine: { toolTier: 2 }, commands_cooldowns: commands(9) })), NOW);
-    expect(corrupt.wallet).toBe(ceiling);
+  it('resets corrupt balances to ₪100k and caps everyone else: wallet first, then bank up to capacity', () => {
+    const corrupt = convert(readLegacy(v2('1', '2021-03-01', { coins: 1.49e57, bank: 5e31, Company: { workers: 3, pendingWages: 9_000 }, commands_cooldowns: commands(9) })), NOW);
+    expect(corrupt.wallet + corrupt.bank).toBe(migrationCaps.corruptTotal);
+    expect(corrupt.wagesPaid).toBe(0);
     expect(corrupt.clamps.wallet).toBe(true);
-    expect(corrupt.bank).toBe(bankCapacity(corrupt.fields['account.level'] as number, 0));
     expect(corrupt.tier).toBe('veteran'); // corrupt players get base Veteran only
 
-    const overflow = convert(readLegacy(v2('1', '2021-03-01', { coins: 500, bank: 100_000, commands_cooldowns: commands(2) })), NOW);
-    const cap = bankCapacity(overflow.fields['account.level'] as number, 0);
-    expect(overflow.bank).toBe(cap);
-    expect(overflow.wallet).toBe(500 + (100_000 - cap));
+    const rich = convert(readLegacy(v2('1', '2021-03-01', { coins: 10_000_000, bank: 694_390, commands_cooldowns: commands(2) })), NOW);
+    const cap = bankCapacity(rich.fields['account.level'] as number, 0);
+    expect(rich.wallet).toBe(migrationCaps.wallet);
+    expect(rich.bank).toBe(cap);
+    expect(rich.clamps.dropped).toBe(10_694_390 - migrationCaps.wallet - cap);
+
+    // Bank-only savings move to the wallet first
+    const saver = convert(readLegacy(v2('1', '2021-03-01', { coins: 0, bank: 300_000, commands_cooldowns: commands(2) })), NOW);
+    expect(saver.wallet).toBe(300_000);
+    expect(saver.bank).toBe(0);
+
+    const modest = convert(readLegacy(v2('1', '2021-03-01', { coins: 520_000, bank: 3_000, commands_cooldowns: commands(2) })), NOW);
+    expect(modest.wallet).toBe(500_000);
+    expect(modest.bank).toBe(23_000);
+    expect(modest.clamps.dropped).toBe(0);
 
     const negative = convert(readLegacy(v2('1', '2021-03-01', { coins: -400, bank: -1, commands_cooldowns: commands(2) })), NOW);
     expect(negative.wallet).toBe(0);
     expect(negative.bank).toBe(0);
+    for (const c of [corrupt, rich, saver, modest]) expect(Number.isSafeInteger(c.wallet) && Number.isSafeInteger(c.bank)).toBe(true);
   });
 
   it('re-fits levels to the v3 curve without ever lowering them', () => {
@@ -204,7 +216,7 @@ describe('v2 migration (database)', () => {
     expect(founder?.migratedFromV2).toBe(true);
 
     const active = await User.findById(ACTIVE).lean();
-    expect(active?.wallet).toBe(ceiling);
+    expect((active?.wallet ?? 0) + (active?.bank ?? 0)).toBe(migrationCaps.corruptTotal);
     expect(active?.inventory).toEqual({ fish_perch: 2 });
 
     expect((await User.findById(DUP).lean())?.wallet).toBe(100); // the more active doc, not the sum
