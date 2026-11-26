@@ -17,8 +17,6 @@ export const sourceRules = {
   maxMatchedTracks: 50,
   /** SoundCloud searches running at once while matching a playlist. */
   matchConcurrency: 5,
-  /** Results looked at per song. */
-  candidates: 8,
   /** Uploaded files and direct links: audio only, up to this size (Discord's own upload limit is lower for most). */
   audioExtensions: ['mp3', 'ogg', 'oga', 'opus', 'wav', 'flac', 'm4a', 'aac', 'webm', 'mka'],
 } as const;
@@ -142,30 +140,70 @@ function covered(a: Set<string>, b: Set<string>): number {
 }
 
 /** Remix, live, cover, sped-up, nightcore… versions only count when the original asked for one. */
-const VERSION = /\b(remix|live|cover|sped up|slowed|nightcore|reverb|8d|karaoke|instrumental|acoustic|edit|mashup|bootleg|flip)\b/;
+const VERSION = /\b(remix|remake|live|cover|sped up|slowed|nightcore|reverb|8d|karaoke|instrumental|acoustic|edit|mashup|bootleg|flip|hardstyle|techno|vip)\b/;
+
+export const matchRules = {
+  /** SoundCloud results fetched per song (scsearch[0,N]). */
+  candidates: 20,
+  /** Same recording: length within this of Spotify's. */
+  toleranceMs: 3_000,
+  /** Shorter results are previews or snippets (unless the song itself is that short). */
+  minLengthMs: 60_000,
+} as const;
+
+/** exact: same title and artist, length within ±3 s. close: same title and artist, plausible length. loose: the best of the rest. */
+export type MatchQuality = 'exact' | 'close' | 'loose';
+
+/** The main artist: the first of "A, B & C" / "A x B" / "A feat. B". */
+export const mainArtist = (author: string) => (author.split(/,|&| x | and | feat\.? | ft\.? /i)[0] ?? author).trim();
+
+/** How much of the song's title and main artist a SoundCloud result names (0–1 each), and whether it's another version. */
+function evidence(song: SongInfo, c: SongInfo) {
+  const hay = new Set([...words(c.title), ...words(c.author)]);
+  const compact = `${normalize(c.author)} ${normalize(c.title)}`.replace(/\s/g, '');
+  const artist = words(mainArtist(song.author));
+  let artistHits = 0;
+  for (const w of artist) if (hay.has(w) || (w.length >= 4 && compact.includes(w))) artistHits++;
+  const wantVersion = VERSION.exec(normalize(song.title))?.[1];
+  const hasVersion = VERSION.exec(normalize(c.title))?.[1];
+  // A medley or a "Song / Other Song / Third" upload names the title too: most of the upload's own
+  // title (minus the artist) must be the song's title
+  const songWords = new Set([...words(song.title), ...words(song.author)]);
+  const own = new Set([...words(c.title)].filter((w) => !artist.has(w)));
+  return {
+    title: covered(words(song.title), hay),
+    focus: own.size ? covered(own, songWords) : 0,
+    artist: artist.size ? artistHits / artist.size : 0,
+    version: !!hasVersion && hasVersion !== wantVersion,
+  };
+}
 
 /**
- * How well a SoundCloud result matches the song (0–1), or 0 when it's clearly a different track:
- * the title must be mostly there, the artist named in the title or uploader, a different
- * version (remix, live, sped up…) only when asked for, and the length close (previews are rejected).
+ * Finds a Spotify/Apple song on SoundCloud. The same recording is the result whose length is
+ * within ±3 s and whose title and uploader name the title and artist (closest length wins). Without
+ * one, the best-scoring result: title/artist match and length closeness count; other versions,
+ * very short results (previews) and results over twice the length are pushed down.
  */
-export function matchScore(song: SongInfo, candidate: SongInfo): number {
-  const title = words(song.title);
-  const artist = words(song.author.split(/,|&| x | and /i)[0] ?? song.author);
-  const hay = new Set([...words(candidate.title), ...words(candidate.author)]);
-  const titleCover = covered(title, hay);
-  if (titleCover < 0.75) return 0;
-  const artistCover = covered(artist, hay);
-  if (artistCover < 0.5) return 0;
-  const wantVersion = VERSION.exec(normalize(song.title))?.[1];
-  const hasVersion = VERSION.exec(normalize(candidate.title))?.[1];
-  if (hasVersion && hasVersion !== wantVersion) return 0;
-  if (song.duration > 0 && candidate.duration > 0) {
-    const diff = Math.abs(song.duration - candidate.duration);
-    if (diff > Math.max(10_000, song.duration * 0.1)) return 0;
-    return 0.5 * titleCover + 0.3 * artistCover + 0.2 * (1 - diff / Math.max(10_000, song.duration * 0.1));
-  }
-  return 0.6 * titleCover + 0.4 * artistCover;
+export function pickSoundCloud<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): { track: T; quality: MatchQuality } | null {
+  if (!candidates.length) return null;
+  const n = candidates.length;
+  const scored = candidates.map((track, i) => {
+    const c = track.info;
+    const e = evidence(song, c);
+    const matches = e.title >= 0.75 && e.focus >= 0.5 && e.artist >= 0.5 && !e.version;
+    const diff = song.duration > 0 && c.duration > 0 ? Math.abs(song.duration - c.duration) : Infinity;
+    const tooShort = c.duration > 0 && c.duration < matchRules.minLengthMs && song.duration >= matchRules.minLengthMs + matchRules.toleranceMs;
+    const tooLong = song.duration > 0 && c.duration > 2 * song.duration;
+    const near = Number.isFinite(diff) ? Math.max(0, 1 - diff / Math.max(10_000, song.duration * 0.1)) : 0;
+    const score = 0.5 * e.title + 0.2 * e.focus + 0.3 * e.artist + 0.3 * near - (e.version ? 0.6 : 0) - (tooShort ? 1 : 0) - (tooLong ? 1 : 0) + 0.05 * (1 - i / n);
+    return { track, i, diff, matches, plausible: !tooShort && !tooLong, score };
+  });
+  const exact = scored.filter((s) => s.matches && s.diff <= matchRules.toleranceMs).sort((a, b) => a.diff - b.diff || a.i - b.i)[0];
+  if (exact) return { track: exact.track, quality: 'exact' };
+  const byScore = [...scored].sort((a, b) => b.score - a.score);
+  const close = byScore.find((s) => s.matches && s.plausible);
+  if (close) return { track: close.track, quality: 'close' };
+  return { track: byScore[0]!.track, quality: 'loose' };
 }
 
 /** SoundCloud's 30-second previews of tracks it can't stream in full. */
@@ -207,20 +245,6 @@ export function rankSearch<T extends { info: SongInfo }>(query: string, tracks: 
     return { track, score, artistMatch };
   }).sort((a, b) => b.score - a.score);
   return { ranked, originalLikelyMissing: namesArtist && ranked.length > 0 && !ranked.some((r) => r.artistMatch) };
-}
-
-/** The best candidate, or null when none is a close enough match (never "something random"). */
-export function bestMatch<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): T | null {
-  let best: T | null = null;
-  let bestScore = 0;
-  for (const c of candidates) {
-    const score = matchScore(song, c.info);
-    if (score > bestScore) {
-      best = c;
-      bestScore = score;
-    }
-  }
-  return bestScore >= 0.6 ? best : null;
 }
 
 /** Runs `fn` over `items` with at most `limit` at once, keeping order. */

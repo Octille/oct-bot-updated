@@ -2,9 +2,15 @@ import type { Track } from 'lavalink-client';
 import { formatTime } from './panel';
 import { rankSearch } from './sources';
 import { lavalink, nodeReady } from './manager';
+import { env } from '../config/env';
+
+/** Spotify search and links need the app keys (Lavalink's LavaSrc reads the same ones). */
+export const spotifyEnabled = () => !!(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET);
 
 /**
- * /play autocomplete: SoundCloud suggestions while typing, ranked like a submitted search.
+ * /play autocomplete. With Spotify keys: Spotify's catalog, in Spotify's own order (relevance and
+ * popularity); picking one finds that exact song on SoundCloud (play.ts). Without them, or when
+ * Spotify search fails: SoundCloud results, ranked like a submitted search.
  * Discord drops an autocomplete reply after ~3 s, so results are cached per query, the same query
  * is never searched twice at once, and a slow search answers with what's cached instead of failing.
  */
@@ -21,7 +27,8 @@ export const suggestRules = {
   maxCached: 500,
 } as const;
 
-type Search = (query: string) => Promise<Track[]>;
+export type SuggestSource = 'spsearch' | 'scsearch';
+type Search = (query: string, source: SuggestSource) => Promise<Track[]>;
 
 const cache = new Map<string, { at: number; tracks: Track[] }>();
 const inflight = new Map<string, Promise<Track[]>>();
@@ -30,11 +37,11 @@ let keySeq = 0;
 
 export const normalizeQuery = (q: string) => q.trim().toLowerCase().replace(/\s+/g, ' ');
 
-/** SoundCloud search on any connected node, without a player (nobody is in voice yet). */
-const nodeSearch: Search = async (query) => {
+/** A search on any connected node, without a player (nobody is in voice yet). */
+const nodeSearch: Search = async (query, source) => {
   const node = lavalink()?.nodeManager.leastUsedNodes()[0];
   if (!node || !nodeReady()) return [];
-  const res = await node.search({ query, source: 'scsearch' }, null);
+  const res = await node.search({ query, source }, null);
   if (res.loadType !== 'search' && res.loadType !== 'track') return [];
   return (res.tracks as Track[]).filter((t) => !t.info.isStream);
 };
@@ -45,15 +52,15 @@ function prune(now: number): void {
 }
 
 /** Cached results for a query (fresh within cacheMs), sharing one search between concurrent callers. */
-export async function cachedSearch(query: string, search: Search = nodeSearch, now = Date.now()): Promise<Track[]> {
-  const key = normalizeQuery(query);
+export async function cachedSearch(query: string, source: SuggestSource, search: Search = nodeSearch, now = Date.now()): Promise<Track[]> {
+  const key = `${source}|${normalizeQuery(query)}`;
   const hit = cache.get(key);
   if (hit && now - hit.at < suggestRules.cacheMs) return hit.tracks;
   let pending = inflight.get(key);
   if (!pending) {
     let timer: NodeJS.Timeout | undefined;
     pending = Promise.race([
-      search(query),
+      search(query, source),
       new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('search timed out')), suggestRules.giveUpMs); }),
     ])
       .then((tracks) => {
@@ -71,8 +78,8 @@ export async function cachedSearch(query: string, search: Search = nodeSearch, n
 }
 
 /** The best cached results while a search is slow: this query (even stale), else the longest cached prefix of it. */
-function fallback(query: string): Track[] {
-  const key = normalizeQuery(query);
+function fallback(query: string, source: SuggestSource): Track[] {
+  const key = `${source}|${normalizeQuery(query)}`;
   const exact = cache.get(key);
   if (exact) return exact.tracks;
   let best: { len: number; tracks: Track[] } | null = null;
@@ -103,25 +110,50 @@ export function choiceName(t: Track): string {
   return title + tail;
 }
 
-/** Autocomplete choices for what the user has typed so far. Never throws. */
-export async function suggest(input: string, search: Search = nodeSearch, deadlineMs: number = suggestRules.deadlineMs): Promise<{ name: string; value: string }[]> {
-  const q = input.trim();
-  if (q.length < suggestRules.minChars || /^https?:\/\//i.test(q) || /^spotify:/i.test(q)) return [];
+/** Results for one source within `deadlineMs`: fresh or shared search, else what's cached. Never throws. */
+async function within(q: string, source: SuggestSource, search: Search, deadlineMs: number): Promise<Track[]> {
   let timer: NodeJS.Timeout | undefined;
-  let tracks: Track[];
   try {
-    tracks = await Promise.race([
-      cachedSearch(q, search),
-      new Promise<Track[]>((resolve) => { timer = setTimeout(() => resolve(fallback(q)), deadlineMs); }),
+    return await Promise.race([
+      cachedSearch(q, source, search),
+      new Promise<Track[]>((resolve) => { timer = setTimeout(() => resolve(fallback(q, source)), deadlineMs); }),
     ]);
   } catch {
-    tracks = fallback(q);
+    return fallback(q, source);
   } finally {
     clearTimeout(timer);
   }
-  return rankSearch(q, tracks).ranked.slice(0, suggestRules.max)
-    .filter((r) => r.track.info.uri)
-    .map((r) => ({ name: choiceName(r.track), value: choiceValue(r.track.info.uri!) }));
+}
+
+/** The same song listed twice by Spotify (single and album release): same title, artist and length to the second. */
+function dedupe(tracks: Track[]): Track[] {
+  const seen = new Set<string>();
+  return tracks.filter((t) => {
+    const k = `${normalizeQuery(t.info.title)}|${normalizeQuery(t.info.author)}|${Math.round((t.info.duration ?? 0) / 1000)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** Autocomplete choices for what the user has typed so far. Never throws. */
+export async function suggest(
+  input: string,
+  opts: { search?: Search; spotify?: boolean; deadlineMs?: number } = {},
+): Promise<{ name: string; value: string }[]> {
+  const { search = nodeSearch, spotify = spotifyEnabled(), deadlineMs = suggestRules.deadlineMs } = opts;
+  const q = input.trim();
+  if (q.length < suggestRules.minChars || /^https?:\/\//i.test(q) || /^spotify:/i.test(q)) return [];
+  const started = Date.now();
+  let tracks: Track[] = [];
+  if (spotify) tracks = dedupe(await within(q, 'spsearch', search, deadlineMs)).slice(0, suggestRules.max);
+  if (!tracks.length) {
+    // No Spotify keys, or Spotify found nothing / failed in time: SoundCloud with whatever time is left
+    const left = deadlineMs - (Date.now() - started);
+    const sc = left > 200 ? await within(q, 'scsearch', search, left) : fallback(q, 'scsearch');
+    tracks = rankSearch(q, sc).ranked.slice(0, suggestRules.max).map((r) => r.track);
+  }
+  return tracks.filter((t) => t.info.uri).map((t) => ({ name: choiceName(t), value: choiceValue(t.info.uri!) }));
 }
 
 /** Tests only. */
