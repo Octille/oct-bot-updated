@@ -310,13 +310,13 @@ Nothing gets cut from the brief. If something turns out not to be workable, I'll
 
 ## 9. Veteran set (players from the original bot)
 
-Thresholds proposed from a read-only look at the live data (77,801 profiles; 76,671 never ran a tracked command). The old bot's `level` field barely moved (only 382 profiles above 0, max level 3) and nobody prestiged, so tiers use **distinct commands used** (`commands_cooldowns`) and join date instead. **Approved 2026-11-23.**
+Thresholds proposed from a read-only look at the live data (77,801 profiles; 76,671 never ran a tracked command). The old bot's `level` field barely moved (only 382 profiles above 0, max level 3) and nobody prestiged, so tiers use **command uses** (entries in `commands_cooldowns`, repeats included; this is how the counts below were measured, confirmed by the 7a dry run on a copy) and join date instead. **Approved 2026-11-23.**
 
 | Tier | Rule | Count |
 |---|---|---|
-| **Veteran** | 2021–22 profile with ≥2 distinct commands, or non-default items, company workers, or a claimed top.gg vote; 2026 profiles with XP/mining/items | **445** (18 of them corrupt) |
-| **Elite Veteran** | 2021–22, ≥8 distinct commands, not corrupt | **64** |
-| **Founder** | joined before 2021-06-01, ≥5 distinct commands, not corrupt | **23** |
+| **Veteran** | 2021–22 profile with ≥2 command uses, or items beyond the starting Shirt and Pants, company workers or miners, or a claimed top.gg vote (`topggrewards: 'Claimed'`); 2026 profiles with XP/mining/items | **445** (18 of them corrupt) |
+| **Elite Veteran** | 2021–22, ≥8 command uses, not corrupt | **64** |
+| **Founder** | joined before 2021-06-01, ≥5 command uses, not corrupt | **23** |
 
 Corrupt = wallet or bank above ₪15.4M or negative; those players get base Veteran only.
 

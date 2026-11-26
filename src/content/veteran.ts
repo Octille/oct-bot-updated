@@ -18,9 +18,9 @@ export const veteranInfo: Record<VeteranTier, { label: string; title: string; ba
 
 export const veteranThresholds = {
   veteran: {
-    /** 2021–22 profiles: at least this many different commands used… */
+    /** 2021–22 profiles: at least this many command uses (entries in `commands_cooldowns`, repeats count)… */
     minCommands: 2,
-    /** …or any of these signs of play: non-default items, company workers, a claimed top.gg vote. */
+    /** …or any of these signs of play: items beyond the starting Shirt and Pants, company workers or miners, a claimed top.gg vote. */
     otherSignals: ['items', 'workers', 'voted'] as const,
     /** 2026 profiles (the April 2026 relaunch): XP earned, mining, cooldowns used or items. */
   },

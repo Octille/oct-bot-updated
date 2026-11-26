@@ -79,7 +79,12 @@ describe('v2 conversion (pure)', () => {
     expect(tier('2022-08-01', { commands_cooldowns: commands(1) })).toBeNull();
     expect(tier('2022-08-01', { Items: { Cookies: 2 } })).toBe('veteran');
     expect(tier('2022-08-01', { Company: { workers: 1 } })).toBe('veteran');
-    expect(tier('2022-08-01', { lastVoteClaim: new Date('2022-09-01') })).toBe('veteran');
+    expect(tier('2022-08-01', { topggrewards: 'Claimed' })).toBe('veteran');
+    expect(tier('2022-08-01', { topggrewards: 'NotClaimed' })).toBeNull();
+    expect(tier('2022-08-01', { Items: { Shirt: 1, Pants: 1 } })).toBeNull(); // the v12 starting items
+    expect(tier('2022-08-01', { cooldowns: { id: '1' }, commands_cooldowns: [{ name: 'help', time: '1' }] })).toBeNull(); // `id` isn't a command
+    expect(tier('2022-08-01', { commands_cooldowns: [{ name: 'help', time: '1' }, { name: 'help', time: '2' }] })).toBe('veteran'); // uses, repeats count
+    expect(tier('2022-08-01', { Company: { miners: 2, workers: 0 } })).toBe('veteran');
     expect(tier('2021-03-01', { coins: 9_000_000 })).toBeNull(); // rich but never played: no tier
     // April 2026 relaunch: any sign of play, but never more than base Veteran
     expect(tier('2026-04-20', { xp: 10, commands_cooldowns: commands(12) })).toBe('veteran');
@@ -93,6 +98,7 @@ describe('v2 conversion (pure)', () => {
     expect(m.coins).toBe(9_000); // the more active one's balance, not the sum
     expect(m.items).toEqual({ CommonFish: 10, RareFish: 2 });
     expect(m.commands).toEqual(['cmd0', 'fish', 'work']);
+    expect(m.commandUses).toBe(3);
     expect(m.createdAt.toISOString().slice(0, 10)).toBe('2021-02-01');
     expect(m.docCount).toBe(2);
   });

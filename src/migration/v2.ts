@@ -46,6 +46,14 @@ export const itemMap: Record<string, string> = {
   Cookies: 'v2_cookie',
 };
 
+/** Every v12 profile started with these; only counts above them are signs of play. */
+const DEFAULT_ITEMS: Record<string, number> = { Shirt: 1, Pants: 1 };
+
+/** Items beyond the starting Shirt and Pants. */
+export function hasNonDefaultItems(l: Pick<Legacy, 'items'>): boolean {
+  return Object.entries(l.items).some(([k, v]) => v > (DEFAULT_ITEMS[k] ?? 0));
+}
+
 /** v2 pickaxe tiers (functions/mineconfig.js) line up one-to-one with v3's pickaxes. */
 export function pickaxeForTier(tier: number): string | null {
   if (!Number.isInteger(tier) || tier < 0) return null;
@@ -79,6 +87,13 @@ export interface Legacy {
   items: Record<string, number>;
   /** Distinct commands the player ever used (from `commands_cooldowns` and `cooldowns`). */
   commands: string[];
+  /**
+   * Command uses (entries, repeats included). The approved tier counts (445 / 64 / 23, PLAN.md §9)
+   * were measured this way, so the thresholds apply to uses.
+   */
+  commandUses: number;
+  /** v12 company miners (a second kind of worker); a sign of play, not imported. */
+  miners: number;
   voted: boolean;
   /** Raw balances were negative, non-finite or above the corrupt threshold. */
   corrupt: boolean;
@@ -127,21 +142,28 @@ function createdAtOf(raw: Raw): Date {
   return new Date();
 }
 
-/** Command names from `commands_cooldowns` (v12: an object keyed by command, or an array) and v2 `cooldowns`. */
-function commandsOf(raw: Raw): string[] {
+/**
+ * Commands used, from `commands_cooldowns` (v12: an array with one entry per use, `{ name, time }`)
+ * and `cooldowns` (the 2026 relaunch: command → date). `uses` counts entries, `names` the distinct ones.
+ */
+function commandsOf(raw: Raw): { names: string[]; uses: number } {
   const out = new Set<string>();
+  let uses = 0;
   const add = (name: unknown) => {
-    if (typeof name === 'string' && name.trim()) out.add(name.trim().toLowerCase());
+    if (typeof name !== 'string' || !name.trim()) return;
+    out.add(name.trim().toLowerCase());
+    uses++;
   };
   for (const field of ['commands_cooldowns', 'cooldowns']) {
     const value = raw[field];
     if (Array.isArray(value)) {
       for (const entry of value) add(typeof entry === 'string' ? entry : obj(entry).name ?? obj(entry).command);
     } else {
-      for (const [key, v] of Object.entries(obj(value))) if (v !== null && v !== undefined) add(key);
+      // Only real cooldown entries (dates); some v12 docs hold just `{ id: '<user id>' }`
+      for (const [key, v] of Object.entries(obj(value))) if (v instanceof Date) add(key);
     }
   }
-  return [...out].sort();
+  return { names: [...out].sort(), uses };
 }
 
 /** Reads one raw v2 profile document. */
@@ -155,6 +177,7 @@ export function readLegacy(raw: Raw): Legacy {
   }
   const coins = num(raw.coins);
   const bank = num(raw.bank);
+  const cmds = commandsOf(raw);
   const corruptAbove = veteranThresholds.corruptAbove;
   const bad = (n: number) => Number.isNaN(n) ? false : !Number.isFinite(n) || n < 0 || n > corruptAbove;
   return {
@@ -175,8 +198,11 @@ export function readLegacy(raw: Raw): Legacy {
     pendingWages: clampInt(company.pendingWages, 0, Number.MAX_SAFE_INTEGER),
     lastCollected: date(company.lastCollected),
     items,
-    commands: commandsOf(raw),
-    voted: !!(date(raw.lastVoteClaim) ?? date(raw.lastVoted) ?? date(raw.voted)) || raw.voted === true,
+    commands: cmds.names,
+    commandUses: cmds.uses,
+    miners: clampInt(company.miners, 0, 1_000_000),
+    // v12: topggrewards 'Claimed' / 'NotClaimed'; the 2026 relaunch: lastVoteClaim
+    voted: raw.topggrewards === 'Claimed' || !!date(raw.lastVoteClaim),
     corrupt: bad(coins) || bad(bank),
   };
 }
@@ -188,7 +214,7 @@ export function readLegacy(raw: Raw): Legacy {
  */
 export function mergeLegacy(docs: Legacy[]): Legacy {
   if (docs.length === 0) throw new Error('mergeLegacy needs at least one document');
-  const activity = (l: Legacy) => [l.commands.length, l.level, l.xp, l.totalMined, l.workers];
+  const activity = (l: Legacy) => [l.commandUses, l.level, l.xp, l.totalMined, l.workers];
   const sorted = [...docs].sort((a, b) => {
     const x = activity(a);
     const y = activity(b);
@@ -203,6 +229,8 @@ export function mergeLegacy(docs: Legacy[]): Legacy {
     docCount: docs.reduce((n, d) => n + d.docCount, 0),
     createdAt: new Date(Math.min(...docs.map((d) => d.createdAt.getTime()))),
     commands: [...new Set(docs.flatMap((d) => d.commands))].sort(),
+    commandUses: Math.max(...docs.map((d) => d.commandUses)),
+    miners: Math.max(...docs.map((d) => d.miners)),
     items,
     toolTier: Math.max(...docs.map((d) => d.toolTier)),
     voted: docs.some((d) => d.voted),
@@ -220,16 +248,16 @@ const ORIGINAL_ERA_END = new Date('2023-01-01T00:00:00Z');
 export function isActive(l: Legacy): boolean {
   if (l.createdAt >= RELAUNCH) {
     // The April 2026 relaunch: XP earned, mining, cooldowns used or items
-    return l.xp > 0 || l.level > 1 || l.totalMined > 0 || l.toolTier >= 0 || l.commands.length > 0 || Object.keys(l.items).length > 0 || l.workers > 0;
+    return l.xp > 0 || l.level > 1 || l.totalMined > 0 || l.toolTier >= 0 || l.commandUses > 0 || hasNonDefaultItems(l) || l.workers > 0 || l.miners > 0;
   }
-  return l.commands.length >= veteranThresholds.veteran.minCommands || Object.keys(l.items).length > 0 || l.workers > 0 || l.voted;
+  return l.commandUses >= veteranThresholds.veteran.minCommands || hasNonDefaultItems(l) || l.workers > 0 || l.miners > 0 || l.voted;
 }
 
 /** The veteran tier a v2 profile earns (from activity and join date, never balance). */
 export function veteranTierOf(l: Legacy): VeteranTier | null {
   if (!isActive(l)) return null;
   if (l.corrupt || l.createdAt >= ORIGINAL_ERA_END) return 'veteran';
-  const n = l.commands.length;
+  const n = l.commandUses;
   if (l.createdAt < new Date(`${veteranThresholds.founder.joinedBefore}T00:00:00Z`) && n >= veteranThresholds.founder.minCommands) return 'founder';
   if (n >= veteranThresholds.elite.minCommands) return 'elite';
   return 'veteran';

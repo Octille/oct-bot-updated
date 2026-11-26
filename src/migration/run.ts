@@ -106,7 +106,7 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
     const merged = mergeLegacy(legacy);
     const c = convert(merged, now, ceiling);
     bump(s.profiles.joinedByYear, String(merged.createdAt.getUTCFullYear()));
-    bump(s.profiles.commandCounts, merged.commands.length >= 10 ? '10+' : String(merged.commands.length));
+    bump(s.profiles.commandCounts, merged.commandUses >= 10 ? '10+' : String(merged.commandUses));
     if (merged.corrupt) {
       s.profiles.corrupt++;
       example('corrupt', userId);
@@ -200,13 +200,13 @@ export function formatSummary(s: MigrationSummary): string {
     `  v2 documents: ${n(p.docs)} · users: ${n(p.users)} · users with duplicate docs (merged): ${n(p.duplicates)} · docs without a user id: ${n(p.noUserId)}`,
     `  Active (migrated up front): ${n(p.active)} · dormant (imported on demand): ${n(p.dormant)} · corrupt balances: ${n(p.corrupt)}`,
     `  Veteran tiers (highest tier only): Veteran ${n(p.tiers.veteran)} · Elite ${n(p.tiers.elite)} · Founder ${n(p.tiers.founder)}`,
-    `  Any tier: ${n(p.tiers.veteran + p.tiers.elite + p.tiers.founder)} · Elite or Founder: ${n(p.tiers.elite + p.tiers.founder)} · Founder: ${n(p.tiers.founder)} (Nov 2026 read-only check: 445 / 64 / 23)`,
+    `  Any tier: ${n(p.tiers.veteran + p.tiers.elite + p.tiers.founder)} · Elite or Founder: ${n(p.tiers.elite + p.tiers.founder)} · Founder: ${n(p.tiers.founder)} (Nov 2026 check: 445 with a tier, 64 meeting the Elite rule incl. Founders with 8+ uses, 23 Founder)`,
     `  Imported now: ${n(p.imported)} ${verb} created · already in v3: ${n(p.alreadyImported)} · existing v3 profiles given their tier: ${n(p.tierGrantedToExisting)}`,
     `  Coins carried over (wallet + bank): ₪${n(p.coinsCarried)} · v2 wages paid: ₪${n(p.wagesPaid)}`,
     `  Clamped: wallets ${n(p.clampedWallets)} · bank overflow moved to wallet ${n(p.bankOverflowToWallet)} · item stacks ${n(p.clampedItems)} · workers ${n(p.clampedWorkers)}`,
     `  Businesses: ${n(p.businesses)} · pickaxes: ${n(p.pickaxes)}`,
     `  Joined by year: ${top(p.joinedByYear)}`,
-    `  Distinct commands used: ${Object.entries(p.commandCounts).sort().map(([k, v]) => `${k}: ${n(v)}`).join(', ')}`,
+    `  Command uses: ${Object.entries(p.commandCounts).sort().map(([k, v]) => `${k}: ${n(v)}`).join(', ')}`,
     `  Fields seen: ${top(p.topLevelFields, 40)}`,
     `  Item keys seen: ${top(p.itemKeys)}`,
     `  Item keys with no v3 item (not imported): ${top(p.unknownItems)}`,
