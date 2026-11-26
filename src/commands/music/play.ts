@@ -8,24 +8,42 @@ import { icon, titleIcon } from '../../lib/icons';
 import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
+import { logError } from '../../lib/logger';
 import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, sourceRules } from '../../music/sources';
 
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number };
 
-async function search(player: Player, query: string, user: User, source?: 'scsearch'): Promise<{ tracks: Track[]; playlist?: string; failed: boolean }> {
+const MUSIC_DOWN = 'Music is unavailable right now. Try again in a minute.';
+
+/**
+ * `source`: Lavalink answered, but the music source itself failed (e.g. SoundCloud broke).
+ * `client`: we couldn't talk to Lavalink at all (not connected, wrong password, timeout).
+ * Either way the real error is logged.
+ */
+type Failure = 'source' | 'client' | null;
+
+async function search(player: Player, query: string, user: User, source?: 'scsearch'): Promise<{ tracks: Track[]; playlist?: string; failure: Failure }> {
+  const what = source ? `${source}:${query}` : query;
   try {
     const res = await player.search(source ? { query, source } : { query }, user);
-    if (res.loadType === 'error' || res.loadType === 'empty') return { tracks: [], failed: res.loadType === 'error' };
-    return { tracks: res.tracks as Track[], playlist: res.loadType === 'playlist' ? res.playlist?.name ?? undefined : undefined, failed: false };
-  } catch {
-    return { tracks: [], failed: true };
+    if (res.loadType === 'error') {
+      const ex = (res as { exception?: { message?: string | null; cause?: string; severity?: string } | null }).exception;
+      logError('music search', new Error(`Lavalink couldn't load "${what.slice(0, 120)}": ${ex?.message ?? 'unknown'}${ex?.cause ? ` (${ex.cause.split('\n')[0]})` : ''}`));
+      return { tracks: [], failure: 'source' };
+    }
+    if (res.loadType === 'empty') return { tracks: [], failure: null };
+    return { tracks: res.tracks as Track[], playlist: res.loadType === 'playlist' ? res.playlist?.name ?? undefined : undefined, failure: null };
+  } catch (err) {
+    logError(`music search "${what.slice(0, 120)}"`, err);
+    return { tracks: [], failure: 'client' };
   }
 }
 
 /** Plain text: the first SoundCloud result that isn't a 30-second preview. */
 async function fromSearch(player: Player, query: string, user: User): Promise<Found> {
   const res = await search(player, query, user, 'scsearch');
-  if (res.failed) throw new UserError(SEARCH_DOWN);
+  if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
+  if (res.failure === 'source') throw new UserError(SEARCH_DOWN);
   const pick = res.tracks.find((t) => t.info.duration !== 30_000) ?? res.tracks[0];
   if (!pick) throw new UserError(`Nothing found on SoundCloud for **${escapeTitle(query.slice(0, 80))}**.`);
   return { tracks: [pick] };
@@ -35,15 +53,17 @@ async function fromSearch(player: Player, query: string, user: User): Promise<Fo
 async function fromMirror(player: Player, url: string, user: User): Promise<Found> {
   const service = mirrorService(url);
   const res = await search(player, url, user);
+  if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
   if (!res.tracks.length) throw new UserError(`Couldn't read that ${service} link. Check that it's a song, album or public playlist.`);
   const songs = res.tracks.slice(0, sourceRules.maxMatchedTracks);
-  let searchDown = 0;
+  const failures: Failure[] = [];
   const matched = await mapLimit(songs, sourceRules.matchConcurrency, async (song) => {
     const found = await search(player, `${song.info.author} ${song.info.title}`, user, 'scsearch');
-    if (found.failed) searchDown++;
+    failures.push(found.failure);
     return bestMatch(song.info, found.tracks.slice(0, sourceRules.candidates));
   });
-  if (searchDown === songs.length) throw new UserError(SEARCH_DOWN);
+  if (failures.every((f) => f === 'client')) throw new UserError(MUSIC_DOWN);
+  if (failures.every((f) => f !== null)) throw new UserError(SEARCH_DOWN);
   const tracks = matched.filter((t): t is Track => !!t);
   if (!tracks.length) {
     throw new UserError(songs.length === 1
@@ -91,6 +111,7 @@ export default defineCommand({
     try {
       if (file) {
         const res = await search(player, file.url, interaction.user);
+        if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
         if (!res.tracks[0]) throw new UserError("Couldn't play that file. Make sure it's a normal audio file.");
         const t = res.tracks[0];
         // Files often have no title tag: show the file name instead
@@ -100,6 +121,7 @@ export default defineCommand({
         found = await fromMirror(player, query, interaction.user);
       } else if (kind === 'direct') {
         const res = await search(player, query, interaction.user);
+        if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
         if (!res.tracks.length) throw new UserError(`Couldn't play that link. ${SUPPORTED}`);
         found = { tracks: res.playlist ? res.tracks : [res.tracks[0]!], name: res.playlist };
         if (found.tracks.every((t) => t.info.isStream)) throw new UserError(NO_LIVE);
