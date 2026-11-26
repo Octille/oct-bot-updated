@@ -2,7 +2,8 @@ import { icon, titleIcon } from '../../lib/icons';
 import { embed } from '../../lib/embeds';
 import { badgeIcon, themeColor, titled } from '../../lib/theme';
 import { UserError } from '../../lib/errors';
-import { cosmetics, getCosmetic, type Cosmetic, type CosmeticKind } from '../../content/cosmetics';
+import { cosmetics, getCosmetic, mayOwnCosmetic, type Cosmetic, type CosmeticKind } from '../../content/cosmetics';
+import { env } from '../../config/env';
 import type { IconKey } from '../../content/icons';
 import { apply } from '../../services/economy';
 import { back, btn, ids, NAV, row, select, type Option, type Payload, type Row, type ScreenCtx } from '../kit';
@@ -114,7 +115,7 @@ export const wardrobe: ScreenModule = {
     const kind = args[0] as CosmeticKind;
     if (action !== 'equip' || !interaction.isStringSelectMenu() || !SLOTS.some((s) => s.kind === kind)) return { path: 'wardrobe' };
     const value = interaction.values[0]!;
-    if (value !== 'none' && !(ctx.profile.cosmetics?.owned ?? []).includes(value)) throw new UserError("You don't own that.");
+    if (value !== 'none' && (!(ctx.profile.cosmetics?.owned ?? []).includes(value) || !mayOwnCosmetic(value, ctx.owner, env.OWNER_ID))) throw new UserError("You don't own that.");
     if (value !== 'none' && getCosmetic(value)?.kind !== kind) throw new UserError("That doesn't go there.");
     await apply(ctx.owner, { set: { [`cosmetics.${kind}`]: value === 'none' ? null : value } }, { source: 'cosmetics.equip' });
     const slot = SLOTS.find((s) => s.kind === kind)!;

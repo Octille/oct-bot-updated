@@ -146,6 +146,8 @@ export const iconDefs = {
   badge_elite: { tabler: 'shield-star', fallback: '🎖️', color: '#7f83be' },
   // Founder gold: 3.52:1 on light mode, 3.59:1 on dark mode
   badge_founder: { tabler: 'crown', fallback: '👑', color: '#af810e' },
+  // The creator's badge, brand blue: 4.11:1 on light mode, 3.08:1 on dark mode
+  badge_creator: { tabler: 'code', fallback: '💻', color: '#7076c8' },
   // Status
   success: { tabler: 'circle-check', fallback: '✅' },
   warning: { tabler: 'alert-triangle', fallback: '⚠️' },

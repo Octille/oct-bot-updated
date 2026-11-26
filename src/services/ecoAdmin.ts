@@ -1,4 +1,6 @@
 import { veteranCosmetics, veteranInfo, type VeteranTier } from '../content/veteran';
+import { creatorCosmetics } from '../content/cosmetics';
+import { env } from '../config/env';
 import { Transaction } from '../models/Transaction';
 import { User } from '../models/User';
 import { EconomyError } from '../lib/errors';
@@ -37,7 +39,8 @@ export async function ecoReset(userId: string, by: string): Promise<{ wallet: nu
       updatedAt: new Date(),
       migratedFromV2: before.migratedFromV2,
       veteran: { tier, welcomed: before.veteran?.welcomed ?? false },
-      cosmetics: { ...fresh.cosmetics, owned: tier ? veteranCosmetics(tier) : [], badge: tier ? veteranInfo[tier].badge : null },
+      // The creator set stays with the creator, like the veteran set
+      cosmetics: { ...fresh.cosmetics, owned: [...(tier ? veteranCosmetics(tier) : []), ...(userId === env.OWNER_ID ? creatorCosmetics : [])], badge: tier ? veteranInfo[tier].badge : null },
     },
     { timestamps: false }, // keep the original join date
   );

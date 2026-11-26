@@ -20,8 +20,9 @@ export interface Cosmetic {
    *   veteran     — granted by the v2 migration only; can't be earned after launch
    *   achievement — the reward for an achievement
    *   prestige    — bought with prestige tokens
+   *   creator     — the bot's creator only (OWNER_ID); never sold, earned or given to anyone else
    */
-  exclusive?: 'veteran' | 'achievement' | 'prestige' | 'season';
+  exclusive?: 'veteran' | 'achievement' | 'prestige' | 'season' | 'creator';
   /** Prestige needed before it shows up in the prestige shop. */
   minPrestige?: number;
 }
@@ -93,6 +94,10 @@ export const cosmetics: readonly Cosmetic[] = [
   { id: 'frame_veteran', kind: 'frame', name: 'Veteran frame', value: '#6066ae,#7f83be', price: 0, exclusive: 'veteran' },
   { id: 'frame_elite', kind: 'frame', name: 'Elite Veteran frame', value: '#8e44ad,#c39bd3', price: 0, exclusive: 'veteran' },
   { id: 'frame_founder', kind: 'frame', name: 'Founder frame', value: '#af810e,#f7dc6f', price: 0, exclusive: 'veteran' },
+
+  // Creator set — OctBot's creator only (OWNER_ID). See creatorCosmetics below.
+  { id: 'title_creator', kind: 'title', name: 'Creator', value: 'Creator', price: 0, exclusive: 'creator' },
+  { id: 'badge_creator', kind: 'badge', name: 'Creator badge', value: 'badge_creator', price: 0, exclusive: 'creator' },
 ];
 
 /** Cosmetics anyone can buy (not rotation-only, not exclusive). */
@@ -102,4 +107,12 @@ export function shopCosmetics(): Cosmetic[] {
 
 export function getCosmetic(id: string): Cosmetic | undefined {
   return cosmetics.find((c) => c.id === id);
+}
+
+/** The creator's own title and badge (exclusive: 'creator'). */
+export const creatorCosmetics = cosmetics.filter((c) => c.exclusive === 'creator').map((c) => c.id);
+
+/** Whether this player may own (and equip) a cosmetic: creator cosmetics belong to OWNER_ID alone. */
+export function mayOwnCosmetic(id: string, userId: string, ownerId: string): boolean {
+  return cosmetics.find((c) => c.id === id)?.exclusive !== 'creator' || userId === ownerId;
 }
