@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, isPreviewOnly, rankSearch, resolvesPublic, mainArtist, mirrorService, pickSoundCloud } from '../src/music/sources';
-import { choiceName, choiceValue, clearSuggestCache, resolveChoice, suggest } from '../src/music/suggest';
+import { choiceName, choiceValue, clearSuggestCache, rerankByPopularity, resolveChoice, suggest } from '../src/music/suggest';
 import type { Track } from 'lavalink-client';
 import { getCommandList } from '../src/framework/commandList';
 import '../src/framework/registry';
@@ -250,7 +250,7 @@ describe('/play autocomplete', () => {
     const search = vi.fn(async (_q: string, source: string) => source === 'spsearch'
       ? [sp('Alone', 'Alan Walker', 'a1'), sp('Alone', 'Alan Walker', 'a2'), sp('Alone, Pt. II', 'Alan Walker, Ava Max', 'b', 179_000)]
       : [track('Alone', 'Alan Walker')]);
-    const out = await suggest('alone alan walker', { search, spotify: true });
+    const out = await suggest('alone alan walker', { search, ranker: async () => [], spotify: true });
     expect(out).toEqual([
       { name: 'Alone - Alan Walker [2:41]', value: 'https://open.spotify.com/track/a1' },
       { name: 'Alone, Pt. II - Alan Walker, Ava Max [2:59]', value: 'https://open.spotify.com/track/b' },
@@ -263,7 +263,39 @@ describe('/play autocomplete', () => {
       if (source === 'spsearch') throw new Error('spotify down');
       return [track('Alone', 'Alan Walker')];
     });
-    expect((await suggest('alone', { search, spotify: true }))[0]?.value).toBe('https://soundcloud.com/AlanWalker/Alone');
+    expect((await suggest('alone', { search, ranker: async () => [], spotify: true }))[0]?.value).toBe('https://soundcloud.com/AlanWalker/Alone');
+  });
+
+  // Real Spotify results (market CA) and Deezer ranks, captured 2026-11-26
+  const popularity = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'spotify-popularity.json'), 'utf8')) as Record<string, {
+    spotify: { title: string; author: string; duration: number; uri: string }[]; deezer: { title: string; artist: string; rank: number }[];
+  }>;
+  const fromFixture = (q: string) => ({
+    search: async () => popularity[q]!.spotify.map((info) => ({ info: { ...info, isStream: false } }) as unknown as Track),
+    ranker: async () => popularity[q]!.deezer,
+    spotify: true,
+  });
+
+  it('real search "closer": The Chainsmokers is the top suggestion (popularity), though Spotify lists GEHLEE first', async () => {
+    expect(popularity.closer!.spotify[0]!.author).toBe('GEHLEE');
+    const out = await suggest('closer', fromFixture('closer'));
+    expect(out[0]!.name).toMatch(/^Closer - The Chainsmokers/);
+  });
+
+  it.each([['blinding', /^Blinding Lights - The Weeknd/], ['alone alan walker', /^Alone - Alan Walker/]])(
+    'real search "%s": the obvious song stays on top',
+    async (q, top) => {
+      expect((await suggest(q, fromFixture(q)))[0]!.name).toMatch(top);
+    },
+  );
+
+  it("popularity only reorders: unknown to Deezer keeps Spotify's relative order; no data keeps Spotify's order; slow Deezer is skipped", async () => {
+    const t = (title: string, author: string) => ({ info: { title, author, duration: 200_000 } }) as unknown as Track;
+    const songs = [t('A', 'x'), t('B', 'y'), t('C', 'z')];
+    expect(rerankByPopularity(songs, [])).toEqual(songs);
+    expect(rerankByPopularity(songs, [{ title: 'C', artist: 'z', rank: 900_000 }]).map((s) => s.info.title)).toEqual(['C', 'A', 'B']);
+    const slow = await suggest('abc', { ...fromFixture('closer'), ranker: () => new Promise(() => {}), deadlineMs: 30 });
+    expect(slow[0]!.name).toMatch(/^Closer - GEHLEE/);
   });
 
   it('long URLs become short keys that resolve back, and expire', () => {

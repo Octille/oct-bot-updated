@@ -41,7 +41,8 @@ plugins:
       # Free app keys from https://developer.spotify.com/dashboard (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in .env)
       clientId: "${SPOTIFY_CLIENT_ID:}"
       clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
-      countryCode: "US"
+      # Spotify market for search results and links (SPOTIFY_MARKET in .env, default CA)
+      countryCode: "${SPOTIFY_MARKET:CA}"
       playlistLoadLimit: 1
       albumLoadLimit: 1
       resolveArtistsInSearch: false

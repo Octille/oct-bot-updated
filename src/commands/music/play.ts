@@ -11,7 +11,7 @@ import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
 import { logError } from '../../lib/logger';
 import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, classifyQuery, isAudioAttachment, isPreviewOnly, mainArtist, mapLimit, matchRules, mirrorService, pickSoundCloud, rankSearch, resolvesPublic, sourceRules, type MatchQuality } from '../../music/sources';
-import { spotifyEnabled } from '../../music/suggest';
+import { spotifyEnabled, spotifySongs } from '../../music/suggest';
 
 /** `note`: shown under the reply (e.g. the original wasn't found). */
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number; note?: string };
@@ -59,13 +59,13 @@ async function onSoundCloud(player: Player, song: Track, user: User): Promise<{ 
 }
 
 /**
- * Plain text submitted without picking a suggestion. With Spotify keys: Spotify's top result, found
+ * Plain text submitted without picking a suggestion. With Spotify keys: the top suggestion, found
  * on SoundCloud. Without (or if Spotify search fails): the top-ranked SoundCloud result.
  */
 async function topResult(player: Player, query: string, user: User): Promise<Found> {
   if (spotifyEnabled()) {
-    const sp = await search(player, query, user, 'spsearch');
-    const song = sp.tracks[0];
+    // The same order as the suggestions: Spotify re-ranked by popularity
+    const song = (await spotifySongs(query, { deadlineMs: 6_000 }))[0];
     if (song) {
       const m = await onSoundCloud(player, song, user);
       if (m === 'client') throw new UserError(MUSIC_DOWN);

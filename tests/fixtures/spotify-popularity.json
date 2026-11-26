@@ -1,0 +1,575 @@
+{
+ "closer": {
+  "spotify": [
+   {
+    "title": "Closer",
+    "author": "GEHLEE",
+    "duration": 162244,
+    "uri": "https://open.spotify.com/track/7D2ZnXa4KgOg68ojItelCe"
+   },
+   {
+    "title": "Closer",
+    "author": "The Chainsmokers",
+    "duration": 244960,
+    "uri": "https://open.spotify.com/track/7BKLCZ1jbUBVqRi2FVlTVw"
+   },
+   {
+    "title": "Closer",
+    "author": "Nine Inch Nails",
+    "duration": 373306,
+    "uri": "https://open.spotify.com/track/5mc6EyF1OIEOhAkD0Gg9Lc"
+   },
+   {
+    "title": "Closer",
+    "author": "Kings of Leon",
+    "duration": 237480,
+    "uri": "https://open.spotify.com/track/1O8d2pWtBclzuY3FctBPVa"
+   },
+   {
+    "title": "Closer",
+    "author": "Ne-Yo",
+    "duration": 234360,
+    "uri": "https://open.spotify.com/track/2XbfY2O2v3xwedUJ0J2kkr"
+   },
+   {
+    "title": "Closer",
+    "author": "Tegan and Sara",
+    "duration": 210213,
+    "uri": "https://open.spotify.com/track/4dTVgHZFPlaq9nPbLVVLSG"
+   },
+   {
+    "title": "Closer",
+    "author": "Ne-Yo",
+    "duration": 234360,
+    "uri": "https://open.spotify.com/track/0GX5oOKtU0nnx5OkhenW2i"
+   },
+   {
+    "title": "Closer",
+    "author": "Nine Inch Nails",
+    "duration": 386333,
+    "uri": "https://open.spotify.com/track/6I24Xy88JD96TpC1zInwhj"
+   },
+   {
+    "title": "Closer",
+    "author": "ARK IDENTITY",
+    "duration": 224755,
+    "uri": "https://open.spotify.com/track/7pGzfMW6noq5iXWfZ1X1aB"
+   },
+   {
+    "title": "Closer",
+    "author": "Nine Inch Nails",
+    "duration": 373200,
+    "uri": "https://open.spotify.com/track/2Mv8In1IykWH5oLDc66PRC"
+   }
+  ],
+  "deezer": [
+   {
+    "title": "Closer",
+    "artist": "The Chainsmokers",
+    "rank": 840234
+   },
+   {
+    "title": "Closer",
+    "artist": "Nine Inch Nails",
+    "rank": 701099
+   },
+   {
+    "title": "Closer",
+    "artist": "Kings Of Leon",
+    "rank": 660201
+   },
+   {
+    "title": "Closer",
+    "artist": "Ne-Yo",
+    "rank": 562368
+   },
+   {
+    "title": "Closer (Nine Inch Noize Version)",
+    "artist": "Nine Inch Nails",
+    "rank": 472194
+   },
+   {
+    "title": "Closer",
+    "artist": "Tegan and Sara",
+    "rank": 372311
+   },
+   {
+    "title": "Closer",
+    "artist": "Lemaitre",
+    "rank": 641944
+   },
+   {
+    "title": "Closer To The Edge",
+    "artist": "Thirty Seconds To Mars",
+    "rank": 659763
+   },
+   {
+    "title": "Closer",
+    "artist": "Gareth",
+    "rank": 192578
+   },
+   {
+    "title": "Closer (Adriatique x GENESI)",
+    "artist": "Adriatique",
+    "rank": 543702
+   },
+   {
+    "title": "closer",
+    "artist": "Banks",
+    "rank": 397311
+   },
+   {
+    "title": "Closer (From “The Idea of You”)",
+    "artist": "August Moon",
+    "rank": 555886
+   },
+   {
+    "title": "Closer",
+    "artist": "Travis",
+    "rank": 517414
+   },
+   {
+    "title": "Closer",
+    "artist": "Angel Ruediger",
+    "rank": 454992
+   },
+   {
+    "title": "Closer",
+    "artist": "Gaskin",
+    "rank": 445029
+   },
+   {
+    "title": "Closer",
+    "artist": "Ne-Yo",
+    "rank": 446639
+   },
+   {
+    "title": "Closer",
+    "artist": "VRSTY",
+    "rank": 255724
+   },
+   {
+    "title": "Closer",
+    "artist": "The Linda Lindas",
+    "rank": 398374
+   },
+   {
+    "title": "Closer (with Paul Blanco, Mahalia)",
+    "artist": "RM",
+    "rank": 459489
+   },
+   {
+    "title": "Closer",
+    "artist": "Joe Inoue",
+    "rank": 505790
+   },
+   {
+    "title": "Closer",
+    "artist": "ARK IDENTITY",
+    "rank": 359337
+   },
+   {
+    "title": "Closer",
+    "artist": "Project Pablo",
+    "rank": 363409
+   },
+   {
+    "title": "Closer",
+    "artist": "Bou",
+    "rank": 417906
+   },
+   {
+    "title": "Closer",
+    "artist": "Samuel J",
+    "rank": 236864
+   },
+   {
+    "title": "Closer (R3hab Remix)",
+    "artist": "The Chainsmokers",
+    "rank": 375103
+   }
+  ]
+ },
+ "blinding": {
+  "spotify": [
+   {
+    "title": "Blinding Lights",
+    "author": "The Weeknd",
+    "duration": 200040,
+    "uri": "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"
+   },
+   {
+    "title": "Starboy",
+    "author": "The Weeknd",
+    "duration": 230453,
+    "uri": "https://open.spotify.com/track/7MXVkk9YMctZqd1Srtv4MB"
+   },
+   {
+    "title": "Blinding Lights",
+    "author": "The Weeknd",
+    "duration": 200045,
+    "uri": "https://open.spotify.com/track/6qYkmqFsXbj8CQjAdbYz07"
+   },
+   {
+    "title": "Blinding Faith",
+    "author": "Knocked Loose",
+    "duration": 171090,
+    "uri": "https://open.spotify.com/track/12KkNzIniU4U2LAHNgVDvw"
+   },
+   {
+    "title": "Blinding Lights",
+    "author": "Teddy Swims",
+    "duration": 214874,
+    "uri": "https://open.spotify.com/track/66aMnwdhkEc1V0AAnyYchX"
+   },
+   {
+    "title": "Blinding Lights",
+    "author": "Saint Asonia",
+    "duration": 183357,
+    "uri": "https://open.spotify.com/track/1nJOzQiAY0d9YGopbYlQsr"
+   },
+   {
+    "title": "Blinding Lights - Country Version",
+    "author": "Tebey",
+    "duration": 186008,
+    "uri": "https://open.spotify.com/track/6cRJTmba0JHDquftAkxUgG"
+   },
+   {
+    "title": "Blinding Lights - Live",
+    "author": "The Weeknd",
+    "duration": 253365,
+    "uri": "https://open.spotify.com/track/5OGxg1400HmCYVRHuccZWw"
+   },
+   {
+    "title": "Blinding Lights",
+    "author": "Adrienne Clotard",
+    "duration": 188285,
+    "uri": "https://open.spotify.com/track/0lyj9SQRKOg5hEOUzkmwZd"
+   },
+   {
+    "title": "Blinding Lights",
+    "author": "The Weeknd",
+    "duration": 200045,
+    "uri": "https://open.spotify.com/track/4eQO9RHTjYT1O9DTuZLj9v"
+   }
+  ],
+  "deezer": [
+   {
+    "title": "Blinding Lights",
+    "artist": "The Weeknd",
+    "rank": 984833
+   },
+   {
+    "title": "Bleeding Love",
+    "artist": "Leona Lewis",
+    "rank": 816491
+   },
+   {
+    "title": "Bleeding Love",
+    "artist": "Leona Lewis",
+    "rank": 786896
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Emily Dawn",
+    "rank": 562673
+   },
+   {
+    "title": "Blinding Lights (Country Version)",
+    "artist": "Tebey",
+    "rank": 406298
+   },
+   {
+    "title": "Blinding Lights (Acoustic Version)",
+    "artist": "Victoria Voss",
+    "rank": 614053
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Loi",
+    "rank": 598292
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Saint Asonia",
+    "rank": 366746
+   },
+   {
+    "title": "Blinding",
+    "artist": "Florence + The Machine",
+    "rank": 270622
+   },
+   {
+    "title": "Blinding Lights (Backhus' Interpretation)",
+    "artist": "Backhus",
+    "rank": 282869
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Pablo Cepeda",
+    "rank": 548608
+   },
+   {
+    "title": "Blinding Lights (Acoustic)",
+    "artist": "Music Travel Love",
+    "rank": 381740
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Teddy Swims",
+    "rank": 489186
+   },
+   {
+    "title": "Blinding Lights (Remix)",
+    "artist": "The Weeknd",
+    "rank": 502546
+   },
+   {
+    "title": "Blinding Light Of Heaven (Commentary)",
+    "artist": "David Sylvian",
+    "rank": 317415
+   },
+   {
+    "title": "Blinding",
+    "artist": "Florence + The Machine",
+    "rank": 150515
+   },
+   {
+    "title": "City Of Blinding Lights",
+    "artist": "U2",
+    "rank": 648717
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "X Ambassadors",
+    "rank": 483307
+   },
+   {
+    "title": "Blinding (BBC Proms at the Royal Albert Hall)",
+    "artist": "Florence + The Machine",
+    "rank": 239948
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "BAWK",
+    "rank": 415228
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "The Weeknd",
+    "rank": 547586
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Revelries",
+    "rank": 472474
+   },
+   {
+    "title": "Blinding",
+    "artist": "Maxon",
+    "rank": 100000
+   },
+   {
+    "title": "Blinding Lights",
+    "artist": "Marianne",
+    "rank": 513825
+   },
+   {
+    "title": "Blinding Faith",
+    "artist": "Knocked Loose",
+    "rank": 437984
+   }
+  ]
+ },
+ "alone alan walker": {
+  "spotify": [
+   {
+    "title": "Alone",
+    "author": "Alan Walker",
+    "duration": 161200,
+    "uri": "https://open.spotify.com/track/0JiVRyTJcJnmlwCZ854K4p"
+   },
+   {
+    "title": "Alone",
+    "author": "Alan Walker",
+    "duration": 160426,
+    "uri": "https://open.spotify.com/track/3LlmKSHR3Rs0Y3KHQLAYDk"
+   },
+   {
+    "title": "Alone, Pt. II",
+    "author": "Alan Walker",
+    "duration": 179052,
+    "uri": "https://open.spotify.com/track/0bMbDctzMmTyK2j74j3nF3"
+   },
+   {
+    "title": "alone - slowed + reverb",
+    "author": "bbygirl",
+    "duration": 150165,
+    "uri": "https://open.spotify.com/track/3Zg1tgFHquecCKnLdxa5Iv"
+   },
+   {
+    "title": "Alone, Pt. II",
+    "author": "Alan Walker",
+    "duration": 179052,
+    "uri": "https://open.spotify.com/track/28VbwtsYnj85UEODGpQRem"
+   },
+   {
+    "title": "Better Off (Alone, Pt. III)",
+    "author": "Alan Walker",
+    "duration": 151702,
+    "uri": "https://open.spotify.com/track/5zPTc1mblCrVgMmPzrTMfQ"
+   },
+   {
+    "title": "Johnny Walker",
+    "author": "Hudson Westbrook",
+    "duration": 200383,
+    "uri": "https://open.spotify.com/track/4rNwXEKoyGodaoRSeVhwZq"
+   },
+   {
+    "title": "LIKE ME",
+    "author": "MGEE",
+    "duration": 143811,
+    "uri": "https://open.spotify.com/track/3E4Qfp77PSAIZqQpeWm0Th"
+   },
+   {
+    "title": "II. Demigod",
+    "author": "Mick Gordon",
+    "duration": 50000,
+    "uri": "https://open.spotify.com/track/5UChMxLlmPaAPbsUG58VNc"
+   },
+   {
+    "title": "Hooligan",
+    "author": "Big B",
+    "duration": 200333,
+    "uri": "https://open.spotify.com/track/6VgWqvetn0KUnSQoyUG4GT"
+   }
+  ],
+  "deezer": [
+   {
+    "title": "Alone",
+    "artist": "Alan Walker",
+    "rank": 757157
+   },
+   {
+    "title": "Alone, Pt. II",
+    "artist": "Alan Walker",
+    "rank": 771060
+   },
+   {
+    "title": "Alone",
+    "artist": "Alan Walker",
+    "rank": 371145
+   },
+   {
+    "title": "Alone (Alex Arcoleo Remix)",
+    "artist": "Alan Walker",
+    "rank": 211842
+   },
+   {
+    "title": "Alone (Restrung)",
+    "artist": "Alan Walker",
+    "rank": 376489
+   },
+   {
+    "title": "Alone (Lost Frequencies Remix)",
+    "artist": "Alan Walker",
+    "rank": 192555
+   },
+   {
+    "title": "Alone (Sped up Remix)",
+    "artist": "Alan Walker",
+    "rank": 264493
+   },
+   {
+    "title": "Alone, Pt. II",
+    "artist": "Alan Walker",
+    "rank": 350179
+   },
+   {
+    "title": "Alone (Instrumental Remix)",
+    "artist": "Alan Walker",
+    "rank": 197503
+   },
+   {
+    "title": "Alone (George Kwali Remix)",
+    "artist": "Alan Walker",
+    "rank": 70687
+   },
+   {
+    "title": "Alone (Blazars Remix)",
+    "artist": "Alan Walker",
+    "rank": 197684
+   },
+   {
+    "title": "Alone (Jack Wins Remix)",
+    "artist": "Alan Walker",
+    "rank": 65705
+   },
+   {
+    "title": "alone (slowed+reverb)",
+    "artist": "Julez",
+    "rank": 146088
+   },
+   {
+    "title": "Alone (Parx Remix)",
+    "artist": "Alan Walker",
+    "rank": 35193
+   },
+   {
+    "title": "On My Way (Slowed Remix)",
+    "artist": "Farruko",
+    "rank": 222737
+   },
+   {
+    "title": "Alone - Piano Orchestral",
+    "artist": "Mathias Fritsche",
+    "rank": 74912
+   },
+   {
+    "title": "Alone, Pt. II - Piano Orchestral",
+    "artist": "Mathias Fritsche",
+    "rank": 40795
+   },
+   {
+    "title": "Alone, Pt. II",
+    "artist": "Pianella Piano",
+    "rank": 34474
+   },
+   {
+    "title": "Alone (Like Instrumental Mix)",
+    "artist": "Kar Play",
+    "rank": 20996
+   },
+   {
+    "title": "Alone",
+    "artist": "Pianella Piano",
+    "rank": 9049
+   },
+   {
+    "title": "Alone (Like Instrumental Mix Without Drum)",
+    "artist": "Kar Play",
+    "rank": 18455
+   },
+   {
+    "title": "FORRÓZIN ATUALIZADO 2025 (Alone - Alan Walker)",
+    "artist": "RITMOS DA MARY",
+    "rank": 7840
+   },
+   {
+    "title": "Alone (Originally Perfomed By Alan Walker) (Instrumental Karaoke Version)",
+    "artist": "ZZang KARAOKE",
+    "rank": 26828
+   },
+   {
+    "title": "Alone Pt. II (Tribute Version Originally Performed By Alan Walker and Ava Max)",
+    "artist": "Pearly Whites Music Machine",
+    "rank": 38655
+   },
+   {
+    "title": "Alone, Pt. 2 (Karaoke Version originally performed by Alan Walker & Ava Max)",
+    "artist": "Ann Tourage",
+    "rank": 21057
+   }
+  ]
+ }
+}
