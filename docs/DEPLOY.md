@@ -60,6 +60,8 @@ Fill these in. Save with `Ctrl+O`, `Enter`, and exit with `Ctrl+X`.
 | `OWNER_ID`, `ERROR_LOG_CHANNEL_ID`, `SPOTIFY_*` | Same as on your laptop. |
 | `OWNER_GUILD_ID` | Your own server's ID. `/eco` (owner tools) is registered there only. |
 | `BACKUP_BUCKET` | The Cloud Storage bucket for offsite backups (see "Offsite backups"). Empty = backups stay on the VM only. |
+| `YOUTUBE_REFRESH_TOKEN` | The YouTube sign-in of a **throwaway** Google account (see "YouTube sign-in"). Leave empty the first time. |
+| `SPOTIFY_MARKET` | Country for Spotify search results. Default `CA`. |
 
 Leave these out on the server:
 - `MONGODB_DEV_URI`
@@ -269,6 +271,47 @@ docker compose run --rm --entrypoint sh backup -c 'mongorestore --uri "$MONGODB_
 
 ---
 
+### YouTube sign-in (throwaway Google account)
+
+Songs play from YouTube Music behind the scenes; SoundCloud is the backup. YouTube often blocks servers in data centres (like Google Cloud) unless the server is signed in, so Lavalink signs in as a Google account.
+
+> **Use a brand-new throwaway Google account, never your personal one.** YouTube can suspend accounts used this way. Don't add a payment method or link it to anything you care about.
+
+**Set it up once** (about 5 minutes):
+
+1. **Create the account.**
+   - In a private/incognito window, create a new Google account at accounts.google.com, for example `octbot.music.yourname@gmail.com`.
+   - Open youtube.com with it once and accept anything it asks.
+2. **Start the sign-in on the VM.**
+   - In `.env`, make sure `YOUTUBE_ENABLED=true` and `YOUTUBE_OAUTH=true`, and that `YOUTUBE_REFRESH_TOKEN=` is empty.
+   - Then run:
+   ```sh
+   docker compose up -d lavalink
+   docker compose logs -f lavalink | grep -i oauth
+   ```
+   After a few seconds you'll see a line like: `OAUTH INTEGRATION: To give youtube-source access to your account, go to https://www.google.com/device and enter code XXX-XXX-XXX`.
+3. **Approve it.**
+   - In the private window, signed in **only** to the throwaway account, open **google.com/device** and type the code.
+   - Pick the throwaway account and allow access. It shows up as a TV app.
+   - If the log says `The device token has expired`, you took too long. Run `docker compose restart lavalink` for a new code.
+4. **Copy the token.**
+   - Within a few seconds the log prints `Token retrieved successfully` with a refresh token, a long text starting `1//`. Press `Ctrl+C` to stop watching.
+   - Copy the token into `.env` as `YOUTUBE_REFRESH_TOKEN=1//...`.
+5. **Apply it.**
+   - Run `docker compose up -d lavalink`. The log should no longer ask for a code.
+   - Play a song to check.
+6. **Keep the token private.** It's the account's key. Don't paste the Lavalink log anywhere while it contains the token, and that includes chats with Claude. If it ever leaks: with the throwaway account, open myaccount.google.com → **Security → Your connections to third-party apps & services**, remove the TV app's access, and redo steps 2–5.
+
+**When YouTube breaks things.** You'll notice it as "YouTube blocked" in your error-log channel, or songs only coming from SoundCloud. Music keeps working through SoundCloud while you fix it; the bot already skips YouTube for 15 minutes at a time. Fix it in this order:
+
+1. **Update the plugin.** YouTube changes often, and most breakages are fixed by a new plugin release within a few days.
+   - Check the newest version at github.com/lavalink-devs/youtube-source/releases.
+   - Change the version on the `youtube-plugin` line in `lavalink/application.yml` (or ask Claude to). Commit it, then run `sh deploy/update.sh` and `docker compose up -d --force-recreate lavalink`.
+2. **Token expired or removed:** the log talks about the refresh token or asks for a new code. Empty `YOUTUBE_REFRESH_TOKEN` and redo steps 2–5.
+3. **Account suspended:** create a new throwaway account and redo steps 1–5.
+4. **Signature or "cipher" errors in the log:** YouTube changed its player code. The plugin's documented fix is a small "remote cipher" server (yt-cipher) running next to Lavalink; ask Claude to add it.
+5. **Turn YouTube off:** set `YOUTUBE_ENABLED=false` in `.env` and run `docker compose up -d lavalink`. The bot then uses SoundCloud only, with nothing else to change.
+
 ## Going live (Phase 7d, the cutover, done together)
 
 The old bot has been offline for years, so this is a relaunch, not a live switch. **[You]** = in a browser or on the VM; **[Me]** = Claude, from the laptop.
@@ -352,6 +395,7 @@ Do these in order. Everything stays on the old host until the new one is proven.
 | Logs say `MongoServerSelectionError` or the connection times out | The server's IP isn't in Atlas Network Access, or `MONGODB_URI` is wrong. |
 | `Invalid environment: …` | A required `.env` value is missing (`token`, `CLIENT_ID`, `MONGODB_URI`). |
 | Music: "Song search is temporarily unavailable" | The official Lavalink is running. Copy the patched jar over and set `LAVALINK_PATCHED=true`, then run `docker compose up -d lavalink`. |
+| "YouTube blocked" in the error-log channel | YouTube is refusing the server. Music falls back to SoundCloud by itself; see "YouTube sign-in" → "When YouTube breaks things". |
 | Commands answer twice | Two copies of the bot are running on one token. Stop one. |
 | Slash commands missing | Run the `deploy-commands` step. Global commands take up to an hour. |
 | `docker: permission denied` | Log out and back in after the setup script. |

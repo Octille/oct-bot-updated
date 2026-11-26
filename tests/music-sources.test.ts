@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, isPreviewOnly, rankSearch, resolvesPublic, mainArtist, mirrorService, pickSoundCloud } from '../src/music/sources';
+import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, isPreviewOnly, rankSearch, resolvesPublic, mainArtist, mirrorService, pickMatch } from '../src/music/sources';
 import { choiceName, choiceValue, clearSuggestCache, rerankByPopularity, resolveChoice, suggest } from '../src/music/suggest';
 import type { Track } from 'lavalink-client';
 import { getCommandList } from '../src/framework/commandList';
@@ -51,19 +51,19 @@ describe('matching Spotify/Apple songs to SoundCloud', () => {
   it('takes the same recording (±3 s, title and artist) over remixes, covers and previews; closest length wins', () => {
     const right = c('M83 - Midnight City (Official Audio)', 'M83 Official', 244_000);
     const candidates = [c('Midnight City (Remix)', 'M83', 243_000), c('Midnight City', 'Some Cover Band', 243_000), c('M83 - Midnight City', 'fan', 30_000), c('Midnight City', 'M83', 246_000), right];
-    expect(pickSoundCloud(song, candidates)).toEqual({ track: right, quality: 'exact' });
+    expect(pickMatch(song, candidates)).toEqual({ track: right, quality: 'exact' });
   });
 
   it('without the same recording: a plausible title-and-artist match, else the best of the rest', () => {
     const near = c('Midnight City', 'M83', 251_000);
-    expect(pickSoundCloud(song, [c('Midnight City (Remix)', 'M83', 243_000), near])).toEqual({ track: near, quality: 'close' });
+    expect(pickMatch(song, [c('Midnight City (Remix)', 'M83', 243_000), near])).toEqual({ track: near, quality: 'close' });
     // Over twice the length (a 1-hour loop) or under a minute: never "close"
     const loop = c('M83 - Midnight City 1 hour', 'loops', 3_600_000);
     const snippet = c('M83 - Midnight City', 'clips', 45_000);
     const cover = c('M83 - Midnight City (cover)', 'someone', 240_000);
     const otherSong = c('M83 - Wait', 'M83', 243_000);
-    expect(pickSoundCloud(song, [otherSong, loop, snippet, cover])).toEqual({ track: cover, quality: 'loose' });
-    expect(pickSoundCloud(song, [])).toBeNull();
+    expect(pickMatch(song, [otherSong, loop, snippet, cover])).toEqual({ track: cover, quality: 'loose' });
+    expect(pickMatch(song, [])).toBeNull();
   });
 
   it('never picks a 30-second preview (full length reported, /preview/ stream)', () => {
@@ -71,20 +71,20 @@ describe('matching Spotify/Apple songs to SoundCloud', () => {
     const reupload = { info: { title: 'M83 - Midnight City', author: 'fan', duration: 244_000, identifier: 'A:https://api-v2.soundcloud.com/media/soundcloud:tracks:2/y/stream/hls' } };
     expect(isPreviewOnly(preview)).toBe(true);
     expect(isPreviewOnly(reupload)).toBe(false);
-    expect(pickSoundCloud(song, [preview, reupload])).toEqual({ track: reupload, quality: 'exact' });
-    expect(pickSoundCloud(song, [preview])).toBeNull();
+    expect(pickMatch(song, [preview, reupload])).toEqual({ track: reupload, quality: 'exact' });
+    expect(pickMatch(song, [preview])).toBeNull();
     expect(rankSearch('midnight city m83', [preview, reupload]).ranked.map((r) => r.track)).toEqual([reupload]);
   });
 
   it("plays nothing when no upload names the artist (a different song that shares the title)", () => {
     const closer = { title: 'Closer', author: 'The Chainsmokers, Halsey', duration: 244_000 };
-    expect(pickSoundCloud(closer, [c('Closer-Gehlee(male version-Gelmusic-Gelxie.mp3', 'Brtbrrt18', 84_000), c('Closer', 'NE-YO', 234_000)])).toBeNull();
+    expect(pickMatch(closer, [c('Closer-Gehlee(male version-Gelmusic-Gelxie.mp3', 'Brtbrrt18', 84_000), c('Closer', 'NE-YO', 234_000)])).toBeNull();
   });
 
   it('a remix is fine when the remix was asked for; accents, featured artists and one-word uploaders are handled', () => {
     const remix = { title: 'Midnight City (Eric Prydz Remix)', author: 'M83, Eric Prydz', duration: 400_000 };
-    expect(pickSoundCloud(remix, [c('M83 - Midnight City (Eric Prydz Remix)', 'Eric Prydz', 401_000)])?.quality).toBe('exact');
-    expect(pickSoundCloud({ title: 'Café del Mar', author: 'Energy 52', duration: 400_000 }, [c('Cafe Del Mar (feat. nobody)', 'energy52music', 401_000)])?.quality).toBe('exact');
+    expect(pickMatch(remix, [c('M83 - Midnight City (Eric Prydz Remix)', 'Eric Prydz', 401_000)])?.quality).toBe('exact');
+    expect(pickMatch({ title: 'Café del Mar', author: 'Energy 52', duration: 400_000 }, [c('Cafe Del Mar (feat. nobody)', 'energy52music', 401_000)])?.quality).toBe('exact');
     expect(mainArtist('Alan Walker, Ava Max')).toBe('Alan Walker');
     expect(mainArtist('Calvin Harris feat. Rihanna')).toBe('Calvin Harris');
   });
@@ -95,7 +95,7 @@ describe('matching Spotify/Apple songs to SoundCloud', () => {
   }[];
   const run = (q: string) => {
     const f = fixtures.find((x) => x.query === q)!;
-    return { f, m: pickSoundCloud(f.spotify, f.soundcloud.map((info) => ({ info })))! };
+    return { f, m: pickMatch(f.spotify, f.soundcloud.map((info) => ({ info })))! };
   };
 
   it('real searches: the official uploads are previews and are never picked', () => {

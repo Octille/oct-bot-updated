@@ -23,6 +23,22 @@ export function escapeTitle(title: string): string {
   return escapeMarkdown(title).replace(/[[\]]/g, '').slice(0, 200);
 }
 
+/**
+ * The link players see for a track: never a YouTube URL (YouTube works behind the scenes). A song
+ * matched from Spotify links to its Spotify page; other YouTube tracks get no link.
+ */
+export function trackLink(track: Track): string | null {
+  const link = (track.userData as { match?: { link?: string } } | undefined)?.match?.link;
+  if (link) return link;
+  return track.info.sourceName === 'youtube' ? null : track.info.uri ?? null;
+}
+
+/** The title as a link when there's one to show (see trackLink), else plain. */
+export function linkedTitle(track: Track): string {
+  const link = trackLink(track);
+  return link ? `[${escapeTitle(track.info.title)}](${link})` : escapeTitle(track.info.title);
+}
+
 export function formatTime(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return 'live';
   const s = Math.floor(ms / 1000);
@@ -120,7 +136,7 @@ export function nowPlayingPanel(state: PanelState, track: Track, ended?: string)
 
   const heading = [
     text(`-# ${titleIcon('music')} ${ended ? 'Played' : 'Now playing'}`),
-    text(`### [${escapeTitle(info.title)}](${info.uri})\n${escapeTitle(info.author)}`),
+    text(`### ${linkedTitle(track)}\n${escapeTitle(info.author)}`),
   ];
   if (info.artworkUrl) {
     container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(heading)
@@ -196,7 +212,7 @@ export function queuePage(player: Player, page: number, perPage: number): { text
   return {
     pages,
     text: [
-      now ? `**Now:** [${escapeTitle(now.info.title)}](${now.info.uri}) · ${formatTime(player.position)} / ${formatTime(now.info.duration ?? 0)}` : 'Nothing playing.',
+      now ? `**Now:** ${linkedTitle(now)} · ${formatTime(player.position)} / ${formatTime(now.info.duration ?? 0)}` : 'Nothing playing.',
       '',
       ...(lines.length ? lines : ['The queue is empty. Add songs with `/play`.']),
       '',

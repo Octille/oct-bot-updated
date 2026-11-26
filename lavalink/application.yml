@@ -7,6 +7,9 @@ server:
 lavalink:
   plugins:
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+    # YouTube / YouTube Music, used behind the scenes to play songs (links to YouTube stay refused by the bot)
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      snapshot: false
   server:
     password: "${LAVALINK_PASSWORD:youshallnotpass}"
     sources:
@@ -21,6 +24,23 @@ lavalink:
       local: false
 
 plugins:
+  youtube:
+    enabled: ${YOUTUBE_ENABLED:true} # false = SoundCloud only
+    allowSearch: true # ytmsearch: is how the bot finds songs
+    allowDirectVideoIds: false
+    allowDirectPlaylistIds: false
+    # Tried in order. MUSIC only searches; TV plays with the OAuth sign-in; the rest are fallbacks without it.
+    clients:
+      - MUSIC
+      - TV
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
+    oauth:
+      # A throwaway Google account, never a personal one (docs/DEPLOY.md, "YouTube sign-in").
+      # Empty token = Lavalink prints a sign-in code in its log; after signing in it prints the token to put in .env.
+      enabled: ${YOUTUBE_OAUTH:true}
+      refreshToken: "${YOUTUBE_REFRESH_TOKEN:}"
   lavasrc:
     # Spotify and Apple Music links are only read for their track info; the bot then finds the song
     # on SoundCloud itself (and says so when there's no good match). Mirroring only searches SoundCloud.
@@ -57,3 +77,5 @@ logging:
   level:
     root: INFO
     lavalink: INFO
+    # Shows the YouTube sign-in code and the refresh token (docs/DEPLOY.md)
+    dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO

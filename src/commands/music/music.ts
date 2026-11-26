@@ -9,7 +9,7 @@ import { logError } from '../../lib/logger';
 import { button, rows } from '../../lib/ui';
 import { cycleLoop, parsePosition, setVolume, shuffle, skip, stop, togglePause } from '../../music/actions';
 import { lavalink, nodeReady, refreshPanel, voiceCheck } from '../../music/manager';
-import { escapeTitle, formatTime, queuePage } from '../../music/panel';
+import { escapeTitle, formatTime, linkedTitle, queuePage } from '../../music/panel';
 
 export default defineCommand({
   data: new SlashCommandBuilder().setName('music').setDescription('Control the music')
@@ -62,7 +62,7 @@ export default defineCommand({
     }
     if (sub === 'nowplaying') {
       const t = player!.queue.current!;
-      return reply(`**[${escapeTitle(t.info.title)}](${t.info.uri})**\n${t.info.author} · ${formatTime(player!.position)} / ${formatTime(t.info.duration)} · volume ${player!.volume}%`);
+      return reply(`**${linkedTitle(t)}**\n${t.info.author} · ${formatTime(player!.position)} / ${formatTime(t.info.duration)} · volume ${player!.volume}%`);
     }
 
     const problem = voiceCheck(interaction.member as GuildMember, player);

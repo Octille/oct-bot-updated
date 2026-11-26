@@ -6,20 +6,19 @@ import { embed } from '../../lib/embeds';
 import { resolveChoice, suggest } from '../../music/suggest';
 import { UserError } from '../../lib/errors';
 import { icon, titleIcon } from '../../lib/icons';
-import { escapeTitle, formatTime } from '../../music/panel';
+import { escapeTitle, formatTime, linkedTitle } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
 import { logError } from '../../lib/logger';
-import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, classifyQuery, isAudioAttachment, isPreviewOnly, mainArtist, mapLimit, matchRules, mirrorService, pickSoundCloud, rankSearch, resolvesPublic, sourceRules, type MatchQuality } from '../../music/sources';
+import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, classifyQuery, isAudioAttachment, isPreviewOnly, mapLimit, mirrorService, resolvesPublic, sourceRules, type MatchQuality } from '../../music/sources';
 import { spotifyEnabled, spotifySongs } from '../../music/suggest';
+import { findSong, findText, YTM, type Searcher } from '../../music/resolve';
 
 /** `note`: shown under the reply (e.g. the original wasn't found). */
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number; note?: string };
 
 const NOT_ORIGINAL = "Couldn't find the original; playing the closest version.";
 const unavailable = (song: Track) => `**${escapeTitle(song.info.title)}** by ${escapeTitle(song.info.author)} isn't available here. Try another version from the suggestions.`;
-/** SoundCloud search with more results than the default 10, for matching a song (lavaplayer's scsearch[offset,limit]). */
-const SC_MATCH = `scsearch[0,${matchRules.candidates}]`;
 
 const MUSIC_DOWN = 'Music is unavailable right now. Try again in a minute.';
 
@@ -30,15 +29,18 @@ const MUSIC_DOWN = 'Music is unavailable right now. Try again in a minute.';
  */
 type Failure = 'source' | 'client' | null;
 
-async function search(player: Player, query: string, user: User, source?: 'scsearch' | 'spsearch' | typeof SC_MATCH): Promise<{ tracks: Track[]; playlist?: string; failure: Failure; previews?: number }> {
+async function search(player: Player, query: string, user: User, source?: string): Promise<{ tracks: Track[]; playlist?: string; failure: Failure; previews?: number; error?: string }> {
   const what = source ? `${source}:${query}` : query;
+  // YouTube switched off in Lavalink (YOUTUBE_ENABLED=false): nothing to search, not an error
+  if (source === YTM && !player.node.info?.sourceManagers?.includes('youtube')) return { tracks: [], failure: null };
   try {
     // lavalink-client passes an unknown source (scsearch[0,20]) through to Lavalink as the prefix
     const res = await player.search(source ? { query, source: source as 'scsearch' } : { query }, user);
     if (res.loadType === 'error') {
       const ex = (res as { exception?: { message?: string | null; cause?: string; severity?: string } | null }).exception;
-      logError('music search', new Error(`Lavalink couldn't load "${what.slice(0, 120)}": ${ex?.message ?? 'unknown'}${ex?.cause ? ` (${ex.cause.split('\n')[0]})` : ''}`));
-      return { tracks: [], failure: 'source' };
+      const error = `${ex?.message ?? 'unknown'}${ex?.cause ? ` (${ex.cause.split('\n')[0]})` : ''}`;
+      logError('music search', new Error(`Lavalink couldn't load "${what.slice(0, 120)}": ${error}`));
+      return { tracks: [], failure: 'source', error };
     }
     if (res.loadType === 'empty') return { tracks: [], failure: null };
     // SoundCloud previews report the full length but stop after 30 seconds: never queue them
@@ -51,35 +53,33 @@ async function search(player: Player, query: string, user: User, source?: 'scsea
   }
 }
 
-/** A Spotify/Apple song found on SoundCloud (see pickSoundCloud); null when SoundCloud has nothing for it. */
-async function onSoundCloud(player: Player, song: Track, user: User): Promise<{ track: Track; quality: MatchQuality } | null | Failure> {
-  const res = await search(player, `${mainArtist(song.info.author)} ${song.info.title}`, user, SC_MATCH);
-  if (res.failure) return res.failure;
-  return pickSoundCloud(song.info, res.tracks.filter((t) => !t.info.isStream));
-}
+/** /play's searches, with the user as requester (resolve.ts). */
+const searcher = (player: Player, user: User): Searcher => (query, source) => search(player, query, user, source);
+
+/** The link players see for a Spotify song: the Spotify page (never a YouTube URL). */
+const spotifyLink = (song: Track) => (song.info.sourceName === 'spotify' || /open\.spotify\.com/.test(song.info.uri ?? '') ? song.info.uri ?? undefined : undefined);
 
 /**
- * Plain text submitted without picking a suggestion. With Spotify keys: the top suggestion, found
- * on SoundCloud. Without (or if Spotify search fails): the top-ranked SoundCloud result.
+ * Plain text submitted without picking a suggestion. With Spotify keys: the top suggestion, found on
+ * YouTube Music or SoundCloud. Without (or if Spotify search fails): YouTube Music's top result, else SoundCloud's.
  */
 async function topResult(player: Player, query: string, user: User): Promise<Found> {
   if (spotifyEnabled()) {
     // The same order as the suggestions: Spotify re-ranked by popularity
     const song = (await spotifySongs(query, { deadlineMs: 6_000 }))[0];
     if (song) {
-      const m = await onSoundCloud(player, song, user);
+      const m = await findSong(searcher(player, user), song.info, spotifyLink(song));
       if (m === 'client') throw new UserError(MUSIC_DOWN);
-      if (m && typeof m === 'object') return { tracks: [m.track], note: m.quality === 'exact' ? undefined : NOT_ORIGINAL };
-      // Nothing on SoundCloud names the artist: say so rather than play a random song with the same title
+      // Nothing names the artist: say so rather than play a random song with the same title
       if (m === null) throw new UserError(unavailable(song));
+      return { tracks: [m.track], note: m.quality === 'exact' ? undefined : NOT_ORIGINAL };
     }
   }
-  const res = await search(player, query, user, 'scsearch');
-  if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
-  if (res.failure === 'source') throw new UserError(SEARCH_DOWN);
-  const top = rankSearch(query, res.tracks.filter((t) => !t.info.isStream)).ranked[0];
-  if (!top) throw new UserError(`Nothing found on SoundCloud for **${escapeTitle(query.slice(0, 80))}**.`);
-  return { tracks: [top.track] };
+  const top = await findText(searcher(player, user), query);
+  if (top === 'client') throw new UserError(MUSIC_DOWN);
+  if (top === 'source') throw new UserError(SEARCH_DOWN);
+  if (!top) throw new UserError(`Nothing found for **${escapeTitle(query.slice(0, 80))}**.`);
+  return { tracks: [top] };
 }
 
 /**
@@ -107,12 +107,12 @@ async function enqueue(player: Player, found: Found) {
   const text = toAdd.length > 1
     ? `${icon('success')} Added **${toAdd.length}** tracks${found.name ? ` from **${escapeTitle(found.name)}**` : ''}.`
     : startsNow ? `${icon('success')} Playing **${escapeTitle(first.info.title)}**.`
-      : `${icon('success')} Queued **[${escapeTitle(first.info.title)}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)} · #${player.queue.tracks.length} in the queue.`;
+      : `${icon('success')} Queued **${linkedTitle(first)}** · ${formatTime(first.info.duration ?? 0)} · #${player.queue.tracks.length} in the queue.`;
   return embed('music').setTitle(`${titleIcon('music')} Play`).setDescription([text, ...notes.map((n) => `-# ${n}`)].join('\n'));
 }
 
 /**
- * Spotify / Apple Music: read the songs, then find each one on SoundCloud. A single song (a link or a
+ * Spotify / Apple Music: read the songs, then find each one on YouTube Music or SoundCloud. A single song (a link or a
  * picked suggestion) plays the closest version when the original isn't there, with a note; in a
  * playlist, songs without a title-and-artist match are skipped.
  */
@@ -123,9 +123,8 @@ async function fromMirror(player: Player, url: string, user: User): Promise<Foun
   if (!res.tracks.length) throw new UserError(`Couldn't read that ${service} link. Check that it's a song, album or public playlist.`);
   const songs = res.tracks.slice(0, sourceRules.maxMatchedTracks);
   const single = songs.length === 1 && !res.playlist;
-  const results = await mapLimit(songs, sourceRules.matchConcurrency, (song) => onSoundCloud(player, song, user));
+  const results = await mapLimit(songs, sourceRules.matchConcurrency, (song) => findSong(searcher(player, user), song.info, spotifyLink(song)));
   if (results.every((r) => r === 'client')) throw new UserError(MUSIC_DOWN);
-  if (results.every((r) => r === 'client' || r === 'source')) throw new UserError(SEARCH_DOWN);
   const matches = results.filter((r): r is { track: Track; quality: MatchQuality } => !!r && typeof r === 'object' && (single || r.quality !== 'loose'));
   if (!matches.length) {
     throw new UserError(single ? unavailable(songs[0]!) : `Couldn't find good SoundCloud matches for the songs in that ${service} link.`);

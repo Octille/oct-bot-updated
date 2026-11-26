@@ -187,15 +187,19 @@ function evidence(song: SongInfo, c: SongInfo) {
   };
 }
 
+/** YouTube: a music video or lyric video plays intros and skits; official audio ("Topic" channels) is the song itself. */
+const VIDEOISH = /official (music )?video|music video|\(video\)|\[video\]|lyric video|lyrics|visuali[sz]er|\bmv\b/i;
+const isTopic = (author: string) => / - topic$/i.test(author);
+
 /**
- * Finds a Spotify/Apple song on SoundCloud, among uploads that play in full (no previews). The same
+ * Finds a Spotify/Apple song on YouTube Music or SoundCloud, among uploads that play in full (no previews). The same
  * recording is the result whose length is within ±3 s and whose title and uploader name the title
  * and artist (closest length wins). Without one, the best-scoring result that still names the
  * artist in its title or uploader: title/artist match and length closeness count; other versions,
  * very short results and results over twice the length are pushed down. Null when nothing names
  * the artist (never a random song that happens to share the title).
  */
-export function pickSoundCloud<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): { track: T; quality: MatchQuality } | null {
+export function pickMatch<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): { track: T; quality: MatchQuality } | null {
   const playable = candidates.filter((t) => !isPreviewOnly(t));
   if (!playable.length) return null;
   const n = playable.length;
@@ -207,10 +211,14 @@ export function pickSoundCloud<T extends { info: SongInfo }>(song: SongInfo, can
     const tooShort = c.duration > 0 && c.duration < matchRules.minLengthMs && song.duration >= matchRules.minLengthMs + matchRules.toleranceMs;
     const tooLong = song.duration > 0 && c.duration > 2 * song.duration;
     const near = Number.isFinite(diff) ? Math.max(0, 1 - diff / Math.max(10_000, song.duration * 0.1)) : 0;
-    const score = 0.5 * e.title + 0.2 * e.focus + 0.3 * e.artist + 0.3 * near - (e.version ? 0.6 : 0) - (tooShort ? 1 : 0) - (tooLong ? 1 : 0) + 0.05 * (1 - i / n);
-    return { track, i, diff, matches, namesArtist: e.artist >= 0.5, sameSong: e.title >= 0.75 && e.focus >= 0.5, plausible: !tooShort && !tooLong, score };
+    const videoish = VIDEOISH.test(c.title);
+    const score = 0.5 * e.title + 0.2 * e.focus + 0.3 * e.artist + 0.3 * near - (e.version ? 0.6 : 0) - (tooShort ? 1 : 0) - (tooLong ? 1 : 0)
+      - (videoish ? 0.2 : 0) + (isTopic(c.author) ? 0.1 : 0) + 0.05 * (1 - i / n);
+    return { track, i, diff, matches, videoish, namesArtist: e.artist >= 0.5, sameSong: e.title >= 0.75 && e.focus >= 0.5, plausible: !tooShort && !tooLong, score };
   });
-  const exact = scored.filter((s) => s.matches && s.diff <= matchRules.toleranceMs).sort((a, b) => a.diff - b.diff || a.i - b.i)[0];
+  // Official audio before music videos, then the closest length
+  const exact = scored.filter((s) => s.matches && s.diff <= matchRules.toleranceMs)
+    .sort((a, b) => Number(a.videoish) - Number(b.videoish) || a.diff - b.diff || a.i - b.i)[0];
   if (exact) return { track: exact.track, quality: 'exact' };
   const byScore = [...scored].sort((a, b) => b.score - a.score);
   const close = byScore.find((s) => s.matches && s.plausible);

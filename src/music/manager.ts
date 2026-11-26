@@ -5,6 +5,8 @@ import { logError, logInfo } from '../lib/logger';
 import { musicRules } from '../content/music';
 import { escapeTitle, nowPlayingPanel, panelState, type PanelState } from './panel';
 import { clearHistory, recordStart } from './history';
+import { findSong, matchData, type Searcher } from './resolve';
+import { isYouTube, noteYouTubeError } from './youtube';
 
 /**
  * Music (Lavalink). One manager per process. If Lavalink isn't reachable the rest of the bot works;
@@ -78,10 +80,13 @@ export function createLavalink(client: Client): void {
     panelQueue.set(player.guildId, next);
   });
   manager.on('trackError', (player, track, payload) => {
-    const last = errorNotes.get(player.guildId) ?? 0;
-    if (Date.now() - last < 60_000) return;
-    errorNotes.set(player.guildId, Date.now());
-    void textChannel(client, player)?.send(`Couldn't play **${escapeTitle(track?.info.title ?? 'a track')}** (${payload.exception?.message ?? 'unknown error'}). Skipping.`).catch(() => undefined);
+    const message = payload.exception?.message ?? 'unknown error';
+    // YouTube failed (blocked, sign-in wall, cipher change…): play the same song from SoundCloud instead, quietly
+    if (track && isYouTube(track as Track)) {
+      void playFromSoundCloud(client, player, track as Track, message).catch((err) => logError('music fallback', err));
+      return;
+    }
+    noteSkipped(client, player, track, message);
   });
   // Not seen so far, but log it so a stalled stream shows up in the error channel
   manager.on('trackStuck', (player, track, payload) => {
@@ -99,6 +104,42 @@ export function createLavalink(client: Client): void {
   });
 
   setInterval(() => refreshTick(client), musicRules.panelRefreshMs).unref();
+}
+
+/** Tells the channel a track was skipped (at most once a minute per server). */
+function noteSkipped(client: Client, player: Player, track: { info: { title?: string } } | null | undefined, reason?: string): void {
+  const last = errorNotes.get(player.guildId) ?? 0;
+  if (Date.now() - last < 60_000) return;
+  errorNotes.set(player.guildId, Date.now());
+  void textChannel(client, player)?.send(`Couldn't play **${escapeTitle(track?.info.title ?? 'a track')}**${reason ? ` (${reason})` : ''}. Skipping.`).catch(() => undefined);
+}
+
+/**
+ * A YouTube track failed to play: note it (repeated failures or a block switch YouTube off for a
+ * while, see youtube.ts), then find the same song on SoundCloud and put it next in the queue.
+ * Lavalink's track-end moves the queue on, so it plays straight after; if the queue already ended, start it.
+ */
+async function playFromSoundCloud(client: Client, player: Player, track: Track, message: string): Promise<void> {
+  noteYouTubeError(`${message} (${track.info.identifier})`);
+  const match = matchData(track);
+  const song = match?.song ?? { title: track.info.title, author: track.info.author, duration: track.info.duration ?? 0 };
+  const search: Searcher = async (query, source) => {
+    try {
+      const res = await player.search({ query, source: source as 'scsearch' }, track.requester);
+      if (res.loadType === 'error') return { tracks: [], failure: 'source' };
+      return { tracks: res.tracks as Track[], failure: null };
+    } catch {
+      return { tracks: [], failure: 'client' };
+    }
+  };
+  const found = await findSong(search, song, match?.link, { youtube: false });
+  if (manager?.getPlayer(player.guildId) !== player) return; // stopped meanwhile
+  if (!found || found === 'client') {
+    noteSkipped(client, player, track);
+    return;
+  }
+  await player.queue.add(found.track, 0);
+  if (!player.queue.current && !player.playing) await player.play();
 }
 
 export async function initLavalink(client: Client<true>): Promise<void> {

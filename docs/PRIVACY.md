@@ -30,7 +30,7 @@ OctBot only stores what it needs to run its features. All of it is tied to Disco
 
 It doesn't save message text, apart from the warning reasons and AFK notes described above.
 
-**Music.** OctBot keeps the queue and recent songs in memory while it's playing in your server. Nothing about music is saved. To find songs, what you type in /play is sent to Spotify, SoundCloud and Deezer. Only the search words are sent, not who typed them.
+**Music.** OctBot keeps the queue and recent songs in memory while it's playing in your server. Nothing about music is saved. To find and play songs, what you type in /play is sent to Spotify, YouTube and YouTube Music, SoundCloud and Deezer. Only the search words are sent, not who typed them.
 
 ## Data from the original OctBot (2021–2022)
 
