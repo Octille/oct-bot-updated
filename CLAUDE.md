@@ -10,6 +10,6 @@
 
 - Keep reports short: what changed, what to test (max 8 bullets), open questions. No big tables unless asked.
 - While working, run only the related tests; run the full suite once before pushing.
-- Use the reviewer subagent once per phase, focused on money, exploits and migration.
+- Self-review money, exploit and migration risks; ask before spawning a reviewer subagent (it costs too many tokens).
 - Read only the section of `PLAN.md` / `BALANCE.md` you need, not the whole file.
 - Batch small fixes into one pass.
