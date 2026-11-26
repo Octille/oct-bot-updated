@@ -1,9 +1,9 @@
 import { LavalinkManager, type Player, type Track } from 'lavalink-client';
-import type { Client, GuildMember, SendableChannels } from 'discord.js';
+import { PermissionFlagsBits, type Client, type GuildMember, type SendableChannels } from 'discord.js';
 import { env } from '../config/env';
 import { logError, logInfo } from '../lib/logger';
 import { musicRules } from '../content/music';
-import { nowPlayingPanel } from './panel';
+import { escapeTitle, nowPlayingPanel } from './panel';
 
 /**
  * Music (Lavalink). One manager per process. If Lavalink isn't reachable the rest of the bot works;
@@ -16,46 +16,74 @@ export function lavalink(): LavalinkManager | null {
 }
 
 /** Message id of the current now-playing panel per guild, so the old one loses its buttons. */
-const panels = new Map<string, { channelId: string; messageId: string }>();
+const panels = new Map<string, { channelId: string; messageId: string; track: string }>();
+/** Last track-error notice per guild (at most one a minute). */
+const errorNotes = new Map<string, number>();
+/** Panel posts per guild run one after another, so fast skips can't leave two live panels. */
+const panelQueue = new Map<string, Promise<void>>();
+
 /** Pending "leave when alone / idle" timers per guild. */
 const leaveTimers = new Map<string, NodeJS.Timeout>();
 
+function nodeOptions() {
+  return { id: 'main', host: env.LAVALINK_HOST, port: env.LAVALINK_PORT, authorization: env.LAVALINK_PASSWORD, retryAmount: 20, retryDelay: 5_000 };
+}
+
 export function createLavalink(client: Client): void {
   manager = new LavalinkManager({
-    nodes: [{
-      id: 'main',
-      host: env.LAVALINK_HOST,
-      port: env.LAVALINK_PORT,
-      authorization: env.LAVALINK_PASSWORD,
-      retryAmount: 20,
-      retryDelay: 5_000,
-    }],
+    nodes: [nodeOptions()],
     sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
     client: { id: env.CLIENT_ID },
     autoSkip: true,
-    playerOptions: { defaultSearchPlatform: 'ytmsearch', volumeDecrementer: 1, onDisconnect: { autoReconnect: false, destroyPlayer: true }, onEmptyQueue: { destroyAfterMs: musicRules.idleLeaveMs } },
+    playerOptions: { defaultSearchPlatform: 'ytmsearch', volumeDecrementer: 1, onDisconnect: { autoReconnect: false, destroyPlayer: true }, onEmptyQueue: { destroyAfterMs: musicRules.idleLeaveMs },
+      // A few broken tracks in a playlist shouldn't kill the player
+      maxErrorsPerTime: { threshold: 60_000, maxAmount: musicRules.maxErrorsPerMinute } },
   });
 
   client.on('raw', (d) => manager?.sendRawData(d));
 
   manager.nodeManager.on('connect', (node) => logInfo('music', `Lavalink node "${node.id}" connected`));
   manager.nodeManager.on('error', (node, err) => logError(`lavalink ${node.id}`, err));
-  manager.nodeManager.on('disconnect', (node, reason) => logInfo('music', `Lavalink node "${node.id}" disconnected (${reason?.reason ?? 'unknown'})`));
+  manager.nodeManager.on('disconnect', (node, reason) => {
+    logInfo('music', `Lavalink node "${node.id}" disconnected (${reason?.reason ?? 'unknown'})`);
+    // Players on a dead node go silent: end them cleanly and say why
+    for (const player of [...(manager?.players.values() ?? [])]) {
+      if (player.node?.id !== node.id) continue;
+      void textChannel(client, player)?.send('Lost the connection to the music server. Use `/play` again in a moment.').catch(() => undefined);
+      void player.destroy('node disconnected').catch(() => undefined);
+    }
+  });
+  // After all reconnect attempts the library removes the node; add it back so music recovers without a restart
+  manager.nodeManager.on('destroy', (node) => {
+    logInfo('music', `Lavalink node "${node.id}" gave up reconnecting; trying again in a minute`);
+    setTimeout(() => {
+      try {
+        const fresh = manager?.nodeManager.createNode(nodeOptions());
+        fresh?.connect();
+      } catch (err) {
+        logError('lavalink re-add', err);
+      }
+    }, 60_000);
+  });
 
   manager.on('trackStart', (player, track) => {
-    void postPanel(client, player, track).catch((err) => logError('music panel', err));
+    const prev = panelQueue.get(player.guildId) ?? Promise.resolve();
+    const next = prev.then(() => postPanel(client, player, track)).catch((err) => logError('music panel', err));
+    panelQueue.set(player.guildId, next);
   });
-  manager.on('trackError', (player, _track, payload) => {
-    void textChannel(client, player)?.send(`Couldn't play that track (${payload.exception?.message ?? 'unknown error'}). Skipping.`).catch(() => undefined);
-  });
-  manager.on('trackStuck', (player) => {
-    void player.skip(0, false).catch(() => undefined);
+  manager.on('trackError', (player, track, payload) => {
+    const last = errorNotes.get(player.guildId) ?? 0;
+    if (Date.now() - last < 60_000) return;
+    errorNotes.set(player.guildId, Date.now());
+    void textChannel(client, player)?.send(`Couldn't play **${escapeTitle(track?.info.title ?? 'a track')}** (${payload.exception?.message ?? 'unknown error'}). Skipping.`).catch(() => undefined);
   });
   manager.on('queueEnd', (player) => {
     void retirePanel(client, player.guildId, 'The queue has finished.').catch(() => undefined);
   });
   manager.on('playerDestroy', (player) => {
     clearLeave(player.guildId);
+    errorNotes.delete(player.guildId);
+    panelQueue.delete(player.guildId);
     void retirePanel(client, player.guildId, 'Stopped.').catch(() => undefined);
   });
 }
@@ -82,9 +110,17 @@ function textChannel(client: Client, player: Player): SendableChannels | null {
 async function postPanel(client: Client, player: Player, track: Track | null): Promise<void> {
   const channel = textChannel(client, player);
   if (!channel || !track) return;
+  // Looping the same track: refresh the panel instead of posting a new one each time
+  const current = panels.get(player.guildId);
+  if (current && current.track === track.encoded && player.repeatMode === 'track') return refreshPanel(client, player);
   await retirePanel(client, player.guildId, null);
   const msg = await channel.send(nowPlayingPanel(player, track));
-  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id });
+  // Destroyed while sending: don't keep a live panel for a dead player
+  if (!manager?.getPlayer(player.guildId)) {
+    await msg.edit({ components: [] }).catch(() => undefined);
+    return;
+  }
+  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id, track: track.encoded ?? '' });
 }
 
 /** Refreshes the current panel in place (after pause, loop, volume…). */
@@ -129,8 +165,12 @@ export function checkAlone(client: Client, guildId: string): void {
   }, musicRules.aloneLeaveMs));
 }
 
-/** The member must be in a voice channel, and in the bot's channel if it's already playing. */
-export function voiceCheck(member: GuildMember, player: Player | undefined): string | null {
+/**
+ * The member must be in a voice channel, and in the bot's channel if it's already playing.
+ * Members with Manage Channels can control playback from anywhere (to stop abuse).
+ */
+export function voiceCheck(member: GuildMember, player: Player | undefined, allowModerators = true): string | null {
+  if (allowModerators && player?.voiceChannelId && member.permissions.has(PermissionFlagsBits.ManageChannels)) return null;
   const channel = member.voice.channel;
   if (!channel) return 'Join a voice channel first.';
   if (player?.voiceChannelId && player.voiceChannelId !== channel.id) return `I'm playing in <#${player.voiceChannelId}>. Join that channel to control the music.`;

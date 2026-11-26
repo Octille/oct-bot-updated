@@ -17,7 +17,9 @@ export default defineCommand({
   guildOnly: true,
   defer: 'ephemeral',
   async execute({ interaction, client }) {
-    const { guild, user } = await setup(interaction, PermissionFlagsBits.ManageMessages, 'Manage Messages', 'purge', false);
+    // Cleaning up anyone's messages (yourself, bots, higher roles) is fine: no role-order check
+    const { guild, user } = await setup(interaction, PermissionFlagsBits.ManageMessages, 'Manage Messages', 'purge', { targetRequired: false, hierarchy: false });
+    if (!interaction.appPermissions?.has(PermissionFlagsBits.ReadMessageHistory)) throw new UserError('I need the Read Message History permission here.');
     const channel = interaction.channel;
     if (!channel || !('bulkDelete' in channel)) throw new UserError("I can't delete messages here.");
     const amount = interaction.options.getInteger('amount', true);

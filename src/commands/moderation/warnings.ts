@@ -4,7 +4,7 @@ import { embed } from '../../lib/embeds';
 import { UserError } from '../../lib/errors';
 import { icon, titleIcon } from '../../lib/icons';
 import { Warning } from '../../models/Warning';
-import { hasPermission } from '../../services/moderation';
+import { modLog } from '../../services/moderation';
 import { GUILD_ONLY } from './common';
 
 export default defineCommand({
@@ -16,12 +16,13 @@ export default defineCommand({
   guildOnly: true,
   defer: 'ephemeral',
   async execute({ interaction }) {
-    if (!hasPermission(interaction.member as never, PermissionFlagsBits.ModerateMembers)) throw new UserError('You need the Timeout Members permission.');
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) throw new UserError('You need the Timeout Members permission.');
     const user = interaction.options.getUser('user', true);
     const remove = interaction.options.getInteger('remove');
     if (remove) {
-      const res = await Warning.deleteOne({ guildId: interaction.guildId, userId: user.id, case: remove });
-      if (!res.deletedCount) throw new UserError(`${user.username} has no warning with case #${remove}.`);
+      const removed = await Warning.findOneAndDelete({ guildId: interaction.guildId, userId: user.id, case: remove }, { lean: true });
+      if (!removed) throw new UserError(`${user.username} has no warning with case #${remove}.`);
+      await modLog(interaction.client, interaction.guild!, { action: 'warn', target: user, moderator: interaction.user, reason: removed.reason, extra: `**Removed warning** case #${remove} (given by <@${removed.modId}>)` });
       return interaction.editReply({ embeds: [embed('success').setDescription(`${icon('success')} Removed case #${remove} from ${user}.`)] });
     }
     const list = await Warning.find({ guildId: interaction.guildId, userId: user.id }, null, { lean: true }).sort({ createdAt: -1 }).limit(15);

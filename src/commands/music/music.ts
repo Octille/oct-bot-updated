@@ -8,8 +8,8 @@ import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { button, rows } from '../../lib/ui';
 import { cycleLoop, parsePosition, setVolume, shuffle, skip, stop, togglePause } from '../../music/actions';
-import { lavalink, refreshPanel, voiceCheck } from '../../music/manager';
-import { formatTime, queuePage } from '../../music/panel';
+import { lavalink, nodeReady, refreshPanel, voiceCheck } from '../../music/manager';
+import { escapeTitle, formatTime, queuePage } from '../../music/panel';
 
 export default defineCommand({
   data: new SlashCommandBuilder().setName('music').setDescription('Control the music')
@@ -33,6 +33,7 @@ export default defineCommand({
   guildOnly: true,
   async execute({ interaction, client }) {
     const sub = interaction.options.getSubcommand();
+    if (!nodeReady()) throw new UserError('Music is unavailable right now. Try again in a minute.');
     const player = lavalink()?.getPlayer(interaction.guildId!);
     if (!player?.queue.current && sub !== 'queue') throw new UserError('Nothing is playing. Start with `/play`.');
     const reply = (text: string, ephemeral = false) => interaction.reply({ embeds: [embed('music').setTitle(`${titleIcon('music')} Music`).setDescription(text)], ...(ephemeral ? { flags: MessageFlags.Ephemeral } : {}) });
@@ -61,7 +62,7 @@ export default defineCommand({
     }
     if (sub === 'nowplaying') {
       const t = player!.queue.current!;
-      return reply(`**[${t.info.title}](${t.info.uri})**\n${t.info.author} · ${formatTime(player!.position)} / ${formatTime(t.info.duration)} · volume ${player!.volume}%`);
+      return reply(`**[${escapeTitle(t.info.title)}](${t.info.uri})**\n${t.info.author} · ${formatTime(player!.position)} / ${formatTime(t.info.duration)} · volume ${player!.volume}%`);
     }
 
     const problem = voiceCheck(interaction.member as GuildMember, player);
@@ -76,6 +77,7 @@ export default defineCommand({
       case 'volume': text = await setVolume(p, interaction.options.getInteger('percent', true)); break;
       case 'shuffle': text = await shuffle(p); break;
       case 'seek': {
+        if (!p.queue.current!.info.isSeekable || p.queue.current!.info.isStream) throw new UserError("You can't seek in this track (it's a live stream).");
         const ms = parsePosition(interaction.options.getString('to', true));
         const dur = p.queue.current!.info.duration;
         if (ms === null || ms > dur) throw new UserError(`Pick a time between 0:00 and ${formatTime(dur)}.`);
@@ -88,19 +90,22 @@ export default defineCommand({
         if (n > p.queue.tracks.length) throw new UserError(`The queue only has ${p.queue.tracks.length} tracks.`);
         const [removed] = p.queue.tracks.slice(n - 1, n);
         await p.queue.remove(n - 1);
-        text = `Removed **${removed?.info.title ?? 'that track'}**.`;
+        text = `Removed **${escapeTitle(removed?.info.title ?? 'that track')}**.`;
         break;
       }
       case 'jump': {
         const n = interaction.options.getInteger('position', true);
         if (n > p.queue.tracks.length) throw new UserError(`The queue only has ${p.queue.tracks.length} tracks.`);
+        // With queue looping, the tracks jumped over go to the back instead of being dropped
+        const skipped = p.repeatMode === 'queue' ? p.queue.tracks.slice(0, n - 1) : [];
         await p.skip(n);
+        if (skipped.length) await p.queue.add(skipped);
         text = `Jumped to track ${n}.`;
         break;
       }
       default: return;
     }
-    await refreshPanel(client, p);
+    void refreshPanel(client, p).catch(() => undefined);
     return reply(`${icon('success')} ${text}`);
   },
 });

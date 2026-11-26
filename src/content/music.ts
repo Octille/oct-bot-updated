@@ -8,4 +8,6 @@ export const musicRules = {
   maxVolume: 150,
   defaultVolume: 80,
   queuePerPage: 10,
+  /** Broken tracks allowed per minute before the player gives up. */
+  maxErrorsPerMinute: 10,
 } as const;

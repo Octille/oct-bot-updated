@@ -6,7 +6,7 @@ import { attachLogClient, logError } from './lib/logger';
 import { routeInteraction } from './framework/router';
 import { onReady } from './events/ready';
 import { stopScheduler } from './scheduler';
-import { onMessageCreate, setMessageContentAvailable } from './events/messageCreate';
+import { inviteFilter, onMessageCreate, setMessageContentAvailable } from './events/messageCreate';
 import { checkAlone, createLavalink } from './music/manager';
 
 /** Application flags for privileged intents (enabled, or "limited" for bots under 100 servers). */
@@ -49,6 +49,10 @@ function attachEvents(c: Client): void {
     routeInteraction(interaction).catch((err) => logError('interaction', err));
   });
   c.on(Events.MessageCreate, (message) => void onMessageCreate(message));
+  // Editing a message to add an invite link is filtered too
+  c.on(Events.MessageUpdate, (_old, updated) => {
+    if (updated.inGuild() && !updated.partial) void inviteFilter(updated).catch(() => undefined);
+  });
   c.on(Events.VoiceStateUpdate, (oldState, newState) => {
     for (const s of [oldState, newState]) if (s.guild) checkAlone(c, s.guild.id);
   });

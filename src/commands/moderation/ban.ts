@@ -6,6 +6,7 @@ import { icon, titleIcon } from '../../lib/icons';
 import { logError } from '../../lib/logger';
 import { button, rows } from '../../lib/ui';
 import { modLog, nextCase, notify } from '../../services/moderation';
+import { UserError } from '../../lib/errors';
 import { GUILD_ONLY, reasonOf, setup } from './common';
 
 export default defineCommand({
@@ -18,7 +19,8 @@ export default defineCommand({
   category: 'moderation',
   guildOnly: true,
   async execute({ interaction, client }) {
-    const { guild, user } = await setup(interaction, PermissionFlagsBits.BanMembers, 'Ban Members', 'ban');
+    const { guild, user, target: member } = await setup(interaction, PermissionFlagsBits.BanMembers, 'Ban Members', 'ban');
+    if (member && !member.bannable) throw new UserError(`I can't ban ${member.displayName}. Check my role position.`);
     const reason = reasonOf(interaction);
     const seconds = interaction.options.getInteger('delete_messages') ?? 0;
     const target = user!;
@@ -32,10 +34,13 @@ export default defineCommand({
     collector.on('collect', (i) => {
       (async () => {
         if (i.customId.endsWith('no')) return i.update({ embeds: [embed('economy').setDescription('Cancelled.')], components: [] });
-        const caseNo = await nextCase(guild.id);
+        // Acknowledge first: the DM and the ban can take longer than Discord's 3 seconds
+        await i.deferUpdate();
+        // Told before the ban (afterwards they share no server, so the DM would fail)
         const dmed = await notify(target, guild, `You were banned from **${guild.name}**.${reason ? `\nReason: ${reason}` : ''}`);
         await guild.members.ban(target.id, { reason: `${interaction.user.tag}: ${reason ?? 'no reason'}`, deleteMessageSeconds: seconds });
-        await i.update({ embeds: [embed('success').setDescription(`${icon('success')} Banned ${target} (case #${caseNo}).${dmed ? '' : ' Their DMs are closed, so they weren\'t told why.'}`)], components: [] });
+        const caseNo = await nextCase(guild.id);
+        await i.editReply({ embeds: [embed('success').setDescription(`${icon('success')} Banned ${target} (case #${caseNo}).${dmed ? '' : ' Their DMs are closed, so they weren\'t told why.'}`)], components: [] });
         const channel = interaction.channel;
         if (channel?.isSendable()) await channel.send({ embeds: [embed('moderation').setDescription(`${target} was banned.${reason ? ` Reason: ${reason}` : ''}`)], allowedMentions: { parse: [] } }).catch(() => undefined);
         await modLog(client, guild, { action: 'ban', target, moderator: interaction.user, reason, caseNo });

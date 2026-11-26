@@ -2,7 +2,7 @@ import { ChannelType, InteractionContextType, PermissionFlagsBits, SlashCommandB
 import { dropRules } from '../../content/events';
 import { spawnWeekly } from '../../services/raids';
 import { announceOpened } from '../../scheduler/events';
-import { invalidateAutomod, invalidateDropSettings } from '../../events/messageCreate';
+import { invalidateAutomod, invalidateDropSettings, messageContentAvailable } from '../../events/messageCreate';
 import { defineCommand } from '../../framework/types';
 import { embed } from '../../lib/embeds';
 import { icon } from '../../lib/icons';
@@ -59,7 +59,10 @@ export default defineCommand({
         const enabled = interaction.options.getBoolean('enabled', true);
         await GuildSettings.updateOne({ _id: guildId }, { $set: { 'automod.inviteFilter': enabled } }, { upsert: true });
         invalidateAutomod(guildId);
-        return done(enabled ? 'Invite links will be deleted (except from members with Manage Messages).' : 'Invite links are allowed again.');
+        if (enabled && !messageContentAvailable()) {
+          return done("Saved, but **it won't work yet**: I can't read message text without the Message Content intent (Discord developer portal → Bot → Privileged Gateway Intents).");
+        }
+        return done(enabled ? 'Invite links will be deleted, including edits that add one (members with Manage Messages, and your vanity link, are exempt).' : 'Invite links are allowed again.');
       }
       case 'events': {
         const channel = interaction.options.getChannel('channel');

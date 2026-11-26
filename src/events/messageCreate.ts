@@ -18,6 +18,10 @@ export function setMessageContentAvailable(value: boolean): void {
   canReadContent = value;
 }
 
+export function messageContentAvailable(): boolean {
+  return canReadContent;
+}
+
 /** Chat XP: one message per minute per member per server counts. */
 export async function onMessageCreate(message: Message): Promise<void> {
   if (!message.inGuild() || message.author.bot || message.system || message.webhookId) return;
@@ -55,15 +59,19 @@ export function invalidateAutomod(guildId: string): void {
 }
 
 /** Deletes Discord invite links when the server turned the filter on (Manage Messages is exempt). */
-async function inviteFilter(message: Message<true>): Promise<boolean> {
-  if (!INVITE_RE.test(message.content)) return false;
+export async function inviteFilter(message: Message<true>): Promise<boolean> {
+  if (message.author.bot) return false;
+  const code = INVITE_RE.exec(message.content)?.[1];
+  if (!code) return false;
+  // The server's own vanity invite is fine
+  if (message.guild.vanityURLCode && code.toLowerCase() === message.guild.vanityURLCode.toLowerCase()) return false;
   let hit = automodCache.get(message.guildId);
   if (!hit || Date.now() - hit.at > 60_000) {
     const s = await getGuildSettings(message.guildId);
     hit = { at: Date.now(), on: !!s?.automod?.inviteFilter };
     automodCache.set(message.guildId, hit);
   }
-  if (!hit.on || message.member?.permissions.has(PermissionFlagsBits.ManageMessages)) return false;
+  if (!hit.on || (message.member && message.channel.permissionsFor(message.member)?.has(PermissionFlagsBits.ManageMessages))) return false;
   try {
     await message.delete();
     const note = message.channel.isSendable() ? await message.channel.send({ content: `${message.author}, invite links aren't allowed here.`, allowedMentions: { users: [message.author.id] } }) : null;

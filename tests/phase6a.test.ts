@@ -77,3 +77,30 @@ describe('moderation cases (database)', () => {
     expect(await nextCase('g2')).toBe(1);
   });
 });
+
+describe('review fixes', () => {
+  it('catches dsc.gg and captures the invite code (for the vanity exemption)', () => {
+    expect(INVITE_RE.exec('join dsc.gg/cool')?.[1]).toBe('cool');
+    expect(INVITE_RE.exec('https://discord.gg/AbC-12')?.[1]).toBe('AbC-12');
+  });
+
+  it('escapes track titles so they can\'t break links or bold', async () => {
+    const { escapeTitle } = await import('../src/music/panel.js');
+    expect(escapeTitle('[Official] **Song**')).toBe('Official \\*\\*Song\\*\\*');
+  });
+
+  it('voice checks: same channel required, moderators can control from anywhere', async () => {
+    const { voiceCheck } = await import('../src/music/manager.js');
+    const m = (channelId: string | null, mod = false) => ({ voice: { channel: channelId ? { id: channelId } : null }, permissions: { has: () => mod } }) as never;
+    const player = { voiceChannelId: 'vc1' } as never;
+    expect(voiceCheck(m(null), undefined)).toMatch(/Join a voice channel/);
+    expect(voiceCheck(m('vc2'), player)).toMatch(/I'm playing in/);
+    expect(voiceCheck(m('vc1'), player)).toBeNull();
+    expect(voiceCheck(m(null, true), player)).toBeNull();
+  });
+
+  it('every command answers within Discord\'s 3 seconds: slow moderation commands defer', () => {
+    const slow = ['kick', 'timeout', 'untimeout', 'warn', 'unban', 'purge', 'warnings'];
+    for (const c of getCommandList().filter((x) => slow.includes(x.data.name))) expect(c.defer, c.data.name).toBeTruthy();
+  });
+});

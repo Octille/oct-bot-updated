@@ -4,7 +4,7 @@ import { musicRules } from '../../content/music';
 import { embed } from '../../lib/embeds';
 import { UserError } from '../../lib/errors';
 import { icon, titleIcon } from '../../lib/icons';
-import { formatTime } from '../../music/panel';
+import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 
 export default defineCommand({
@@ -12,7 +12,7 @@ export default defineCommand({
     .addStringOption((o) => o.setName('query').setDescription('Song name, or a YouTube / YouTube Music link').setRequired(true).setMaxLength(300)),
   category: 'music',
   guildOnly: true,
-  defer: 'public',
+  // Not deferred up front: problems are answered privately, then the search reply is public
   async execute({ interaction }) {
     const manager = lavalink();
     if (!manager || !nodeReady()) throw new UserError('Music is unavailable right now. Try again in a minute.');
@@ -24,6 +24,7 @@ export default defineCommand({
     const me = interaction.guild!.members.me;
     const perms = me ? channel.permissionsFor(me) : null;
     if (!perms?.has(PermissionFlagsBits.Connect) || !perms.has(PermissionFlagsBits.Speak)) throw new UserError(`I need permission to connect and speak in <#${channel.id}>.`);
+    await interaction.deferReply();
 
     const player = existing ?? manager.createPlayer({
       guildId: interaction.guildId!, voiceChannelId: channel.id, textChannelId: interaction.channelId, selfDeaf: true, volume: musicRules.defaultVolume,
@@ -31,7 +32,13 @@ export default defineCommand({
     if (!player.connected) await player.connect();
 
     const query = interaction.options.getString('query', true);
-    const result = await player.search({ query }, interaction.user);
+    let result;
+    try {
+      result = await player.search({ query }, interaction.user);
+    } catch (err) {
+      if (!player.queue.current) await player.destroy('search failed').catch(() => undefined);
+      throw err;
+    }
     if (!result.tracks.length || result.loadType === 'error' || result.loadType === 'empty') {
       if (!player.queue.current) await player.destroy('no results').catch(() => undefined);
       throw new UserError(`Nothing found for **${query.slice(0, 80)}**.`);
@@ -44,8 +51,8 @@ export default defineCommand({
 
     const first = toAdd[0]!;
     const text = result.loadType === 'playlist'
-      ? `${icon('success')} Added **${toAdd.length}** tracks from **${result.playlist?.name ?? 'a playlist'}**${toAdd.length < result.tracks.length ? ` (the queue holds ${musicRules.maxQueue})` : ''}.`
-      : `${icon('success')} Added **[${first.info.title}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)}${player.queue.tracks.length ? ` · #${player.queue.tracks.length} in the queue` : ''}.`;
+      ? `${icon('success')} Added **${toAdd.length}** tracks from **${escapeTitle(result.playlist?.name ?? 'a playlist')}**${toAdd.length < result.tracks.length ? ` (the queue holds ${musicRules.maxQueue})` : ''}.`
+      : `${icon('success')} Added **[${escapeTitle(first.info.title)}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)}${player.queue.tracks.length ? ` · #${player.queue.tracks.length} in the queue` : ''}.`;
     return interaction.editReply({ embeds: [embed('music').setTitle(`${titleIcon('music')} Play`).setDescription(text)] });
   },
 });

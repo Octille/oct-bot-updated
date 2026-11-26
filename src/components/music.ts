@@ -7,6 +7,9 @@ import { icon, titleIcon } from '../lib/icons';
 import { cycleLoop, setVolume, shuffle, skip, stop, togglePause } from '../music/actions';
 import { lavalink, voiceCheck } from '../music/manager';
 import { nowPlayingPanel, queuePage } from '../music/panel';
+import { ANYONE, makeId } from '../lib/customId';
+import { logError } from '../lib/logger';
+import { btn, NAV, row } from '../ui/kit';
 
 /** Now-playing panel buttons: `mp:*:<action>`. Anyone in the bot's voice channel can use them. */
 export const musicPanelHandler = defineComponent({
@@ -19,8 +22,19 @@ export const musicPanelHandler = defineComponent({
       return;
     }
     const action = id.args[0];
-    if (action === 'queue') {
-      await interaction.reply({ embeds: [embed('music').setTitle(`${titleIcon('music')} Queue`).setDescription(queuePage(player, 0, musicRules.queuePerPage).text)], flags: MessageFlags.Ephemeral });
+    if (action === 'queue' || action === 'qp') {
+      // Private queue view with paging: `mp:*:qp:<page>`
+      const page = Number(id.args[1] ?? 0) || 0;
+      const q = queuePage(player, page, musicRules.queuePerPage);
+      const view = {
+        embeds: [embed('music').setTitle(`${titleIcon('music')} Queue`).setDescription(q.text)],
+        components: q.pages > 1 ? [row(
+          btn(makeId('mp', ANYONE, 'qp', Math.max(0, page - 1)), 'Prev', NAV, { disabled: page <= 0 }),
+          btn(makeId('mp', ANYONE, 'qp', page + 1), 'Next', NAV, { disabled: page >= q.pages - 1 }),
+        )] : [],
+      };
+      if (action === 'qp') await interaction.update(view);
+      else await interaction.reply({ ...view, flags: MessageFlags.Ephemeral });
       return;
     }
     const problem = voiceCheck(interaction.member as GuildMember, player);
@@ -35,7 +49,11 @@ export const musicPanelHandler = defineComponent({
       case 'volup': note = await setVolume(player, player.volume + 10); break;
       case 'stop':
         await interaction.deferUpdate();
-        await stop(player);
+        // A failure here must not turn the shared panel into an error message
+        await stop(player).catch(async (err) => {
+          logError('music stop', err);
+          await interaction.followUp({ content: "Couldn't stop the music. Try `/music stop`.", flags: MessageFlags.Ephemeral }).catch(() => undefined);
+        });
         return;
       default: return;
     }

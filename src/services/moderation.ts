@@ -80,5 +80,5 @@ export function parseDuration(input: string): number | null {
 }
 
 export const MAX_TIMEOUT_MS = 28 * 86_400_000;
-export const INVITE_RE = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/[\w-]+/i;
+export const INVITE_RE = /(?:discord\.gg|dsc\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i;
 export { PermissionFlagsBits };

@@ -1,9 +1,14 @@
 import type { Player, Track } from 'lavalink-client';
-import { ButtonStyle } from 'discord.js';
+import { ButtonStyle, escapeMarkdown } from 'discord.js';
 import { ANYONE, makeId } from '../lib/customId';
 import { embed } from '../lib/embeds';
 import { titleIcon } from '../lib/icons';
 import { btn, row, type Payload } from '../ui/kit';
+
+/** A title safe inside **bold** and [link](…) markdown. */
+export function escapeTitle(title: string): string {
+  return escapeMarkdown(title).replace(/[[\]]/g, '').slice(0, 200);
+}
 
 export function formatTime(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return 'live';
@@ -21,7 +26,7 @@ export function nowPlayingPanel(player: Player, track: Track): Payload {
   const info = track.info;
   const requester = (track.requester as { id?: string } | undefined)?.id;
   const e = embed('music').setTitle(`${titleIcon('music')} Now playing`).setDescription([
-    `**[${info.title}](${info.uri})**`,
+    `**[${escapeTitle(info.title)}](${info.uri})**`,
     `${info.author} · ${info.isStream ? 'Live' : formatTime(info.duration)}${requester ? ` · added by <@${requester}>` : ''}`,
     `${player.queue.tracks.length} up next · volume ${player.volume}%${player.paused ? ' · **paused**' : ''}`,
   ].join('\n'));
@@ -48,12 +53,12 @@ export function queuePage(player: Player, page: number, perPage: number): { text
   const pages = Math.max(1, Math.ceil(tracks.length / perPage));
   const p = Math.min(pages - 1, Math.max(0, page));
   const now = player.queue.current;
-  const lines = tracks.slice(p * perPage, (p + 1) * perPage).map((t, i) => `**${p * perPage + i + 1}.** ${t.info?.title ?? 'Unknown'} · ${formatTime(t.info?.duration ?? 0)}`);
+  const lines = tracks.slice(p * perPage, (p + 1) * perPage).map((t, i) => `**${p * perPage + i + 1}.** ${escapeTitle(t.info?.title ?? 'Unknown')} · ${formatTime(t.info?.duration ?? 0)}`);
   const total = tracks.reduce((s, t) => s + (t.info?.isStream ? 0 : t.info?.duration ?? 0), 0);
   return {
     pages,
     text: [
-      now ? `**Now:** [${now.info.title}](${now.info.uri}) · ${formatTime(player.position)} / ${formatTime(now.info.duration ?? 0)}` : 'Nothing playing.',
+      now ? `**Now:** [${escapeTitle(now.info.title)}](${now.info.uri}) · ${formatTime(player.position)} / ${formatTime(now.info.duration ?? 0)}` : 'Nothing playing.',
       '',
       ...(lines.length ? lines : ['The queue is empty. Add songs with `/play`.']),
       '',

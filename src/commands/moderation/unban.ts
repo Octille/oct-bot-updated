@@ -15,7 +15,7 @@ export default defineCommand({
   guildOnly: true,
   defer: 'ephemeral',
   async execute({ interaction, client }) {
-    const { guild } = await setup(interaction, PermissionFlagsBits.BanMembers, 'Ban Members', 'unban', false);
+    const { guild } = await setup(interaction, PermissionFlagsBits.BanMembers, 'Ban Members', 'unban', { targetRequired: false });
     const id = interaction.options.getString('user_id', true).trim();
     if (!/^\d{15,20}$/.test(id)) throw new UserError("That isn't a user ID.");
     const ban = await guild.bans.fetch(id).catch(() => null);

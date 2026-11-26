@@ -217,7 +217,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - daily/weekly quests (reroll, bonus chest), DM reminders
   - random drops, weekly boss raids, community goals, pets, business expansion (manager auto-collect, events, offline cap)
   - seasons and leaderboards (6 metrics, server/global, paginated).
-- [ ] **6. Utility port:**
+- [ ] **6. Utility port** (**6a done**: music with a now-playing panel, moderation with mod log, warnings and the invite filter; **6b next**: role panels and autorole, tickets, welcome, misc, `/settings` dashboard):
   - music as slash commands with a control panel
   - ban, kick, timeout, purge, warn/warnings and mod log, invite filter automod
   - role panels, autorole, thread tickets with transcripts, welcome (card)

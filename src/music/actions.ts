@@ -1,5 +1,6 @@
 import type { Player } from 'lavalink-client';
 import { UserError } from '../lib/errors';
+import { escapeTitle } from './panel';
 import { musicRules } from '../content/music';
 
 /** Shared player actions for /music and the panel buttons. Each returns a short confirmation. */
@@ -13,7 +14,7 @@ export async function togglePause(player: Player): Promise<string> {
 }
 
 export async function skip(player: Player): Promise<string> {
-  const title = player.queue.current?.info.title ?? 'the track';
+  const title = escapeTitle(player.queue.current?.info.title ?? 'the track');
   if (!player.queue.tracks.length) {
     await player.stopPlaying(true, false);
     return `Skipped **${title}**. The queue is empty now.`;
