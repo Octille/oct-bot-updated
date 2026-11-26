@@ -42,6 +42,11 @@ const baseItems: Item[] = [
   { id: 'rubber_duck', name: 'Rubber Duck', emoji: '🦆', rarity: 'uncommon', type: 'collectible', sellPrice: 150, tradable: true, description: 'Squeaks with quiet confidence.' },
   { id: 'old_coin', name: 'Old Coin', emoji: '🪙', rarity: 'rare', type: 'collectible', sellPrice: 600, tradable: true, description: 'Older than the bot. Probably.' },
   { id: 'golden_ticket', name: 'Golden Ticket', emoji: '🎫', rarity: 'epic', type: 'collectible', sellPrice: 2_500, tradable: true, description: 'Admit one. To what, nobody knows.' },
+
+  // Carried over from the original bot by the v2 migration; nothing drops them any more
+  { id: 'v2_shirt', name: 'Original Shirt', emoji: '👕', rarity: 'uncommon', type: 'collectible', sellPrice: 100, tradable: true, description: 'From the original OctBot. Nobody sells these any more.' },
+  { id: 'v2_pants', name: 'Original Pants', emoji: '👖', rarity: 'uncommon', type: 'collectible', sellPrice: 100, tradable: true, description: 'From the original OctBot. Nobody sells these any more.' },
+  { id: 'v2_cookie', name: 'Original Cookie', emoji: '🍪', rarity: 'common', type: 'collectible', sellPrice: 25, tradable: true, description: 'Bought in the original OctBot shop. Somehow still fresh.' },
 ];
 
 const huntItems: Item[] = animals.map((a) => ({

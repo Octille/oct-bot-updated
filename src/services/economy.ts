@@ -1,6 +1,7 @@
 import mongoose, { type ClientSession, type FlattenMaps } from 'mongoose';
 import { User, type UserData } from '../models/User';
 import { refreshBoard } from './boardStats';
+import { findLegacy, insertImported } from './legacyImport';
 import { Transaction } from '../models/Transaction';
 import { EconomyError } from '../lib/errors';
 import { coins } from '../lib/format';
@@ -97,57 +98,52 @@ function isDuplicateKey(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: number }).code === DUPLICATE_KEY;
 }
 
-/** Creates the profile if it doesn't exist. Safe to call concurrently. */
-export async function ensureUser(userId: string, session?: ClientSession): Promise<void> {
+/**
+ * Creates the profile if it doesn't exist: imported from v2 when they played the original bot
+ * (services/legacyImport.ts), blank otherwise. One atomic upsert, so concurrent callers can't
+ * import twice. Returns true when this call created it.
+ */
+async function createProfile(userId: string, session?: ClientSession): Promise<boolean> {
+  const legacy = await findLegacy(userId, session);
+  if (legacy) return insertImported(userId, legacy, session);
   try {
     const res = await User.updateOne({ _id: userId }, { $setOnInsert: { _id: userId } }, { upsert: true, session });
-    if (res.upsertedCount) await refreshBoard(userId, session);
+    if (!res.upsertedCount) return false;
   } catch (err) {
     if (!isDuplicateKey(err)) throw err; // another request created it first
+    return false;
   }
+  await refreshBoard(userId, session);
+  return true;
 }
+
+/** Creates the profile if it doesn't exist. Safe to call concurrently. */
+export async function ensureUser(userId: string, session?: ClientSession): Promise<void> {
+  if (await User.exists({ _id: userId }).session(session ?? null)) return;
+  await createProfile(userId, session);
+}
+
+const touch = (userId: string) =>
+  User.findOneAndUpdate({ _id: userId }, { $set: { lastActiveAt: new Date() } }, { new: true, lean: true });
 
 /**
  * Loads (creating silently if needed) a profile and marks the user as active.
  * Used by the interaction wrapper for every command and button press.
  */
 export async function loadProfile(userId: string): Promise<Profile> {
-  const run = () =>
-    User.findOneAndUpdate(
-      { _id: userId },
-      { $setOnInsert: { _id: userId }, $set: { lastActiveAt: new Date() } },
-      { upsert: true, new: true, lean: true },
-    );
-  let user: Profile | null;
-  try {
-    user = await run();
-  } catch (err) {
-    if (!isDuplicateKey(err)) throw err;
-    user = await run(); // another request created it first
-  }
-  if (!user) throw new EconomyError('NO_PROFILE', 'Could not load your profile.');
-  return user;
+  return (await loadProfileDetailed(userId)).profile;
 }
 
 /** Like loadProfile, but also says whether the profile was just created (a brand-new player). */
 export async function loadProfileDetailed(userId: string): Promise<{ profile: Profile; created: boolean }> {
-  const run = () =>
-    User.findOneAndUpdate(
-      { _id: userId },
-      { $setOnInsert: { _id: userId }, $set: { lastActiveAt: new Date() } },
-      { upsert: true, new: true, lean: true, includeResultMetadata: true },
-    );
-  let res;
-  try {
-    res = await run();
-  } catch (err) {
-    if (!isDuplicateKey(err)) throw err;
-    res = await run();
+  let user: Profile | null = await touch(userId);
+  let created = false;
+  if (!user) {
+    created = await createProfile(userId);
+    user = await touch(userId);
   }
-  if (!res.value) throw new EconomyError('NO_PROFILE', 'Could not load your profile.');
-  const created = res.lastErrorObject?.updatedExisting === false;
-  if (created) await refreshBoard(userId);
-  return { profile: res.value as unknown as Profile, created };
+  if (!user) throw new EconomyError('NO_PROFILE', 'Could not load your profile.');
+  return { profile: user, created };
 }
 
 export async function getProfile(userId: string, session?: ClientSession): Promise<Profile> {

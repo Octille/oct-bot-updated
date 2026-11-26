@@ -225,7 +225,12 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - ban, kick, timeout, purge, warn/warnings and mod log, invite filter automod
   - role panels, autorole, thread tickets with transcripts, welcome (card)
   - afk, avatar, serverinfo, userinfo, ping, poll, interactive help, `/settings` dashboard.
-- [ ] **7. Polish:**
+- [ ] **7. Polish.** Split so the live database is only touched after the owner has checked the dry-run:
+  - **7a (local only):** the migration script, the on-demand import and guild settings import, with tests on synthetic v2 data. The owner then copies the live data to a local database (`mongodump`, read-only), runs `--dry-run` against the copy, and checks the summary.
+  - **7b (local only):** `/eco` owner tools and `/eco stats`, the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries), and the 30-day prefix notice (decision 3).
+  - **7c:** Docker (replset Mongo, build step), a Google Cloud deploy running against a **copy** of the data, `.env.example`, BALANCE.md and README.
+  - **7d (cutover, owner present):** `mongodump` backup, the real migration on live, removing `ANTI_ALT_*`, the intents check, global command deploy, and the relaunch announcement.
+  - Full list:
   - `migrate-v2-to-v3.ts` (idempotent, `--dry-run`, summary), `/eco` owner tools and `/eco stats`
   - Veteran tiers awarded by the migration (counts in the dry-run summary); one-time welcome-back message on a veteran's first v3 command
   - Remove `ANTI_ALT_*` overrides from the production `.env` (the real bot logs an error at startup if they weaken the defaults)
@@ -251,6 +256,24 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 | `Company.workers` / `hasManager` / pending wages | one starter business with equivalent workers and manager; pending wages paid out once |
 | guild `welcomeID`, `autoRoleID`, `InviteLinks`, `ticket.*` | new guild settings |
 | old `autoroles` collection | `autoRoleId` |
+
+**As built (7a).** The details:
+- **Conversion.** `src/migration/v2.ts` holds pure functions shared by the script and the on-demand import (`services/legacyImport.ts`), so a profile converts the same way whichever path imports it first.
+- **Ceiling.** Recomputed as late-game gross ₪/h × 4 × 30, which is ₪15,353,688 today.
+- **Clamp order.** Wages are paid first (capped at the ceiling). Then the bank is clamped to the level's capacity, with any overflow moved to the wallet, and then the wallet is clamped to the ceiling.
+- **Items.** Each stack is worth at most 10% of the ceiling and holds at most 10,000.
+- **Fish.** Mapped by old value, not by name: Common → Perch, Rare → Salmon, Mythic (₪3k in v2) → Octopus (epic, ₪2k), not the ₪40k Kraken.
+- **Other items.** Shirt, Pants and Cookies become the new `v2_*` collectibles. A v2 FishingRod becomes an equipped Fiberglass Rod.
+- **Business.** v2 workers become a Lemonade Stand with at most 10 workers, plus the manager if they had one.
+- **Duplicate v2 docs** for one user are merged:
+  - balances, level and streak come from the most active doc, never summed;
+  - commands are combined as a union;
+  - items take the highest count from any single doc;
+  - the join date is the oldest one.
+- **Transaction log.** Imported coins are logged with source `migration.v2`. `/eco stats` must leave that source out of "coins created".
+- **v3 profile already exists.** If a qualifying v3 profile was made before the migration ran, it keeps its balances and only gets the tier.
+- **Server settings** are created only for servers with no v3 settings yet.
+- **Running it.** `scripts/copy-live-db.sh` dumps live to `~/octbot-backups` (read-only) and restores it into a local `octbot_v2copy`. Then run `npm run migrate -- --uri <local copy> --dry-run`. The script refuses a hosted URI without `--live`, and refuses to write to one without `--i-have-a-backup`.
 
 The script never deletes old collections. Each user doc is marked `migratedFromV2`, so re-running the script skips users already converted. `--dry-run` prints the full summary without writing.
 
