@@ -1,5 +1,5 @@
 import type { Player, Track } from 'lavalink-client';
-import { ButtonStyle, escapeMarkdown } from 'discord.js';
+import { ButtonBuilder, ButtonStyle, escapeMarkdown } from 'discord.js';
 import { ANYONE, makeId } from '../lib/customId';
 import { embed } from '../lib/embeds';
 import { titleIcon } from '../lib/icons';
@@ -19,7 +19,8 @@ export function formatTime(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
-const LOOP_LABEL = { off: 'Loop: off', track: 'Loop: track', queue: 'Loop: queue' } as const;
+/** Loop button: 🔁 off (grey), 🔂 track and 🔁 queue (blue = on). */
+const LOOP = { off: { emoji: '🔁', style: ButtonStyle.Secondary }, track: { emoji: '🔂', style: ButtonStyle.Primary }, queue: { emoji: '🔁', style: ButtonStyle.Primary } } as const;
 
 /** Now-playing panel with persistent controls (`mp:*:<action>`); anyone in the voice channel can use them. */
 export function nowPlayingPanel(player: Player, track: Track): Payload {
@@ -31,18 +32,16 @@ export function nowPlayingPanel(player: Player, track: Track): Payload {
     `${player.queue.tracks.length} up next · volume ${player.volume}%${player.paused ? ' · **paused**' : ''}`,
   ].join('\n'));
   if (info.artworkUrl) e.setThumbnail(info.artworkUrl);
-  const b = (action: string, label: string, style = ButtonStyle.Secondary) => btn(makeId('mp', ANYONE, action), label, style);
+  // Exception to the icon rule (owner decision): transport controls are icon-only standard emojis
+  const icon = (action: string, emoji: string, style: ButtonStyle = ButtonStyle.Secondary) =>
+    new ButtonBuilder().setCustomId(makeId('mp', ANYONE, action)).setEmoji(emoji).setStyle(style);
+  const text = (action: string, label: string) => btn(makeId('mp', ANYONE, action), label, ButtonStyle.Secondary);
+  const loop = LOOP[player.repeatMode];
   return {
     embeds: [e],
     components: [
-      row(
-        b('pause', player.paused ? 'Resume' : 'Pause'),
-        b('skip', 'Skip'),
-        b('loop', LOOP_LABEL[player.repeatMode]),
-        b('shuffle', 'Shuffle'),
-        b('stop', 'Stop', ButtonStyle.Danger),
-      ),
-      row(b('voldown', 'Volume −10'), b('volup', 'Volume +10'), b('queue', 'Queue')),
+      row(icon('pause', '⏯'), icon('skip', '⏭'), icon('loop', loop.emoji, loop.style), icon('shuffle', '🔀'), icon('stop', '⏹')),
+      row(text('voldown', 'Volume −10'), text('volup', 'Volume +10'), text('queue', 'Queue')),
     ],
   };
 }

@@ -14,7 +14,8 @@ export default defineCommand({
     .addStringOption((o) => o.setName('reason').setDescription('Why').setRequired(true).setMaxLength(400)),
   category: 'moderation',
   guildOnly: true,
-  defer: 'public',
+  // Private to the moderator: the member gets a DM and it goes in the mod log, nothing public
+  defer: 'ephemeral',
   async execute({ interaction, client }) {
     const { guild, user } = await setup(interaction, PermissionFlagsBits.ModerateMembers, 'Timeout Members', 'warn');
     if (user!.bot) throw new UserError("Bots don't need warnings.");

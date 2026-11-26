@@ -104,3 +104,19 @@ describe('review fixes', () => {
     for (const c of getCommandList().filter((x) => slow.includes(x.data.name))) expect(c.defer, c.data.name).toBeTruthy();
   });
 });
+
+describe('music panel', () => {
+  it('icon-only grey transport buttons, loop shows its state, text for volume and queue', async () => {
+    const { nowPlayingPanel } = await import('../src/music/panel.js');
+    const { ButtonStyle } = await import('discord.js');
+    const track = { info: { title: 'Song', uri: 'https://x', author: 'A', duration: 60_000, isStream: false }, requester: { id: '1' } };
+    const view = (repeatMode: string) => nowPlayingPanel({ queue: { tracks: [] }, volume: 80, paused: false, repeatMode } as never, track as never)
+      .components.map((r) => r.toJSON().components) as unknown as { emoji?: { name: string }; label?: string; style: number }[][];
+    const [transport, extra] = view('off');
+    expect(transport!.map((b) => b.emoji?.name)).toEqual(['⏯', '⏭', '🔁', '🔀', '⏹']);
+    expect(transport!.every((b) => !b.label && b.style === ButtonStyle.Secondary)).toBe(true);
+    expect(extra!.map((b) => b.label)).toEqual(['Volume −10', 'Volume +10', 'Queue']);
+    expect(view('track')[0]![2]).toMatchObject({ emoji: { name: '🔂' }, style: ButtonStyle.Primary });
+    expect(view('queue')[0]![2]).toMatchObject({ emoji: { name: '🔁' }, style: ButtonStyle.Primary });
+  });
+});
