@@ -16,6 +16,7 @@ Docker Compose (`docker-compose.yml`) starts these containers, and restarts them
 |---|---|
 | `bot` | OctBot itself, built from this repo. |
 | `lavalink` | The music server. It runs the official build, or the patched SoundCloud build when `LAVALINK_PATCHED=true`. Only the bot can reach it; no ports are opened. |
+| `yt-cipher` | Works out YouTube's signatures for Lavalink's YouTube plugin. Only Lavalink can reach it. |
 | `backup` | Makes a `mongodump` of the database every day at 04:00 UTC into `backups/`. It keeps 14 days of backups. |
 | `offsite` | Copies every new backup to a Cloud Storage bucket once an hour (`BACKUP_BUCKET`), so the backups survive losing the VM. Idle when `BACKUP_BUCKET` is empty. |
 | `mongo` | **Only for staging** (`COMPOSE_PROFILES=staging`): a local database holding a *copy* of the data. The live bot uses MongoDB Atlas and doesn't run this. |
@@ -304,12 +305,14 @@ Songs play from YouTube Music behind the scenes; SoundCloud is the backup. YouTu
 
 **When YouTube breaks things.** You'll notice it as "YouTube blocked" in your error-log channel, or songs only coming from SoundCloud. Music keeps working through SoundCloud while you fix it; the bot already skips YouTube for 15 minutes at a time. Fix it in this order:
 
-1. **Update the plugin.** YouTube changes often, and most breakages are fixed by a new plugin release within a few days.
-   - Check the newest version at github.com/lavalink-devs/youtube-source/releases.
-   - Change the version on the `youtube-plugin` line in `lavalink/application.yml` (or ask Claude to). Commit it, then run `sh deploy/update.sh` and `docker compose up -d --force-recreate lavalink`.
+1. **Update the plugin and the cipher.** YouTube changes often, and most breakages are fixed upstream within a few days.
+   - The plugin is pinned to a snapshot build (a commit), because release 1.18.2 lacks the fix for "The page needs to be reloaded".
+   - Check github.com/lavalink-devs/youtube-source: the newest release, or the newest commit on `main` if the fix isn't released yet.
+   - Change the `youtube-plugin` line in `lavalink/application.yml`: a version with `snapshot: false`, or a commit hash with `snapshot: true` (or ask Claude to). Commit it.
+   - Then on the VM: `sh deploy/update.sh && docker compose pull yt-cipher && docker compose up -d --force-recreate lavalink yt-cipher`.
 2. **Token expired or removed:** the log talks about the refresh token or asks for a new code. Empty `YOUTUBE_REFRESH_TOKEN` and redo steps 2–5.
 3. **Account suspended:** create a new throwaway account and redo steps 1–5.
-4. **Signature or "cipher" errors in the log:** YouTube changed its player code. The plugin's documented fix is a small "remote cipher" server (yt-cipher) running next to Lavalink; ask Claude to add it.
+4. **Signature or "cipher" errors in the log:** YouTube changed its player code. The `yt-cipher` container handles that; get its newest image with `docker compose pull yt-cipher && docker compose up -d yt-cipher`. Its log is `docker compose logs yt-cipher`.
 5. **Turn YouTube off:** set `YOUTUBE_ENABLED=false` in `.env` and run `docker compose up -d lavalink`. The bot then uses SoundCloud only, with nothing else to change.
 
 ## Going live (Phase 7d, the cutover, done together)

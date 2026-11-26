@@ -40,12 +40,26 @@ services:
       YOUTUBE_ENABLED: ${YOUTUBE_ENABLED:-true}
       YOUTUBE_OAUTH: ${YOUTUBE_OAUTH:-true}
       YOUTUBE_REFRESH_TOKEN: ${YOUTUBE_REFRESH_TOKEN:-}
+      YT_CIPHER_URL: http://yt-cipher:8001
+      YT_CIPHER_TOKEN: ${LAVALINK_PASSWORD}
       APPLE_MUSIC_TOKEN: ${APPLE_MUSIC_TOKEN:-}
       JAVA_OPTS: ${LAVALINK_JAVA_OPTS:--Xmx512m}
+    depends_on:
+      yt-cipher: { condition: service_started }
     volumes:
       - ./lavalink:/opt/Lavalink/custom:ro
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     # Plugins (LavaSrc) download into the container on start. No ports published: only the bot (on this Docker network) can reach Lavalink
+    logging: *logging
+
+  # Works out YouTube's signatures for Lavalink's YouTube plugin (github.com/kikkia/yt-cipher). Only Lavalink can reach it.
+  yt-cipher:
+    image: ghcr.io/kikkia/yt-cipher:master
+    restart: unless-stopped
+    environment:
+      OVERRIDE_PLAYER_VARIANT: IAS # the variant its README says works reliably
+      API_TOKEN: ${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in .env}
+      MAX_THREADS: "2"
     logging: *logging
 
   # Daily mongodump of whatever MONGODB_URI points at, kept for BACKUP_KEEP_DAYS (default 14)

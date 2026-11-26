@@ -8,8 +8,10 @@ lavalink:
   plugins:
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
     # YouTube / YouTube Music, used behind the scenes to play songs (links to YouTube stay refused by the bot)
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
-      snapshot: false
+    # A snapshot (commit e41dd95, 2026-11-13): release 1.18.2 lacks the TV client fix for YouTube's
+    # "The page needs to be reloaded" (youtube-source #226/#233). Go back to a release once one includes it.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:e41dd95f8bd134b51e75080fb28cc805fecb431a"
+      snapshot: true
   server:
     password: "${LAVALINK_PASSWORD:youshallnotpass}"
     sources:
@@ -34,8 +36,15 @@ plugins:
       - MUSIC
       - TV
       - ANDROID_VR
+      - IOS
       - WEB
       - WEBEMBEDDED
+    # Signature deciphering and the player's signature timestamp, from the yt-cipher container. Without it,
+    # YouTube answers the TV client with "The page needs to be reloaded" once its player code changes.
+    remoteCipher:
+      url: "${YT_CIPHER_URL:http://yt-cipher:8001}"
+      password: "${YT_CIPHER_TOKEN:}"
+      userAgent: "octbot"
     oauth:
       # A throwaway Google account, never a personal one (docs/DEPLOY.md, "YouTube sign-in").
       # Empty token = Lavalink prints a sign-in code in its log; after signing in it prints the token to put in .env.
