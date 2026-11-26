@@ -21,6 +21,10 @@ mkdir -p "$BACKUP_DIR"
 FILE="$BACKUP_DIR/live-$(date +%Y%m%d-%H%M%S).archive.gz"
 echo "Dumping live database \"${LIVE_DB}\" (read-only) to ${FILE}…"
 docker exec -e LIVE_URI="$LIVE_URI" octbot-mongo sh -c 'mongodump --uri "$LIVE_URI" --archive --gzip --readPreference=secondaryPreferred' > "$FILE"
+# The collections live has right now: a rollback (deploy/rollback.sh) drops any collection that isn't on this list
+docker exec -e LIVE_URI="$LIVE_URI" octbot-mongo sh -c 'mongosh "$LIVE_URI" --quiet --eval "db.getCollectionNames().sort().join(\"\\n\")"' > "$FILE.collections.txt"
+[ -s "$FILE.collections.txt" ] || { echo "Couldn't list the live collections"; exit 1; }
+echo "Saved the list of $(wc -l < "$FILE.collections.txt" | tr -d ' ') live collections to ${FILE}.collections.txt"
 
 echo "Restoring into local database \"${TARGET_DB}\" (replacing it)…"
 docker exec -i octbot-mongo mongorestore --archive --gzip --drop --nsFrom "$LIVE_DB.*" --nsTo "$TARGET_DB.*" < "$FILE"

@@ -10,6 +10,7 @@ import { inviteFilter, onMessageCreate, setMessageContentAvailable } from './eve
 import { checkAlone, createLavalink, notePanelChannelMessage } from './music/manager';
 import { onMemberAdd, onMemberUpdate } from './events/members';
 import { onLegacyReaction } from './services/legacyReactionRoles';
+import { onGuildCreate, onGuildDelete } from './events/guilds';
 
 /** Application flags for privileged intents (enabled, or "limited" for bots under 100 servers). */
 const MESSAGE_CONTENT_FLAGS = (1 << 18) | (1 << 19);
@@ -67,6 +68,9 @@ function attachEvents(c: Client): void {
   c.on(Events.GuildMemberUpdate, (old, member) => void onMemberUpdate(old, member));
   c.on(Events.MessageReactionAdd, (reaction, user) => void onLegacyReaction(reaction, user, true));
   c.on(Events.MessageReactionRemove, (reaction, user) => void onLegacyReaction(reaction, user, false));
+  // Fired only for servers added after startup (the ones at login arrive before ready and aren't logged)
+  c.on(Events.GuildCreate, (guild) => { if (c.isReady()) onGuildCreate(guild); });
+  c.on(Events.GuildDelete, (guild) => onGuildDelete(guild));
   c.on(Events.Error, (err) => logError('client', err));
 }
 process.on('unhandledRejection', (err) => logError('unhandledRejection', err));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPublicHttpsUrl, mapLimit, matchScore, mirrorService } from '../src/music/sources';
+import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, resolvesPublic, matchScore, mirrorService } from '../src/music/sources';
 import { getCommandList } from '../src/framework/commandList';
 import '../src/framework/registry';
 
@@ -81,5 +81,25 @@ describe('no YouTube anywhere users can see', () => {
     const text = JSON.stringify(getCommandList().map((c) => c.data.toJSON()));
     expect(text).not.toMatch(/youtube/i);
     expect(text).not.toMatch(/radio/i);
+  });
+});
+
+describe('direct links resolve to public addresses only', () => {
+  const at = (...addresses: string[]) => async () => addresses.map((address) => ({ address }));
+
+  it('flags private, loopback, link-local and mapped addresses', () => {
+    for (const a of ['10.1.2.3', '127.0.0.1', '169.254.169.254', '172.20.0.5', '192.168.1.1', '100.64.0.1', '0.0.0.0', '::1', 'fe80::1', 'fd00::1', '::ffff:127.0.0.1', 'nonsense']) {
+      expect(isPrivateAddress(a), a).toBe(true);
+    }
+    for (const a of ['1.1.1.1', '151.101.1.69', '2606:4700::1111']) expect(isPrivateAddress(a), a).toBe(false);
+  });
+
+  it('refuses a public-looking name that resolves to a private address, and fails closed', async () => {
+    expect(await resolvesPublic('https://cdn.example.com/a.mp3', at('93.184.216.34'))).toBe(true);
+    expect(await resolvesPublic('https://evil.example.com/a.mp3', at('93.184.216.34', '169.254.169.254'))).toBe(false);
+    expect(await resolvesPublic('https://evil.example.com/a.mp3', at('::ffff:10.0.0.1'))).toBe(false);
+    expect(await resolvesPublic('https://none.example.com/a.mp3', at())).toBe(false);
+    expect(await resolvesPublic('https://err.example.com/a.mp3', async () => { throw new Error('ENOTFOUND'); })).toBe(false);
+    expect(await resolvesPublic('https://slow.example.com/a.mp3', () => new Promise(() => {}), 20)).toBe(false);
   });
 });

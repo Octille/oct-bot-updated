@@ -15,13 +15,3 @@ logs
 *.jar
 *.md
 .DS_Store
-# The original (v2) bot
-commands
-events
-functions
-handlers
-models
-index.js
-utils.js
-config.json
-wallpaper.jpg

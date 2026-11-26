@@ -3,6 +3,8 @@
  * https audio files play directly. Spotify and Apple Music links are only read for their track info;
  * each song is then matched on SoundCloud (and skipped when no match is close enough).
  */
+import { lookup } from 'node:dns/promises';
+import { BlockList, isIP } from 'node:net';
 
 export const NO_YOUTUBE = "YouTube isn't supported. Try the song name, a SoundCloud or Bandcamp link, or upload an audio file.";
 export const SEARCH_DOWN = 'Song search is temporarily unavailable. Try a Bandcamp link, a direct audio link, or upload a file.';
@@ -46,6 +48,45 @@ export function isPublicHttpsUrl(raw: string): boolean {
   // Any literal IP address is refused: real audio hosts have names, and this rules out private ranges in every notation
   if (/^[\d.]+$/.test(host) || host.includes(':') || /^0x/i.test(host)) return false;
   return true;
+}
+
+/** Address ranges a link must never resolve to: private, loopback, link-local, CGNAT, multicast, reserved. */
+const BLOCKED = new BlockList();
+for (const [net, bits] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 3]] as const) BLOCKED.addSubnet(net, bits, 'ipv4');
+for (const [net, bits] of [['::', 128], ['::1', 128], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8], ['64:ff9b::', 96], ['2001:db8::', 32]] as const) BLOCKED.addSubnet(net, bits, 'ipv6');
+
+/** True for an IP address a user's link must not reach (IPv4-mapped IPv6 is checked as IPv4). */
+export function isPrivateAddress(address: string): boolean {
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address)?.[1];
+  if (mapped) return isPrivateAddress(mapped);
+  const family = isIP(address);
+  if (!family) return true;
+  return BLOCKED.check(address, family === 4 ? 'ipv4' : 'ipv6');
+}
+
+type Resolver = (host: string) => Promise<{ address: string }[]>;
+const dnsResolve: Resolver = (host) => lookup(host, { all: true, verbatim: true });
+
+/**
+ * Resolves a direct link's hostname and refuses it when any address is private, loopback or
+ * link-local (so a public name pointing at our own network can't be used). Fails closed: a lookup
+ * error or a lookup slower than `timeoutMs` counts as not public.
+ */
+export async function resolvesPublic(raw: string, resolve: Resolver = dnsResolve, timeoutMs = 2_000): Promise<boolean> {
+  if (!isPublicHttpsUrl(raw)) return false;
+  const host = new URL(raw).hostname;
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const addresses = await Promise.race([
+      resolve(host),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('dns timeout')), timeoutMs); }),
+    ]);
+    return addresses.length > 0 && addresses.every((a) => !isPrivateAddress(a.address));
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function classifyQuery(query: string): QueryKind {

@@ -62,6 +62,16 @@ export async function settleTrade(a: string, b: string, offers: Record<string, O
   const itemCount = (o: Offer) => Object.values(o.items).reduce((s, q) => s + q, 0);
   const [pa, pb] = await Promise.all([existingPlayer(a), existingPlayer(b)]);
   await inTransaction(async (session) => {
+    // Re-check what's offered against the profiles as they are now: an item may have been locked
+    // (or stopped being tradable) after it went into the offer. Counts are enforced by apply.
+    for (const [id, offer] of [[a, oa], [b, ob]] as const) {
+      const now = (await User.findById(id, { lockedItems: 1 }, { session, lean: true })) as Pick<Profile, 'lockedItems'> | null;
+      for (const itemId of Object.keys(offer.items)) {
+        const item = getItem(itemId);
+        if (!item?.tradable) throw new UserError(`${item?.name ?? itemId} can't be traded.`);
+        if ((now?.lockedItems ?? []).includes(itemId)) throw new UserError(`${item.name} is locked now, so the trade was cancelled.`);
+      }
+    }
     // What each side gives away counts toward their daily giving limit
     await useAllowance(pa, { coins: oa.coins, items: itemCount(oa) }, session);
     await useAllowance(pb, { coins: ob.coins, items: itemCount(ob) }, session);

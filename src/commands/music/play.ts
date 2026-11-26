@@ -9,7 +9,7 @@ import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
 import { logError } from '../../lib/logger';
-import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, sourceRules } from '../../music/sources';
+import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, resolvesPublic, sourceRules } from '../../music/sources';
 
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number };
 
@@ -87,7 +87,7 @@ export default defineCommand({
     const kind = file ? 'file' : classifyQuery(query);
     if (kind === 'youtube') throw new UserError(NO_YOUTUBE);
     if (kind === 'mirror' && mirrorService(query) === 'Spotify' && !(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET)) throw new UserError(NO_SPOTIFY);
-    if (kind === 'unsafe') throw new UserError(`That link can't be played. Links must be public https addresses. ${SUPPORTED}`);
+    if (kind === 'unsafe' || (kind === 'direct' && !(await resolvesPublic(query)))) throw new UserError(`That link can't be played. Links must be public https addresses. ${SUPPORTED}`);
     if (file && !isAudioAttachment(file)) throw new UserError('That file isn\'t audio. Upload an mp3, ogg, wav, flac or m4a file.');
 
     const manager = lavalink();

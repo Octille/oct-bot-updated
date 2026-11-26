@@ -69,6 +69,18 @@ describe('social (database)', () => {
     expect((await getProfile('r4')).jailUntil).toBeTruthy();
   });
 
+  it('a caught robber who emptied their wallet mid-getaway pays only what they have', async () => {
+    await User.create({ _id: 'r4b', wallet: 10_000, account: lvl(10) });
+    await User.create({ _id: 'v4b', wallet: 20_000, account: lvl(10) });
+    await age();
+    const out = await attemptRob('r4b', 'v4b', always(0));
+    if (out.kind !== 'success') throw new Error('expected success');
+    await User.updateOne({ _id: 'r4b' }, { $set: { wallet: 300 } }); // e.g. deposited it all
+    const c = await catchRobber(out.escrowId, 'v4b', new Date());
+    expect(c?.fine).toBe(300);
+    expect(await wallets('r4b', 'v4b')).toEqual([0, 20_300]);
+  });
+
   it('a failed rob fines the robber (paid to the victim); the victim is then protected', async () => {
     await User.create({ _id: 'r5', wallet: 20_000, account: lvl(10) });
     await User.create({ _id: 'r5b', wallet: 20_000, account: lvl(10) });
@@ -115,6 +127,16 @@ describe('social (database)', () => {
     expect(p2.inventory).toMatchObject({ gem_ruby: 1 });
     await expect(settleTrade('t1', 't2', { t1: { coins: 0, items: { gem_ruby: 5 } }, t2: { coins: 100, items: {} } })).rejects.toThrow();
     expect((await getProfile('t2')).wallet).toBe(10_950);
+  });
+
+  it('trade re-checks locks when settling: an item locked after it was offered cancels the trade', async () => {
+    await User.create({ _id: 't3', wallet: 10_000, account: lvl(5), inventory: { gem_ruby: 2 } });
+    await User.create({ _id: 't4', wallet: 10_000, account: lvl(5) });
+    await age();
+    await User.updateOne({ _id: 't3' }, { $set: { lockedItems: ['gem_ruby'] } });
+    await expect(settleTrade('t3', 't4', { t3: { coins: 0, items: { gem_ruby: 1 } }, t4: { coins: 500, items: {} } })).rejects.toThrow(/locked/);
+    expect((await getProfile('t3')).inventory).toMatchObject({ gem_ruby: 2 });
+    expect(await wallets('t3', 't4')).toEqual([10_000, 10_000]);
   });
 
   it('give is taxed, needs level 3 and an existing recipient; gift moves tradable items', async () => {

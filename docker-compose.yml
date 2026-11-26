@@ -57,6 +57,18 @@ services:
       mongo: { condition: service_healthy, required: false }
     logging: *logging
 
+  # Copies each backup to a Cloud Storage bucket (BACKUP_BUCKET in .env); idle when it's unset
+  offsite:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    restart: unless-stopped
+    entrypoint: ["sh", "/deploy/offsite.sh"]
+    environment:
+      BACKUP_BUCKET: ${BACKUP_BUCKET:-}
+    volumes:
+      - ./deploy:/deploy:ro
+      - ./backups:/backups:ro
+    logging: *logging
+
   # ── Staging only: a local copy of the data ───────────────────────────────────────────
   mongo:
     image: mongo:7

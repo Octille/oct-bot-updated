@@ -24,3 +24,10 @@ export function logError(context: string, err: unknown): void {
 export function logInfo(context: string, message: string): void {
   console.log(`[${context}] ${message}`);
 }
+
+/** Logs to the console and posts a short line to ERROR_LOG_CHANNEL_ID (for events worth watching, not errors). */
+export function logNotice(context: string, message: string): void {
+  logInfo(context, message);
+  const channel = client && env.ERROR_LOG_CHANNEL_ID ? client.channels.cache.get(env.ERROR_LOG_CHANNEL_ID) : null;
+  if (channel?.isSendable()) channel.send({ content: `**${context}** ${message}`, allowedMentions: { parse: [] } }).catch(() => undefined);
+}

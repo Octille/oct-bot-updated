@@ -1,4 +1,0 @@
-{
-	"default_prefix": "!",
-	"mongopath": "mongodb://localhost:27017/octbot"
-}

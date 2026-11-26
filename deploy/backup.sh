@@ -8,10 +8,11 @@ KEEP="${BACKUP_KEEP_DAYS:-14}"
 
 dump() {
   FILE="/backups/octbot-$(date -u +%Y%m%d-%H%M%S).archive.gz"
-  if mongodump --uri "$URI" --archive="$FILE" --gzip --quiet; then
+  # Written under a .partial name first, so the offsite copy never uploads half a dump
+  if mongodump --uri "$URI" --archive="$FILE.partial" --gzip --quiet && mv "$FILE.partial" "$FILE"; then
     echo "backup: wrote $FILE ($(du -h "$FILE" | cut -f1))"
   else
-    echo "backup: FAILED"; rm -f "$FILE"
+    echo "backup: FAILED"; rm -f "$FILE.partial"
   fi
   find /backups -name 'octbot-*.archive.gz' -mtime +"$KEEP" -delete
 }

@@ -17,6 +17,7 @@ Docker Compose (`docker-compose.yml`) starts these containers, and restarts them
 | `bot` | OctBot itself, built from this repo. |
 | `lavalink` | The music server. It runs the official build, or the patched SoundCloud build when `LAVALINK_PATCHED=true`. Only the bot can reach it; no ports are opened. |
 | `backup` | Makes a `mongodump` of the database every day at 04:00 UTC into `backups/`. It keeps 14 days of backups. |
+| `offsite` | Copies every new backup to a Cloud Storage bucket once an hour (`BACKUP_BUCKET`), so the backups survive losing the VM. Idle when `BACKUP_BUCKET` is empty. |
 | `mongo` | **Only for staging** (`COMPOSE_PROFILES=staging`): a local database holding a *copy* of the data. The live bot uses MongoDB Atlas and doesn't run this. |
 
 ---
@@ -57,6 +58,8 @@ Fill these in. Save with `Ctrl+O`, `Enter`, and exit with `Ctrl+X`.
 | `LAVALINK_PASSWORD` | Any long random password, for example the output of `openssl rand -hex 24`. |
 | `LAVALINK_PATCHED` | `true` to use the patched SoundCloud jar (step 4), otherwise `false`. |
 | `OWNER_ID`, `ERROR_LOG_CHANNEL_ID`, `SPOTIFY_*` | Same as on your laptop. |
+| `OWNER_GUILD_ID` | Your own server's ID. `/eco` (owner tools) is registered there only. |
+| `BACKUP_BUCKET` | The Cloud Storage bucket for offsite backups (see "Offsite backups"). Empty = backups stay on the VM only. |
 
 Leave these out on the server:
 - `MONGODB_DEV_URI`
@@ -227,36 +230,99 @@ All of these run inside `~/oct-bot-updated` on the server.
 
 Logs are capped at 50 MB per container, so they can't fill the disk.
 
-The backups live on the same disk as the bot. Once a week or so, download the newest one to your laptop (Google Cloud: SSH window → **Download file**), so a lost VM doesn't take your backups with it.
+Atlas's free tier (M0) makes **no backups of its own**, so these files are the only ones. They're also copied to Cloud Storage (next section). Once a month or so, download the newest one to your laptop as well (Google Cloud: SSH window → **Download file**): the bucket is in the same Google account as the VM, so if that account's billing ever lapses, both go.
 
 **Restoring a backup:** this overwrites data, so check which file and which database first.
 
 ```sh
-docker compose exec backup mongorestore --uri "$MONGODB_URI" --archive=/backups/FILE.archive.gz --gzip --drop
+docker compose exec backup sh -c 'mongorestore --uri "$MONGODB_URI" --archive=/backups/FILE.archive.gz --gzip --drop'
 ```
+
+### Offsite backups (Cloud Storage)
+
+The VM's disk goes if the VM is deleted or the free trial lapses, so every backup is also copied to a bucket. Set this up once, in the Google Cloud console:
+
+1. **Create the bucket:** **Cloud Storage → Buckets → Create**.
+   - **Name:** something unique, for example `octbot-backups-<your initials>`. Write it down.
+   - **Location type:** Region, `northamerica-northeast2` (same as the VM).
+   - **Storage class:** Standard. **Access control:** Uniform, and keep **Prevent public access** on.
+   - Click **Create**.
+2. **Delete copies after 30 days:** open the bucket → **Lifecycle → Add a rule** → **Delete object**, condition **Age: 30 days** → **Create**.
+3. **Let the VM write to it.** A new VM can only *read* Cloud Storage by default.
+   - In **Compute Engine → VM instances**, click **Stop** on `octbot` (the bot goes offline for a minute).
+   - Click **Edit**. Under **API and identity management → Cloud API access scopes**, choose **Set access for each API** and set **Storage** to **Read Write**. Click **Save**, then **Start**.
+4. **On the VM**, add `BACKUP_BUCKET=<bucket name>` to `.env`, then run `docker compose up -d`.
+5. **Check it:** `docker compose logs offsite` should say `in sync` within a minute, and the bucket shows a `backups/` folder with your files. If it says `FAILED`, recheck step 3 and the bucket name.
+
+Storage costs a few cents a month (each backup is small).
+
+**Restoring from the bucket** (for example on a new VM, after "Moving to a new host" steps 1–4):
+
+```sh
+cd ~/oct-bot-updated && mkdir -p backups
+gcloud storage ls gs://BUCKET/backups/                          # pick the newest file
+gcloud storage cp gs://BUCKET/backups/FILE.archive.gz backups/
+docker compose run --rm --entrypoint sh backup -c 'mongorestore --uri "$MONGODB_URI" --archive=/backups/FILE.archive.gz --gzip --drop'
+```
+
+`gcloud` is preinstalled on Google Cloud's Ubuntu images. Without it (another host, or your laptop), download the file from the bucket in the console (**Cloud Storage → your bucket → backups → the file → Download**), upload it to the server's `backups/`, and run the last line.
 
 ---
 
 ## Going live (Phase 7d, the cutover, done together)
 
-1. **Atlas Network Access:** in the Atlas dashboard, go to **Security → Network Access → Add IP Address**, enter the VM's static IP (`octbot-ip`) and confirm. Without this, the bot can't connect to Atlas.
-2. **Back up live** from your laptop with `sh scripts/copy-live-db.sh`. That also refreshes the local copy.
-3. **Migrate live** from your laptop:
+The old bot has been offline for years, so this is a relaunch, not a live switch. **[You]** = in a browser or on the VM; **[Me]** = Claude, from the laptop.
+
+**Before**
+1. **[You] Developer portal (real bot):**
+   - Reset the token. That also cuts off any forgotten old copy.
+   - Check the bot is still verified, and that **Message Content** and **Server Members** are approved, not just switched on.
+   - **Blocking:** replace `CONTACT_EMAIL` and `LAUNCH_DATE` in `docs/PRIVACY.md` and `docs/TERMS.md`, push, then paste their GitHub links into **General Information → Terms of Service URL / Privacy Policy URL**. Don't paste them before the placeholders are gone.
+2. **[You] Atlas → Network Access:** add the laptop's IP as a **temporary** entry (6 hours). The backup, the migration and the icon sync run from the laptop.
+3. **[Me] Back up live:** `sh scripts/copy-live-db.sh`. That writes `~/octbot-backups/live-….archive.gz` and its `.collections.txt`. **[You]** Upload **both** files to the VM's `backups/`, so a rollback still works once only the VM can reach Atlas.
+4. **[Me] Dry run on live:** `npm run migrate -- --uri "<atlas uri>" --live --dry-run`. The numbers should match the copy (445 / 64 / 23).
+
+**Setup**
+5. **[Me] Icons on the real bot:**
+   - Pass the new token for this one command only: `token=… CLIENT_ID=… npx tsx scripts/icons/sync.ts --force --dry-run`.
+   - Then run it again without `--dry-run`.
+   - This also uploads the Veteran badges. It must happen before v3 starts.
+6. **[You] VM `.env`:**
+   - The real bot's `token` and `CLIENT_ID`.
+   - The Atlas `MONGODB_URI`, with the same database name as the laptop's `MONGODB_SRV`.
+   - `OWNER_GUILD_ID` = your server.
+   - `COMPOSE_PROFILES=` (empty), and no `ANTI_ALT_*`.
+   - `LAVALINK_PATCHED=true`, with the jar in `lavalink/`.
+   - `LAUNCH_DATE` = the cutover day, and `SEASON_1_START` = 14 days later at `T00:00:00Z`.
+   - `BACKUP_BUCKET`.
+
+**Launch**
+7. **[Me] Migrate live:** `npm run migrate -- --uri "<atlas uri>" --live --i-have-a-backup`.
+8. **[You] Atlas:** add the VM's static IP (`octbot-ip`).
+9. **[You] On the VM:**
    ```sh
-   npm run migrate -- --uri "<atlas uri>" --live --i-have-a-backup
+   docker compose down && docker compose up -d --build
+   docker compose exec bot node dist/deploy-commands.js --global   # /eco goes to OWNER_GUILD_ID only
    ```
-   Run the `--dry-run` version first and compare it with the copy.
-4. **Stop the old v2 bot** wherever it runs, and stop the test bot if it uses the same token. Never two copies on one token.
-5. On the server:
-   - **Edit `.env`:**
-     - Real bot `token` and `CLIENT_ID`.
-     - Atlas `MONGODB_URI`.
-     - Empty `COMPOSE_PROFILES`.
-     - No `ANTI_ALT_*`.
-     - `LAUNCH_DATE` set to today.
-     - The real `SEASON_1_START`.
-   - **Run:** `docker compose down`, then `docker compose up -d --build`. Finally, register the commands with `docker compose exec bot node dist/deploy-commands.js --global`.
-6. **Stop the staging database:** `docker compose rm -sf mongo` (and `docker volume rm oct-bot-updated_mongo-data` once you're sure).
+10. **[You] Check:**
+    - The bot is online and `docker compose logs bot` says `Logged in`.
+    - `/menu` works, and your first command shows the welcome-back message.
+    - `/eco stats` and `/play` work.
+11. **[You] Lock it down:**
+    - Remove the laptop's IP and any `0.0.0.0/0` entry from Atlas.
+    - **Change the Atlas database user's password**, then update `MONGODB_URI` on the VM and `MONGODB_SRV` on the laptop, and run `docker compose up -d`.
+    - Remove the staging database with `docker compose rm -sf mongo`.
+
+**Rollback** (stop v3, put the backup back)
+- **On the VM:** run `sh deploy/rollback.sh backups/live-….archive.gz`. It stops the bot, restores the backup, and drops every collection that wasn't in live at backup time.
+- Then, from the laptop if you want: `npm run deploy:global -- --clear` (with the real token, as in step 5), so the slash commands don't hang.
+- **When it's safe:** until players start using v3, roughly the first day. After that, a rollback wipes their v3 progress, so fix forward instead (patch, then `sh deploy/update.sh`, or the `/eco` tools). The migration never changes the v2 collections.
+
+**First 24 hours**
+- `/eco stats`: coins created vs destroyed, and the gambling house edge.
+- The error-log channel: errors, and the `server left` / `server joined` lines.
+- Atlas storage (M0 is 512 MB).
+- `docker compose logs backup offsite`: a backup after 04:00 UTC, then `in sync`.
 
 ---
 

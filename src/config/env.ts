@@ -8,6 +8,8 @@ const schema = z.object({
   CLIENT_ID: z.string().min(1, 'CLIENT_ID is required'),
   OWNER_ID: z.string().default('460509056487129090'),
   DEV_GUILD_ID: z.string().optional(),
+  /** The owner's own server: owner-only commands (/eco) are registered there and nowhere else. */
+  OWNER_GUILD_ID: z.string().optional(),
   /** Comma-separated servers for `npm run deploy:guild` (falls back to DEV_GUILD_ID). */
   DEV_GUILD_IDS: z.string().optional(),
   /** Spotify links work only when both are set (Lavalink reads them too, via lavalink server/start.sh). */

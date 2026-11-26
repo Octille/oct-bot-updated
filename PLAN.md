@@ -106,7 +106,7 @@ bot/
   Dockerfile, docker-compose.yml, .env.example, README.md, BALANCE.md
 ```
 
-The old `commands/`, `events/`, `handlers/`, `functions/`, `models/`, `utils.js` and `config.json` get deleted once the matching phase replaces them. `ascii-table` and `ms` go too.
+The old v2 code (`commands/`, `events/`, `handlers/`, `functions/`, `models/`, `index.js`, `utils.js`, `config.json`) and `ascii-table` / `ms` were removed before the Phase 7 cutover. The migration reads the v2 *collections* directly, not v2 code.
 
 ## 3. Data models
 
@@ -229,7 +229,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - **7a (done):** the migration script, the on-demand import and guild settings import, with tests on synthetic v2 data. The owner then copies the live data to a local database (`mongodump`, read-only), runs `--dry-run` against the copy, and checks the summary.
   - **7b (done):** `/eco give/take/reset/log/stats` (owner only, hidden from /help; stats net player-to-player moves, wallet↔bank and `migration.v2` out, group sources so gambling shows the house edge, daily money-supply snapshots at 00:01 UTC), the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries), and the 30-day prefix notice (decision 3; starts at `LAUNCH_DATE`, once per channel per hour, old command names only, needs Message Content). Old reaction roles: loaded from `reactionroles` at startup, roles with moderator powers are never given, and the server owner gets one DM asking them to move to /rolepanel.
   - **7c (built, owner deploys):** Docker (bot image, Lavalink container with the optional patched jar, daily backups, a staging-only replica-set Mongo for a **copy** of the data), `.env.example`, and docs/DEPLOY.md: any Ubuntu server, Google Cloud (e2-medium in Toronto, ~$35/month, budget alert, end of trial), staging, everyday tasks, going live, moving hosts. Still to do: BALANCE.md and README.
-  - **7d (cutover, owner present):** `mongodump` backup, the real migration on live, removing `ANTI_ALT_*`, the intents check, global command deploy, and the relaunch announcement.
+  - **7d (cutover, owner present):** runbook in docs/DEPLOY.md "Going live". Built before it: v2 code removed (`npm start` runs `dist/index.js`); `/eco` registered only in `OWNER_GUILD_ID`; offsite backups to a Cloud Storage bucket (`offsite` container, `BACKUP_BUCKET`, 30-day lifecycle); `deploy/rollback.sh` (restore + drop collections created after the backup, using the `.collections.txt` from copy-live-db); server join/leave log; no relaunch announcement (owner decision 2026-11-26; the bot's status says `/menu`); v2 profiles never imported are deleted 12 months after `LAUNCH_DATE` (daily job, docs/PRIVACY.md); docs/TERMS.md and docs/PRIVACY.md (CONTACT_EMAIL placeholder must be replaced before the portal links). Review fixes: rob fines read the robber's wallet inside the transaction, trades re-check locked/tradable when settling, direct music links must resolve to public addresses.
   - Full list:
   - `migrate-v2-to-v3.ts` (idempotent, `--dry-run`, summary), `/eco` owner tools and `/eco stats`
   - Veteran tiers awarded by the migration (counts in the dry-run summary); one-time welcome-back message on a veteran's first v3 command
@@ -241,7 +241,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - Docker update (replset Mongo, build step), `.env.example`
   - full test pass, live run and fixes.
 - [ ] **8. Premium** (future; see §10).
-- [ ] **9. Growth** (see §12; relaunch announcement ships with the Phase 7 cutover).
+- [ ] **9. Growth** (see §12).
 
 ## 6. Migration mapping (`scripts/migrate-v2-to-v3.ts`)
 
@@ -386,7 +386,6 @@ Level 35 (first prestige) takes **65 h free vs ~57 h VIP**. The +10% stacks with
 
 ## 12. Phase 9: Growth (planned, not built)
 
-- **Relaunch announcement (at the Phase 7 cutover):** one short embed to each of the 317 existing servers: what's new, how to start (`/menu`), the Veteran rewards (§9) and a support server link. Posted **once** per server (flag stored on the server doc), to the system channel, or else the first text channel the bot can view, send and embed in; skip the server if none. Server admins can turn it off beforehand in `/settings`. Send rate-limited, in the background, with a summary logged.
 - **`/vote` (top.gg first, other directories later):** a modest reward every 12h: small coins plus a vote streak, no crate or paid-crate equivalent. Verified via the top.gg webhook (signed), idempotent per vote. Counted in BALANCE.md and `scripts/income-report.ts` as a creation source.
 - **Referral rewards:** both the inviter and the invited server get a reward, only once the new server reaches **5+ eligible active players over 3 days**, where "eligible" uses the anti-alt rules (`services/antiAlt.ts`). One reward per new server (ever, even if the bot is re-added), capped per player per month. Counted in BALANCE.md and the income report.
 - **Music + economy crossover:** listening in voice earns **voice XP only (no coins)**, using the existing voice XP rules (same cooldown, AFK/muted/alone checks and caps). No new XP source on top.

@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { robRules } from '../content/social';
 import { UserError } from '../lib/errors';
 import { coins } from '../lib/format';
@@ -6,7 +6,7 @@ import { defaultRng, type Rng } from '../lib/rng';
 import { RobEscrow } from '../models/RobEscrow';
 import { User } from '../models/User';
 import * as cooldowns from './cooldowns';
-import { apply, getProfile, inTransaction, settle, type Profile } from './economy';
+import { apply, getProfile, inTransaction, type Profile } from './economy';
 import { isJailed } from './jail';
 import { unlockLevel } from './progression';
 import { altBlocker } from './antiAlt';
@@ -36,6 +36,14 @@ export function robFine(robberWallet: number): number {
 }
 
 /**
+ * The fine, from the robber's wallet as it is inside the transaction (never what it was when the
+ * rob started), so moving coins away mid-rob can't make the settle fail; capped at what they hold.
+ */
+async function finePayable(robberId: string, session: ClientSession): Promise<number> {
+  return robFine((await getProfile(robberId, session)).wallet);
+}
+
+/**
  * Tries to rob `victimId`. Checks everything, claims the victim's protection window (so two
  * robbers can't hit them at once), then settles the outcome atomically.
  */
@@ -59,15 +67,15 @@ export async function attemptRob(robberId: string, victimId: string, rng: Rng = 
   const protection = await cooldowns.claim(victimId, 'robbed', robRules.victimProtectionMinutes * 60_000);
   if (!protection.ok) throw new UserError(`They were robbed recently and are on guard. Try again in ${Math.ceil(protection.remainingMs / 60_000)}m.`);
 
-  const fine = robFine(robber.wallet);
-
   // A padlock blocks it (and breaks); the robber pays the fine to the victim
   if ((((victim.inventory ?? {}) as Record<string, number>).padlock ?? 0) > 0) {
     try {
-      await settle([
-        { userId: victimId, change: { items: { padlock: -1 }, wallet: fine || undefined }, transfer: true },
-        { userId: robberId, change: { wallet: fine ? -fine : undefined, inc: { 'stats.robsFailed': 1 } }, transfer: true },
-      ], { source: 'rob.padlock', meta: { robberId, victimId } });
+      const fine = await inTransaction(async (session) => {
+        const fine = await finePayable(robberId, session);
+        await apply(victimId, { items: { padlock: -1 }, wallet: fine || undefined }, { source: 'rob.padlock', transfer: true, session, meta: { robberId, victimId } });
+        await apply(robberId, { wallet: fine ? -fine : undefined, inc: { 'stats.robsFailed': 1 } }, { source: 'rob.padlock', transfer: true, session, meta: { robberId, victimId } });
+        return fine;
+      });
       return { kind: 'padlock', fine };
     } catch {
       // The padlock was used or sold a moment ago: carry on without it
@@ -77,10 +85,12 @@ export async function attemptRob(robberId: string, victimId: string, rng: Rng = 
   const chance = robChance(robber, victim, now);
   if (rng.next() >= chance) {
     const jail = rng.next() < robRules.jailChance;
-    await settle([
-      { userId: robberId, change: { wallet: fine ? -fine : undefined, inc: { 'stats.robsFailed': 1 }, ...(jail ? { set: { jailUntil: new Date(now + robRules.jailMinutes * 60_000) } } : {}) }, transfer: true },
-      ...(fine ? [{ userId: victimId, change: { wallet: fine }, transfer: true }] : []),
-    ], { source: 'rob.fail', meta: { robberId, victimId } });
+    const fine = await inTransaction(async (session) => {
+      const fine = await finePayable(robberId, session);
+      await apply(robberId, { wallet: fine ? -fine : undefined, inc: { 'stats.robsFailed': 1 }, ...(jail ? { set: { jailUntil: new Date(now + robRules.jailMinutes * 60_000) } } : {}) }, { source: 'rob.fail', transfer: true, session, meta: { robberId, victimId } });
+      if (fine) await apply(victimId, { wallet: fine }, { source: 'rob.fail', transfer: true, session, meta: { robberId, victimId } });
+      return fine;
+    });
     return { kind: 'failed', fine, jailMinutes: jail ? robRules.jailMinutes : null, chance };
   }
 
@@ -117,8 +127,7 @@ export async function catchRobber(escrowId: string, victimId: string, clickedAt:
       { session, new: true, lean: true },
     );
     if (!doc) return null;
-    const robber = await getProfile(doc.robberId, session);
-    const fine = robFine(robber.wallet);
+    const fine = await finePayable(doc.robberId, session);
     await apply(doc.robberId, {
       wallet: fine ? -fine : undefined,
       set: { jailUntil: new Date(Date.now() + robRules.caughtJailMinutes * 60_000) },

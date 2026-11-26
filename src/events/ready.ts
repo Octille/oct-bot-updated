@@ -25,7 +25,7 @@ export async function onReady(client: Client<true>): Promise<void> {
     if (weaker && !isTestBot()) logError('anti-alt', new Error(`${text}. This is the REAL bot: remove ANTI_ALT_* from .env.`));
     else logInfo('anti-alt', text);
   }
-  client.user.setPresence({ activities: [{ name: '/help', type: ActivityType.Listening }], status: 'online' });
+  client.user.setPresence({ activities: [{ name: 'custom', type: ActivityType.Custom, state: '/menu' }], status: 'online' });
   startScheduler(client, jobs);
   // Leaderboard values for profiles that don't have the current version yet
   backfillBoards().then((n) => n && logInfo('leaderboard', `Computed board values for ${n} profile(s)`)).catch((err) => logError('board backfill', err));
