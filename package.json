@@ -1,6 +1,6 @@
 {
   "name": "octbot",
-  "version": "3.0.0-dev",
+  "version": "3.0.0",
   "main": "dist/index.js",
   "engines": {
     "node": ">=20.20.2"

@@ -30,7 +30,7 @@ You need an Ubuntu 22.04 or 24.04 server with about 4 GB RAM, 2 CPUs and 20 GB d
 ### 1. Install Docker (once per server)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Octille/oct-bot-updated/v3/deploy/setup-ubuntu.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Octille/oct-bot-updated/main/deploy/setup-ubuntu.sh | sh
 ```
 
 Then **log out and back in**, so you can use `docker` without `sudo`. To check it worked, run `docker run --rm hello-world`, which should print "Hello from Docker!".
@@ -38,7 +38,7 @@ Then **log out and back in**, so you can use `docker` without `sudo`. To check i
 ### 2. Get the code
 
 ```sh
-git clone -b v3 https://github.com/Octille/oct-bot-updated.git
+git clone https://github.com/Octille/oct-bot-updated.git
 cd oct-bot-updated
 ```
 

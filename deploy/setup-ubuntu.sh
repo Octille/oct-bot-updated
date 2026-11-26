@@ -1,6 +1,6 @@
 #!/bin/sh
 # One-time setup of a fresh Ubuntu server (22.04 or 24.04): Docker, Compose and git, started on boot.
-#   curl -fsSL https://raw.githubusercontent.com/Octille/oct-bot-updated/v3/deploy/setup-ubuntu.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Octille/oct-bot-updated/main/deploy/setup-ubuntu.sh | sh
 #   (or copy this file over and run: sh setup-ubuntu.sh)
 set -eu
 sudo apt-get update
