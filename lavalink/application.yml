@@ -6,44 +6,52 @@ server:
 
 lavalink:
   plugins:
-    # Snapshot build: 1.18.2 has a TV-client bug YouTube started enforcing in Aug 2026 (fixed in b33460b, not released yet).
-    # Switch back to a release (e.g. 1.18.3+) once one is published.
-    - dependency: "dev.lavalink.youtube:youtube-plugin:e41dd95f8bd134b51e75080fb28cc805fecb431a"
-      snapshot: true
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
   server:
     password: "${LAVALINK_PASSWORD:youshallnotpass}"
     sources:
-      youtube: false # replaced by the youtube plugin below
-      bandcamp: false
-      soundcloud: false
+      youtube: false
+      bandcamp: true
+      soundcloud: true
       twitch: false
       vimeo: false
-      http: false
+      nico: false
+      # Direct audio links, uploaded files and radio streams (the bot only passes public https URLs)
+      http: true
       local: false
 
 plugins:
-  youtube:
-    enabled: true
-    allowSearch: true
-    allowDirectVideoIds: true
-    allowDirectPlaylistIds: true
-    remoteCipher:
-      # Public yt-cipher instance (https://github.com/kikkia/yt-cipher); decodes YouTube stream signatures.
-      url: "${YT_CIPHER_URL:https://cipher.kikkia.dev/}"
-      userAgent: "OctBot"
-    clients:
-      - MUSIC
-      - TV # needs the YouTube login (YT_OAUTH_ENABLED + YT_REFRESH_TOKEN)
-      - TVHTML5_SIMPLY
-      - MWEB
-      - ANDROID_MUSIC
-      - ANDROID_VR
-      - WEB
-      - WEBEMBEDDED
-    oauth:
-      # Set YT_OAUTH_ENABLED=true and YT_REFRESH_TOKEN to use a YouTube account (helps with "sign in to confirm" errors).
-      enabled: ${YT_OAUTH_ENABLED:false}
-      refreshToken: "${YT_REFRESH_TOKEN:}"
+  lavasrc:
+    # Spotify and Apple Music links are only read for their track info; the bot then finds the song
+    # on SoundCloud itself (and says so when there's no good match). Mirroring never uses YouTube.
+    providers:
+      - "scsearch:%QUERY%"
+    sources:
+      spotify: true
+      applemusic: true
+      deezer: false
+      yandexmusic: false
+      flowerytts: false
+      youtube: false
+      vkmusic: false
+      tidal: false
+      qobuz: false
+      ytdlp: false
+      jiosaavn: false
+    spotify:
+      # Free app keys from https://developer.spotify.com/dashboard (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET in .env)
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      countryCode: "US"
+      playlistLoadLimit: 1
+      albumLoadLimit: 1
+      resolveArtistsInSearch: false
+    applemusic:
+      # Leave empty: LavaSrc fetches a token from music.apple.com by itself
+      mediaAPIToken: "${APPLE_MUSIC_TOKEN:}"
+      countryCode: "US"
+      playlistLoadLimit: 1
+      albumLoadLimit: 1
 
 logging:
   level:

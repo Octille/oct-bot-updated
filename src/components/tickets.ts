@@ -4,6 +4,7 @@ import {
   OverwriteType,
   PermissionFlagsBits,
   type ButtonInteraction,
+  type Guild,
   type GuildMember,
   type GuildTextBasedChannel,
 } from 'discord.js';
@@ -18,6 +19,24 @@ import { Ticket } from '../models/Ticket';
 import { buildTranscript, isTicketStaff, ticketName, ticketRules, ticketWelcome } from '../services/tickets';
 
 const DUPLICATE = 11000;
+
+/** When each server's member list was last fetched (fetching everyone is heavy, so at most every 10 minutes). */
+const memberFetches = new Map<string, number>();
+
+/** IDs of the (human) members with the staff role, fetched from Discord (needs the Server Members intent). */
+async function staffMembers(guild: Guild, staffRoleId: string | null): Promise<string[] | null> {
+  const role = staffRoleId ? guild.roles.cache.get(staffRoleId) : null;
+  if (!role) return null;
+  if (Date.now() - (memberFetches.get(guild.id) ?? 0) > ticketRules.memberFetchEveryMs) {
+    try {
+      await guild.members.fetch({ time: 15_000 });
+      memberFetches.set(guild.id, Date.now());
+    } catch (err) {
+      logError('ticket staff fetch', err);
+    }
+  }
+  return [...role.members.filter((m) => !m.user.bot).keys()];
+}
 
 /** Opens a ticket: a private thread in the panel's channel, or a private channel next to it. */
 async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<void> {
@@ -69,14 +88,19 @@ async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<voi
   }
 
   let channel: GuildTextBasedChannel | null = null;
+  // Channel mode: staff see the channel through its permissions, so the mention just notifies them
+  let mentionStaff = !!staffRoleId;
   try {
     const name = ticketName(number, interaction.user.username);
     if (mode === 'thread') {
       const thread = await parent.threads.create({ name, type: ChannelType.PrivateThread, invitable: false, autoArchiveDuration: 10080, reason: `Ticket #${number}` });
       await thread.members.add(interaction.user.id);
-      // Staff join through the role mention below; members already cached are added directly too
-      const staff = staffRoleId ? guild.roles.cache.get(staffRoleId)?.members.filter((m) => !m.user.bot).first(ticketRules.addStaffMax) ?? [] : [];
-      for (const m of staff) await thread.members.add(m.id).catch(() => undefined);
+      // Every staff member is added to the thread; a big staff team gets a role mention instead
+      const staff = await staffMembers(guild, staffRoleId);
+      if (staff && staff.length <= ticketRules.addStaffMax) {
+        for (const id of staff) await thread.members.add(id).catch(() => undefined);
+        mentionStaff = false;
+      }
       channel = thread;
     } else {
       const allow = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles];
@@ -92,8 +116,9 @@ async function openTicket(interaction: ButtonInteraction<'cached'>): Promise<voi
     }
     ticket.channelId = channel.id;
     await ticket.save();
-    const welcome = ticketWelcome(String(ticket._id), number, interaction.user.id, staffRoleId);
-    await channel.send({ ...welcome, allowedMentions: { users: [interaction.user.id], roles: staffRoleId ? [staffRoleId] : [] } });
+    const pinged = mentionStaff ? staffRoleId : null;
+    const welcome = ticketWelcome(String(ticket._id), number, interaction.user.id, pinged);
+    await channel.send({ ...welcome, allowedMentions: { users: [interaction.user.id], roles: pinged ? [pinged] : [] } });
     await interaction.editReply(`${icon('success')} Ticket opened: <#${channel.id}>`);
   } catch (err) {
     // Don't leave a half-made ticket behind

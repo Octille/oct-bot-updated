@@ -16,8 +16,10 @@ export const ticketRules = {
   transcriptMax: 1000,
   /** Channel-mode tickets are deleted this long after closing. */
   deleteChannelAfterMs: 5_000,
-  /** Staff members added to a new ticket thread directly (on top of the role mention). */
+  /** Staff added to a new ticket thread one by one; with more than this, the role is mentioned instead. */
   addStaffMax: 25,
+  /** How often a server's full member list may be fetched to find the staff. */
+  memberFetchEveryMs: 10 * 60_000,
 } as const;
 
 /** The public panel members press to open a ticket. */

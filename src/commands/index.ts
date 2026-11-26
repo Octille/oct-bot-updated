@@ -61,6 +61,7 @@ import avatar from './utility/avatar';
 import userinfo from './utility/userinfo';
 import serverinfo from './utility/serverinfo';
 import poll from './utility/poll';
+import radio from './music/radio';
 import rob from './social/rob';
 import heist from './social/heist';
 import duel from './social/duel';
@@ -76,7 +77,7 @@ export const commands: SlashCommand[] = [
   hunt, dig, crime, bail,
   inventory, iteminfo, sell, use, shop, buy, cosmetics, quests, pet, business,
   raid, season,
-  play, musicCmd,
+  play, radio, musicCmd,
   banCmd, unbanCmd, kickCmd, timeoutCmd, untimeoutCmd, purgeCmd, warnCmd, warningsCmd,
   rank, profileCmd, achievementsCmd, prestigeCmd, levels, leaderboard,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,

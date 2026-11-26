@@ -180,9 +180,11 @@ Trade, duel, heist lobbies and crash rounds are short-lived, so they live in mem
 - **Tickets:** private threads by default, with a channel mode option. Close and Transcript buttons; the transcript is a `.txt` attachment posted to the mod log.
 - **Roles:** button/select role panels replace emoji reaction roles. Autorole is kept.
 - **Music:**
-  - Same Lavalink setup, as slash commands.
-  - A Components V2 now-playing panel (album art, requester, time + emoji progress bar) refreshed every 15s while playing (global edit cap), with Back / Play-Pause / Skip / Loop / Controls; Controls opens volume, shuffle, queue, seek and stop privately.
-  - The YouTube plugin snapshot and OAuth setup stay as-is.
+  - **No YouTube, ever** (its terms forbid this kind of playback, and the bot will be monetized). The YouTube plugin, its config and the YT_* env vars are gone; YouTube links get a polite "not supported" reply.
+  - **Sources:** SoundCloud (default search), Bandcamp, public https audio links, uploaded audio files, and `/radio`. Spotify and Apple Music links (LavaSrc) are only read for track info: each song is matched on SoundCloud by title, artist, version and length, and skipped with a note when there's no close match (never a random track, never YouTube).
+  - **`/radio`:** stations by genre in `config/radio.json` (editable, re-read on change). The real bot only offers stations with a recorded rebroadcast permission; the rest are test-bot only. Radio uses the panel with the station name and `LIVE`.
+  - A Components V2 now-playing panel (album art, requester, time + emoji progress bar, 11 pieces) refreshed every 15s while playing (global edit cap; stops once 10+ newer messages bury it), with Back / Play-Pause / Skip / Loop / Controls; Controls opens volume, shuffle, queue, seek and stop privately.
+  - Never mention YouTube in `/help`, the bot description or directory listings.
 - **Images (`@napi-rs/canvas`):**
   - rank card, profile card (badges, title, prestige), level-up card, welcome card
   - streak calendar, crate reveal and fishdex grid
@@ -312,7 +314,7 @@ Rules: never sold or tradable, never earnable after launch (`exclusive: 'veteran
 ### Option A: cosmetic and convenience VIP (no income advantage)
 
 - **Player VIP:** VIP badge and name colour on cards and leaderboards, an exclusive cosmetic each month, animated card backgrounds, +1 quest reroll per set, bigger inventory (if limits are added), more reminder options (several hours, quest-ready alerts), early access to new features.
-- **Server VIP:** 24/7 music, saved playlists, audio filters, more level-reward roles (e.g. 25 → 50), custom drop chests (admin-picked names and art; rewards stay the same).
+- **Server VIP:** 24/7 music, saved playlists, audio filters (music perks are features only, never playback itself: free and premium play the same sources), more level-reward roles (e.g. 25 → 50), custom drop chests (admin-picked names and art; rewards stay the same).
 
 **Balance impact:** none on coins or XP. The extra reroll lets a VIP swap an awkward quest for one they'd finish anyway, so it lets them finish slightly more quests: at most one more quest a day (≈ ₪250–2,900 by level), under 1% of income.
 

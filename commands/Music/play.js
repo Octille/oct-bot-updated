@@ -51,7 +51,7 @@ module.exports = {
 
       if (!player.connected) await player.connect();
 
-      const searchQuery = query.includes('http') ? query : `ytmsearch:${query}`;
+      const searchQuery = query.includes('http') ? query : `scsearch:${query}`;
       const res = await player.search({ query: searchQuery }, message.author);
 
       if (!res || res.loadType === 'empty' || res.loadType === 'error') {

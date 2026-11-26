@@ -228,7 +228,7 @@ export const settingsHandler = defineComponent({
         await save({ $set: { 'tickets.staffRoleId': roleId } });
         const r = roleId ? guild.roles.cache.get(roleId) : null;
         const warn = r && !r.mentionable && !me.permissions.has(PermissionFlagsBits.MentionEveryone)
-          ? ` ${icon('warning')} The role isn't mentionable, so staff I don't know about yet won't be pulled into ticket threads. Make it mentionable, or use channel mode.` : '';
+          ? ` ${icon('warning')} The role isn't mentionable. Up to 25 staff are added to ticket threads directly; with more, make the role mentionable or use channel mode.` : '';
         return done(roleId ? `Staff role: <@&${roleId}>.${warn}` : 'No staff role (only people with Manage Server/Channels/Threads see tickets).');
       }
       case 'tickets:mode': {

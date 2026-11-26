@@ -138,12 +138,13 @@ describe('music panel', () => {
     expect(c.type).toBe(17);
     expect(c.accent_color).toBe(BRAND);
     expect(c.components![0]!.type).toBe(9);
-    expect(texts(c)).toMatch(/`1:23 \/ 4:34`\n[▰▱]{14}/);
+    expect(texts(c)).toMatch(/`1:23 \/ 4:34`\n[▰▱]{11}/);
     expect(texts(c)).toMatch(/Added by <@1> in <#vc>/);
     const b = buttons(c);
     expect(b.map((x) => x.custom_id?.split(':').pop())).toEqual(['back', 'pause', 'skip', 'loop', 'controls']);
     expect(b[1]).toMatchObject({ style: ButtonStyle.Primary });
-    expect(b[0]!.disabled).toBe(true); // no history yet
+    expect(b[0]!.disabled).toBe(false); // 1:23 in: Back restarts the song even without history
+    expect(buttons(json(nowPlayingPanel(state({ position: 3_000 }), track('Song'))))[0]!.disabled).toBe(true); // early, no history
     expect(b.every((x) => !x.label)).toBe(true);
     // No artwork: no section
     expect(json(nowPlayingPanel(state(), track('Song', { artworkUrl: null }))).components![0]!.type).toBe(10);

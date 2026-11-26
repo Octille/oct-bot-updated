@@ -1,0 +1,28 @@
+{
+  "_readme": "Stations for /radio. Edit freely; the bot re-reads this file on every /radio use. Only stations with a 'permission' note (who allowed rebroadcasting, and when or where) are offered by the real bot. Stations without one are offered on the test bot only, marked 'test only'. Stream URLs must be public https audio streams.",
+  "genres": {
+    "lofi": "Lofi",
+    "chill": "Chill",
+    "hiphop": "Hip-hop",
+    "pop": "Pop",
+    "rock": "Rock",
+    "edm": "EDM & dance",
+    "synthwave": "Synthwave",
+    "vaporwave": "Vaporwave",
+    "eclectic": "Eclectic"
+  },
+  "stations": [
+    { "id": "ilove-chillhop", "name": "I♥CHILLHOP", "genre": "lofi", "url": "https://streams.ilovemusic.de/iloveradio17.mp3", "website": "https://www.ilovemusic.de", "permission": null },
+    { "id": "rp-mellow", "name": "Radio Paradise Mellow", "genre": "chill", "url": "https://stream.radioparadise.com/mellow-192", "website": "https://radioparadise.com", "permission": null },
+    { "id": "nightride-chillsynth", "name": "Nightride Chillsynth", "genre": "chill", "url": "https://stream.nightride.fm/chillsynth.mp3", "website": "https://nightride.fm", "permission": null },
+    { "id": "ilove-hiphop", "name": "I♥HIP HOP", "genre": "hiphop", "url": "https://streams.ilovemusic.de/iloveradio3.mp3", "website": "https://www.ilovemusic.de", "permission": null },
+    { "id": "ilove-radio", "name": "I LOVE RADIO", "genre": "pop", "url": "https://streams.ilovemusic.de/iloveradio1.mp3", "website": "https://www.ilovemusic.de", "permission": null },
+    { "id": "rp-rock", "name": "Radio Paradise Rock", "genre": "rock", "url": "https://stream.radioparadise.com/rock-192", "website": "https://radioparadise.com", "permission": null },
+    { "id": "ilove-dance", "name": "I♥2 DANCE", "genre": "edm", "url": "https://streams.ilovemusic.de/iloveradio2.mp3", "website": "https://www.ilovemusic.de", "permission": null },
+    { "id": "nightride", "name": "Nightride FM", "genre": "synthwave", "url": "https://stream.nightride.fm/nightride.mp3", "website": "https://nightride.fm", "permission": null },
+    { "id": "nightride-datawave", "name": "Nightride Datawave", "genre": "synthwave", "url": "https://stream.nightride.fm/datawave.mp3", "website": "https://nightride.fm", "permission": null },
+    { "id": "nightwave-plaza", "name": "Nightwave Plaza", "genre": "vaporwave", "url": "https://radio.plaza.one/mp3", "website": "https://plaza.one", "permission": null },
+    { "id": "rp-main", "name": "Radio Paradise", "genre": "eclectic", "url": "https://stream.radioparadise.com/mp3-192", "website": "https://radioparadise.com", "permission": null },
+    { "id": "rp-global", "name": "Radio Paradise Global", "genre": "eclectic", "url": "https://stream.radioparadise.com/global-192", "website": "https://radioparadise.com", "permission": null }
+  ]
+}

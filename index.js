@@ -34,7 +34,7 @@ client.lavalink = new LavalinkManager({
     if (guild) guild.shard.send(payload);
   },
   client: { id: process.env.CLIENT_ID, username: 'OctBot' },
-  defaultSearchPlatform: 'ytmsearch',
+  defaultSearchPlatform: 'scsearch',
   playerOptions: { defaultVolume: 100 },
 });
 

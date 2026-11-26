@@ -17,7 +17,7 @@ export function lavalink(): LavalinkManager | null {
 }
 
 /** The current now-playing panel per guild (the old one loses its buttons). `state` is kept for the ended view. */
-interface LivePanel { channelId: string; messageId: string; track: Track; state: PanelState; lastEdit: number }
+interface LivePanel { channelId: string; messageId: string; track: Track; state: PanelState; lastEdit: number; newer: number }
 const panels = new Map<string, LivePanel>();
 /** Guilds with a panel edit in flight (the ticker never stacks edits). */
 const editing = new Set<string>();
@@ -40,7 +40,7 @@ export function createLavalink(client: Client): void {
     client: { id: env.CLIENT_ID },
     autoSkip: true,
     queueOptions: { maxPreviousTracks: musicRules.historySize },
-    playerOptions: { defaultSearchPlatform: 'ytmsearch', volumeDecrementer: 1, onDisconnect: { autoReconnect: false, destroyPlayer: true }, onEmptyQueue: { destroyAfterMs: musicRules.idleLeaveMs },
+    playerOptions: { defaultSearchPlatform: 'scsearch', volumeDecrementer: 1, onDisconnect: { autoReconnect: false, destroyPlayer: true }, onEmptyQueue: { destroyAfterMs: musicRules.idleLeaveMs },
       // A few broken tracks in a playlist shouldn't kill the player
       maxErrorsPerTime: { threshold: 60_000, maxAmount: musicRules.maxErrorsPerMinute } },
   });
@@ -121,7 +121,8 @@ async function postPanel(client: Client, player: Player, track: Track | null): P
   if (!channel || !track) return;
   // Looping the same track: refresh the panel instead of posting a new one each time
   const current = panels.get(player.guildId);
-  if (current && current.track.encoded === track.encoded && player.repeatMode === 'track') return refreshPanel(client, player);
+  // (unless chat has buried it: then a fresh one is posted)
+  if (current && current.track.encoded === track.encoded && player.repeatMode === 'track' && current.newer < musicRules.panelStaleAfter) return refreshPanel(client, player);
   await retirePanel(client, player.guildId, null);
   const state = panelState(player);
   const msg = await channel.send(nowPlayingPanel(state, track));
@@ -130,7 +131,12 @@ async function postPanel(client: Client, player: Player, track: Track | null): P
     await msg.edit(nowPlayingPanel(state, track, 'Stopped.')).catch(() => undefined);
     return;
   }
-  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id, track, state, lastEdit: Date.now() });
+  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id, track, state, lastEdit: Date.now(), newer: 0 });
+}
+
+/** Every message in a channel with a live panel counts toward burying it (see musicRules.panelStaleAfter). */
+export function notePanelChannelMessage(channelId: string, messageId: string): void {
+  for (const p of panels.values()) if (p.channelId === channelId && p.messageId !== messageId) p.newer++;
 }
 
 /** The panel message is gone or out of reach: stop tracking it. */
@@ -143,7 +149,7 @@ function refreshable(client: Client, guildId: string, p: LivePanel): boolean {
   const player = manager?.getPlayer(guildId);
   const track = player?.queue.current;
   if (!player || !track || !player.playing || player.paused || track.info.isStream) return false;
-  if (track.encoded !== p.track.encoded) return false;
+  if (track.encoded !== p.track.encoded || p.newer >= musicRules.panelStaleAfter) return false;
   const voice = player.voiceChannelId ? client.channels.cache.get(player.voiceChannelId) : null;
   return voice?.isVoiceBased() ? voice.members.some((m) => !m.user.bot) : false;
 }

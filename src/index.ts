@@ -7,7 +7,7 @@ import { routeInteraction } from './framework/router';
 import { onReady } from './events/ready';
 import { stopScheduler } from './scheduler';
 import { inviteFilter, onMessageCreate, setMessageContentAvailable } from './events/messageCreate';
-import { checkAlone, createLavalink } from './music/manager';
+import { checkAlone, createLavalink, notePanelChannelMessage } from './music/manager';
 import { onMemberAdd, onMemberUpdate } from './events/members';
 
 /** Application flags for privileged intents (enabled, or "limited" for bots under 100 servers). */
@@ -49,7 +49,10 @@ function attachEvents(c: Client): void {
   c.on(Events.InteractionCreate, (interaction) => {
     routeInteraction(interaction).catch((err) => logError('interaction', err));
   });
-  c.on(Events.MessageCreate, (message) => void onMessageCreate(message));
+  c.on(Events.MessageCreate, (message) => {
+    notePanelChannelMessage(message.channelId, message.id);
+    void onMessageCreate(message);
+  });
   // Editing a message to add an invite link is filtered too
   c.on(Events.MessageUpdate, (_old, updated) => {
     if (updated.inGuild() && !updated.partial) void inviteFilter(updated).catch(() => undefined);

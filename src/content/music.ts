@@ -17,6 +17,8 @@ export const musicRules = {
   panelRefreshMs: 15_000,
   /** Panel edits per second across all servers (Discord allows ~50 requests/s per bot in total). */
   panelEditsPerSecond: 5,
-  /** Progress bar width in emoji pieces. */
-  barSegments: 14,
+  /** Progress bar width in emoji pieces (11 fits a phone screen without wrapping). */
+  barSegments: 11,
+  /** The panel stops refreshing once this many newer messages sit below it (it's scrolled away). */
+  panelStaleAfter: 10,
 } as const;
