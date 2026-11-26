@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, rankSearch, resolvesPublic, matchScore, mirrorService } from '../src/music/sources';
+import { choiceName, choiceValue, clearSuggestCache, resolveChoice, suggest } from '../src/music/suggest';
+import type { Track } from 'lavalink-client';
 import { getCommandList } from '../src/framework/commandList';
 import '../src/framework/registry';
 
@@ -138,5 +140,49 @@ describe('ranking text-search results', () => {
   it('puts 30-second previews last', () => {
     const { ranked } = rankSearch('alone alan walker', [t('Alone', 'Alan Walker', 30_000), t('Alone', 'fan')]);
     expect(ranked[0]!.track.info.author).toBe('fan');
+  });
+});
+
+describe('/play autocomplete', () => {
+  const track = (title: string, author: string, uri = `https://soundcloud.com/${author.replace(/\s/g, '')}/${title.replace(/\s/g, '-')}`, duration = 225_000) =>
+    ({ info: { title, author, uri, duration, isStream: false } }) as unknown as Track;
+  beforeEach(() => clearSuggestCache());
+
+  it('suggests "Title - Uploader [m:ss]" ranked, with the URL as the value', async () => {
+    const search = vi.fn(async () => [track('Alone (sped up)', 'edits'), track('Alone', 'Alan Walker')]);
+    const out = await suggest('alone alan walker', search);
+    expect(out[0]).toEqual({ name: 'Alone - Alan Walker [3:45]', value: 'https://soundcloud.com/AlanWalker/Alone' });
+    expect(out).toHaveLength(2);
+  });
+
+  it('skips short input and links, and searches a repeated query once', async () => {
+    const search = vi.fn(async () => [track('Alone', 'Alan Walker')]);
+    expect(await suggest('a', search)).toEqual([]);
+    expect(await suggest('https://soundcloud.com/x/y', search)).toEqual([]);
+    await Promise.all([suggest('alone', search), suggest('Alone ', search), suggest('alone', search)]);
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers a slow search with the cached prefix (or nothing) instead of failing', async () => {
+    await suggest('alone', async () => [track('Alone', 'Alan Walker')]);
+    const slow = () => new Promise<Track[]>(() => {});
+    expect((await suggest('alone ala', slow, 20))[0]?.name).toMatch(/^Alone - Alan Walker/);
+    expect(await suggest('faded', slow, 20)).toEqual([]);
+    expect(await suggest('error', async () => { throw new Error('down'); }, 20)).toEqual([]);
+  });
+
+  it('long URLs become short keys that resolve back, and expire', () => {
+    const long = `https://soundcloud.com/${'x'.repeat(120)}`;
+    const key = choiceValue(long, 0);
+    expect(key.length).toBeLessThanOrEqual(100);
+    expect(resolveChoice(key, 1_000)).toBe(long);
+    expect(resolveChoice(key, 11 * 60_000)).toBeNull();
+    expect(resolveChoice('alone alan walker')).toBeUndefined();
+  });
+
+  it('shortens long titles to fit 100 characters', () => {
+    const name = choiceName(track('T'.repeat(150), 'Uploader'));
+    expect(name.length).toBeLessThanOrEqual(100);
+    expect(name.endsWith(' - Uploader [3:45]')).toBe(true);
   });
 });

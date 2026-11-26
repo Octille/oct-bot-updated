@@ -1,21 +1,18 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember, type User } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder, type GuildMember, type User } from 'discord.js';
 import type { Player, Track } from 'lavalink-client';
 import { defineCommand } from '../../framework/types';
 import { musicRules } from '../../content/music';
-import { embed, errorEmbed } from '../../lib/embeds';
-import { collect } from '../../lib/collect';
-import { makeId } from '../../lib/customId';
-import { btn, MAIN, row, select } from '../../ui/kit';
+import { embed } from '../../lib/embeds';
+import { resolveChoice, suggest } from '../../music/suggest';
 import { UserError } from '../../lib/errors';
 import { icon, titleIcon } from '../../lib/icons';
 import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
 import { env } from '../../config/env';
 import { logError } from '../../lib/logger';
-import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, PICKER_SIZE, rankSearch, resolvesPublic, sourceRules } from '../../music/sources';
+import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, rankSearch, resolvesPublic, sourceRules } from '../../music/sources';
 
-/** `confirm`: always reply (a picked song), even when it starts right away. */
-type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number; confirm?: boolean };
+type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number };
 
 const MUSIC_DOWN = 'Music is unavailable right now. Try again in a minute.';
 
@@ -43,14 +40,14 @@ async function search(player: Player, query: string, user: User, source?: 'scsea
   }
 }
 
-/** Plain text: SoundCloud results, best guess at the original first (see rankSearch). */
-async function searchResults(player: Player, query: string, user: User): Promise<Track[]> {
+/** Plain text submitted without picking a suggestion: the top-ranked SoundCloud result (see rankSearch). */
+async function topResult(player: Player, query: string, user: User): Promise<Found> {
   const res = await search(player, query, user, 'scsearch');
   if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
   if (res.failure === 'source') throw new UserError(SEARCH_DOWN);
-  const tracks = res.tracks.filter((t) => !t.info.isStream);
-  if (!tracks.length) throw new UserError(`Nothing found on SoundCloud for **${escapeTitle(query.slice(0, 80))}**.`);
-  return tracks;
+  const top = rankSearch(query, res.tracks.filter((t) => !t.info.isStream)).ranked[0];
+  if (!top) throw new UserError(`Nothing found on SoundCloud for **${escapeTitle(query.slice(0, 80))}**.`);
+  return { tracks: [top.track] };
 }
 
 /**
@@ -73,61 +70,12 @@ async function enqueue(player: Player, found: Found) {
     found.total && found.total > sourceRules.maxMatchedTracks ? `Only the first ${sourceRules.maxMatchedTracks} songs are matched.` : null,
     toAdd.length < found.tracks.length ? `The queue holds ${musicRules.maxQueue}.` : null,
   ].filter(Boolean);
-  if (startsNow && toAdd.length === 1 && !notes.length && !found.confirm) return null;
+  if (startsNow && toAdd.length === 1 && !notes.length) return null;
   const text = toAdd.length > 1
     ? `${icon('success')} Added **${toAdd.length}** tracks${found.name ? ` from **${escapeTitle(found.name)}**` : ''}.`
     : startsNow ? `${icon('success')} Playing **${escapeTitle(first.info.title)}**.`
       : `${icon('success')} Queued **[${escapeTitle(first.info.title)}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)} · #${player.queue.tracks.length} in the queue.`;
   return embed('music').setTitle(`${titleIcon('music')} Play`).setDescription([text, ...notes.map((n) => `-# ${n}`)].join('\n'));
-}
-
-const PICK_TIMEOUT = 60_000;
-
-/** The private picker for text searches: the top results in a select menu, plus "Play top result". */
-async function showPicker(interaction: ChatInputCommandInteraction, player: Player, query: string, results: Track[], dropIfIdle: () => unknown) {
-  const { ranked, originalLikelyMissing } = rankSearch(query, results);
-  const top = ranked.slice(0, PICKER_SIZE).map((r) => r.track);
-  const owner = interaction.user.id;
-  const line = (t: Track) => `${escapeTitle(t.info.author)} · ${t.info.duration ? formatTime(t.info.duration) : 'unknown length'}`;
-  const message = await interaction.editReply({
-    embeds: [embed('music').setTitle(`${titleIcon('music')} Pick a song`).setDescription([
-      ...top.map((t, i) => `**${i + 1}.** ${escapeTitle(t.info.title)}\n-# ${line(t)}`),
-      ...(originalLikelyMissing ? ['', `${icon('info')} The original may not be available here. These are the closest versions.`] : []),
-    ].join('\n'))],
-    components: [
-      select(makeId('~play', owner), 'Choose a song', top.map((t, i) => ({ label: `${i + 1}. ${t.info.title}`, value: String(i), description: `${t.info.author} · ${t.info.duration ? formatTime(t.info.duration) : '?'}` }))),
-      row(btn(makeId('~play', owner, 'top'), 'Play top result', MAIN)),
-    ],
-  });
-
-  let picked = false;
-  const collector = collect(message, { time: PICK_TIMEOUT, max: 1, disableOnEnd: false });
-  collector.on('collect', (i) => {
-    picked = true;
-    void (async () => {
-      try {
-        const track = top[i.isStringSelectMenu() ? Number(i.values[0]) : 0];
-        if (!track) throw new UserError('That song is no longer in the list. Run /play again.');
-        const member = await interaction.guild!.members.fetch(owner);
-        const live = lavalink()?.getPlayer(interaction.guildId!);
-        if (!live || live !== player) throw new UserError('The music was stopped meanwhile. Run /play again.');
-        const problem = voiceCheck(member, player);
-        if (problem) throw new UserError(problem);
-        const result = await enqueue(player, { tracks: [track], confirm: true });
-        await i.update({ embeds: [result!], components: [] });
-      } catch (err) {
-        await dropIfIdle();
-        const text = err instanceof UserError ? err.message : 'Something went wrong playing that. Try again.';
-        if (!(err instanceof UserError)) logError('play picker', err);
-        await i.update({ embeds: [errorEmbed(text)], components: [] }).catch(() => undefined);
-      }
-    })();
-  });
-  collector.on('end', () => {
-    if (picked) return;
-    void dropIfIdle();
-    void interaction.editReply({ embeds: [embed('music').setDescription(`${icon('info')} No song picked. Run /play again when you're ready.`)], components: [] }).catch(() => undefined);
-  });
 }
 
 /** Spotify / Apple Music: read the songs, then find each one on SoundCloud (only close matches). */
@@ -156,13 +104,20 @@ async function fromMirror(player: Player, url: string, user: User): Promise<Foun
 
 export default defineCommand({
   data: new SlashCommandBuilder().setName('play').setDescription('Play a song, playlist or audio file in your voice channel')
-    .addStringOption((o) => o.setName('query').setDescription('Song name, or a SoundCloud, Bandcamp, Spotify or Apple Music link').setMaxLength(300))
+    .addStringOption((o) => o.setName('query').setDescription('Song name, or a SoundCloud, Bandcamp, Spotify or Apple Music link').setMaxLength(300).setAutocomplete(true))
     .addAttachmentOption((o) => o.setName('file').setDescription('An audio file to play (mp3, ogg, wav, flac, m4a…)')),
   category: 'music',
   guildOnly: true,
+  async autocomplete(interaction) {
+    await interaction.respond(await suggest(interaction.options.getFocused())).catch(() => undefined);
+  },
   // Not deferred up front, and all replies are private: the now-playing panel is the public message
   async execute({ interaction }) {
-    const query = interaction.options.getString('query')?.trim() ?? '';
+    let query = interaction.options.getString('query')?.trim() ?? '';
+    // A suggestion whose URL was too long for Discord arrives as a short key
+    const picked = resolveChoice(query);
+    if (picked === null) throw new UserError('That suggestion expired. Type the song again and pick it from the list.');
+    if (picked) query = picked;
     const file = interaction.options.getAttachment('file');
     if (!query && !file) throw new UserError(`Give a song name or link, or upload an audio file. ${SUPPORTED}`);
     const kind = file ? 'file' : classifyQuery(query);
@@ -182,22 +137,10 @@ export default defineCommand({
     if (!perms?.has(PermissionFlagsBits.Connect) || !perms.has(PermissionFlagsBits.Speak)) throw new UserError(`I need permission to connect and speak in <#${channel.id}>.`);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // Not connected yet: a text search only joins once a song is picked
     const player = manager.getPlayer(interaction.guildId!) ?? manager.createPlayer({
       guildId: interaction.guildId!, voiceChannelId: channel.id, textChannelId: interaction.channelId, selfDeaf: true, volume: musicRules.defaultVolume,
     });
     const dropIfIdle = () => (!player.queue.current && !player.queue.tracks.length ? player.destroy('nothing to play').catch(() => undefined) : undefined);
-
-    if (!file && kind === 'search') {
-      let results: Track[];
-      try {
-        results = await searchResults(player, query, interaction.user);
-      } catch (err) {
-        await dropIfIdle();
-        throw err;
-      }
-      return showPicker(interaction, player, query, results, dropIfIdle);
-    }
 
     let found: Found;
     try {
@@ -211,6 +154,8 @@ export default defineCommand({
         found = { tracks: [t] };
       } else if (kind === 'mirror') {
         found = await fromMirror(player, query, interaction.user);
+      } else if (kind === 'search') {
+        found = await topResult(player, query, interaction.user);
       } else {
         const res = await search(player, query, interaction.user);
         if (res.failure === 'client') throw new UserError(MUSIC_DOWN);
@@ -224,7 +169,10 @@ export default defineCommand({
       throw err;
     }
 
-    const result = await enqueue(player, found);
+    const result = await enqueue(player, found).catch(async (err: unknown) => {
+      await dropIfIdle();
+      throw err;
+    });
     if (!result) return interaction.deleteReply();
     return interaction.editReply({ embeds: [result] });
   },

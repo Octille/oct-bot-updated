@@ -168,8 +168,6 @@ export function matchScore(song: SongInfo, candidate: SongInfo): number {
   return 0.6 * titleCover + 0.4 * artistCover;
 }
 
-/** How many search results the /play picker shows. */
-export const PICKER_SIZE = 5;
 /** SoundCloud's 30-second previews of tracks it can't stream in full. */
 const PREVIEW_MS = 30_000;
 
