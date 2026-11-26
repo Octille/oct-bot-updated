@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, resolvesPublic, matchScore, mirrorService } from '../src/music/sources';
+import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPrivateAddress, isPublicHttpsUrl, mapLimit, rankSearch, resolvesPublic, matchScore, mirrorService } from '../src/music/sources';
 import { getCommandList } from '../src/framework/commandList';
 import '../src/framework/registry';
 
@@ -101,5 +101,42 @@ describe('direct links resolve to public addresses only', () => {
     expect(await resolvesPublic('https://none.example.com/a.mp3', at())).toBe(false);
     expect(await resolvesPublic('https://err.example.com/a.mp3', async () => { throw new Error('ENOTFOUND'); })).toBe(false);
     expect(await resolvesPublic('https://slow.example.com/a.mp3', () => new Promise(() => {}), 20)).toBe(false);
+  });
+});
+
+describe('ranking text-search results', () => {
+  const t = (title: string, author: string, duration = 200_000) => ({ info: { title, author, duration } });
+
+  it('puts the likely original first and pushes edits down', () => {
+    const results = [
+      t('Alone (sped up)', 'speedy edits'),
+      t('Alone - Alan Walker (Remix)', 'dj someone'),
+      t('Alone', 'Alan Walker'),
+      t('Alone', 'random uploader'),
+    ];
+    const { ranked, originalLikelyMissing } = rankSearch('alone alan walker', results);
+    expect(ranked[0]!.track.info.author).toBe('Alan Walker');
+    expect(ranked.slice(-2).map((r) => r.track.info.title)).toEqual(expect.arrayContaining(['Alone (sped up)', 'Alone - Alan Walker (Remix)']));
+    expect(originalLikelyMissing).toBe(false);
+  });
+
+  it('matches uploader names written as one word', () => {
+    const { ranked } = rankSearch('faded alan walker', [t('Faded', 'some guy'), t('Faded', 'alanwalkermusic')]);
+    expect(ranked[0]!.track.info.author).toBe('alanwalkermusic');
+  });
+
+  it('keeps versions the query asks for', () => {
+    const { ranked } = rankSearch('alone nightcore', [t('Alone', 'Alan Walker'), t('Alone (Nightcore)', 'nc fan')]);
+    expect(ranked[0]!.track.info.title).toBe('Alone (Nightcore)');
+  });
+
+  it('flags when no uploader matches the artist, and not for title-only searches', () => {
+    expect(rankSearch('alone alan walker', [t('Alone (edit)', 'x'), t('Alone', 'y')]).originalLikelyMissing).toBe(true);
+    expect(rankSearch('alone', [t('Alone', 'y'), t('Faded', 'z')]).originalLikelyMissing).toBe(false);
+  });
+
+  it('puts 30-second previews last', () => {
+    const { ranked } = rankSearch('alone alan walker', [t('Alone', 'Alan Walker', 30_000), t('Alone', 'fan')]);
+    expect(ranked[0]!.track.info.author).toBe('fan');
   });
 });

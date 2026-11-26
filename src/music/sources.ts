@@ -168,6 +168,49 @@ export function matchScore(song: SongInfo, candidate: SongInfo): number {
   return 0.6 * titleCover + 0.4 * artistCover;
 }
 
+/** How many search results the /play picker shows. */
+export const PICKER_SIZE = 5;
+/** SoundCloud's 30-second previews of tracks it can't stream in full. */
+const PREVIEW_MS = 30_000;
+
+export interface Ranked<T> { track: T; score: number; artistMatch: boolean }
+
+/**
+ * Orders text-search results so the likely original comes first. Official major-label tracks are
+ * often DRM-protected on SoundCloud, so the raw top hit is frequently an edit or re-upload.
+ * - The "likely artist" is the query words that aren't in the title ("alone alan walker" on a
+ *   track titled "Alone" → alan, walker). An uploader matching it is a strong boost.
+ * - Titles close to the query rank higher; edits, remixes, sped-up versions and the like go down
+ *   unless the query asks for them; 30-second previews go last.
+ * - SoundCloud's own order breaks ties.
+ * `originalLikelyMissing`: the query names an artist, but no uploader matches it.
+ */
+export function rankSearch<T extends { info: SongInfo }>(query: string, tracks: readonly T[]): { ranked: Ranked<T>[]; originalLikelyMissing: boolean } {
+  const q = words(query);
+  const wantVersion = VERSION.test(normalize(query));
+  let namesArtist = false;
+  const ranked = tracks.map((track, i): Ranked<T> => {
+    const title = words(track.info.title);
+    const uploader = words(track.info.author);
+    const compactUploader = normalize(track.info.author).replace(/\s/g, '');
+    const artist = new Set([...q].filter((w) => !title.has(w)));
+    // Only a title that's mostly query words tells us the rest of the query is the artist
+    if (artist.size && covered(title, q) >= 0.5) namesArtist = true;
+    let hits = 0;
+    for (const w of artist) if (uploader.has(w) || (w.length >= 4 && compactUploader.includes(w))) hits++;
+    const artistMatch = artist.size > 0 && hits / artist.size >= 0.5;
+    const version = !wantVersion && VERSION.test(normalize(track.info.title));
+    const score = 0.4 * covered(q, new Set([...title, ...uploader]))
+      + 0.3 * covered(title, q)
+      + (artistMatch ? 0.5 : 0)
+      - (version ? 0.6 : 0)
+      - (track.info.duration === PREVIEW_MS ? 1 : 0)
+      + 0.1 * (1 - i / Math.max(1, tracks.length));
+    return { track, score, artistMatch };
+  }).sort((a, b) => b.score - a.score);
+  return { ranked, originalLikelyMissing: namesArtist && ranked.length > 0 && !ranked.some((r) => r.artistMatch) };
+}
+
 /** The best candidate, or null when none is a close enough match (never "something random"). */
 export function bestMatch<T extends { info: SongInfo }>(song: SongInfo, candidates: readonly T[]): T | null {
   let best: T | null = null;
