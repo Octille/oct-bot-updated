@@ -42,7 +42,7 @@ export function canSee(json: { default_member_permissions?: string | null }, per
 }
 
 function commandsIn(category: Category, permissions?: string | null) {
-  return getCommandList().filter((c) => c.category === category).map((c) => c.data.toJSON()).filter((c) => canSee(c, permissions));
+  return getCommandList().filter((c) => c.category === category && !c.ownerOnly).map((c) => c.data.toJSON()).filter((c) => canSee(c, permissions));
 }
 
 export const help: ScreenModule = {

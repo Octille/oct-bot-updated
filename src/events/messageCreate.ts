@@ -12,6 +12,7 @@ import { checkAchievements } from '../services/achievements';
 import { announceLevelUp } from '../services/levelAnnounce';
 import { awardChatXp, levelSettings, xpMultiplier } from '../services/levels';
 import { User } from '../models/User';
+import { prefixNotice } from '../services/prefixNotice';
 
 /** Set at startup: whether the bot can read message text (privileged Message Content intent). */
 let canReadContent = false;
@@ -27,6 +28,8 @@ export function messageContentAvailable(): boolean {
 export async function onMessageCreate(message: Message): Promise<void> {
   if (!message.inGuild() || message.author.bot || message.system || message.webhookId) return;
   await handleAfk(message);
+  // Old `!commands` get a slash-command notice and never count as chat XP
+  if (canReadContent && (await prefixNotice(message))) return;
   // Without the intent we can't see the text, so every message counts (still once a minute)
   if (canReadContent && message.content.trim().length < chatXp.minLength && !message.attachments.size) return;
 

@@ -25,6 +25,9 @@ const schema = z.object({
   ANTI_ALT_PROFILE_DAYS: z.coerce.number().min(0).optional(),
   ANTI_ALT_DISCORD_DAYS: z.coerce.number().min(0).optional(),
 
+  /** Relaunch date (ISO). Old `!commands` get a slash-command notice for 30 days after it; unset = off. */
+  LAUNCH_DATE: z.string().optional(),
+
   /** When Season 1 starts (ISO date). Unset = seasons haven't started. */
   SEASON_1_START: z.string().optional(),
   /** Season length in days (default 30; shorter on the test bot to see a season end). */

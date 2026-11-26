@@ -56,6 +56,7 @@ import crash from './gambling/crash';
 import casino from './gambling/casino';
 import settings from './admin/settings';
 import rolepanel from './admin/rolepanel';
+import eco from './admin/eco';
 import afk from './utility/afk';
 import avatar from './utility/avatar';
 import userinfo from './utility/userinfo';
@@ -81,5 +82,5 @@ export const commands: SlashCommand[] = [
   rank, profileCmd, achievementsCmd, prestigeCmd, levels, leaderboard,
   casino, coinflip, slots, blackjack, highlow, roulette, crash,
   rob, heist, duel, trade, give, gift,
-  settings, rolepanel,
+  settings, rolepanel, eco,
 ];

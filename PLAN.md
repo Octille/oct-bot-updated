@@ -226,8 +226,8 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - role panels, autorole, thread tickets with transcripts, welcome (card)
   - afk, avatar, serverinfo, userinfo, ping, poll, interactive help, `/settings` dashboard.
 - [ ] **7. Polish.** Split so the live database is only touched after the owner has checked the dry-run:
-  - **7a (local only):** the migration script, the on-demand import and guild settings import, with tests on synthetic v2 data. The owner then copies the live data to a local database (`mongodump`, read-only), runs `--dry-run` against the copy, and checks the summary.
-  - **7b (local only):** `/eco` owner tools and `/eco stats`, the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries), and the 30-day prefix notice (decision 3).
+  - **7a (done):** the migration script, the on-demand import and guild settings import, with tests on synthetic v2 data. The owner then copies the live data to a local database (`mongodump`, read-only), runs `--dry-run` against the copy, and checks the summary.
+  - **7b (done):** `/eco give/take/reset/log/stats` (owner only, hidden from /help; stats net player-to-player moves, wallet↔bank and `migration.v2` out, group sources so gambling shows the house edge, daily money-supply snapshots at 00:01 UTC), the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries), and the 30-day prefix notice (decision 3; starts at `LAUNCH_DATE`, once per channel per hour, old command names only, needs Message Content). Old reaction roles: loaded from `reactionroles` at startup, roles with moderator powers are never given, and the server owner gets one DM asking them to move to /rolepanel.
   - **7c:** Docker (replset Mongo, build step), a Google Cloud deploy running against a **copy** of the data, `.env.example`, BALANCE.md and README.
   - **7d (cutover, owner present):** `mongodump` backup, the real migration on live, removing `ANTI_ALT_*`, the intents check, global command deploy, and the relaunch announcement.
   - Full list:
