@@ -17,7 +17,6 @@ import { ANYONE, makeId } from '../lib/customId';
 import { bar } from '../lib/format';
 import { buttonIcon, greyButtonIcon, hasIcon, icon, titleIcon } from '../lib/icons';
 import { hasHistory } from './history';
-import { radioOf } from './radio';
 
 /** A title safe inside **bold** and [link](…) markdown. */
 export function escapeTitle(title: string): string {
@@ -118,13 +117,10 @@ export function nowPlayingPanel(state: PanelState, track: Track, ended?: string)
   const info = track.info;
   const requester = (track.requester as { id?: string } | undefined)?.id;
   const container = new ContainerBuilder().setAccentColor(BRAND);
-  const radio = radioOf(track);
 
   const heading = [
-    text(`-# ${titleIcon('music')} ${ended ? 'Played' : radio ? 'Radio' : 'Now playing'}`),
-    radio
-      ? text(`### ${radio.website ? `[${escapeTitle(radio.name)}](${radio.website})` : escapeTitle(radio.name)}\n${escapeTitle(radio.genre)} radio`)
-      : text(`### [${escapeTitle(info.title)}](${info.uri})\n${escapeTitle(info.author)}`),
+    text(`-# ${titleIcon('music')} ${ended ? 'Played' : 'Now playing'}`),
+    text(`### [${escapeTitle(info.title)}](${info.uri})\n${escapeTitle(info.author)}`),
   ];
   if (info.artworkUrl) {
     container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(heading)
@@ -146,14 +142,14 @@ export function nowPlayingPanel(state: PanelState, track: Track, ended?: string)
   }
 
   // Time and bar in one text block: a block of emojis alone would show them jumbo-sized
-  const time = info.isStream || radio ? '`LIVE`' : `\`${clock(state.position)} / ${formatTime(info.duration)}\``;
-  const progress = info.isStream || radio ? '' : `\n${renderBar(state.position, info.duration)}`;
+  const time = `\`${clock(state.position)} / ${formatTime(info.duration)}\``;
+  const progress = `\n${renderBar(state.position, info.duration)}`;
   container.addTextDisplayComponents(text(`${time}${state.paused ? ' · **Paused**' : ''}${progress}`));
 
   const id = (action: string) => makeId('mp', ANYONE, action);
   const loop = LOOP[state.repeatMode];
   // Back restarts the song once it's a few seconds in (no history needed); otherwise it needs a previous track
-  const canRestart = !info.isStream && !radio && info.isSeekable !== false && state.position > musicRules.backRestartMs;
+  const canRestart = info.isSeekable !== false && state.position > musicRules.backRestartMs;
   container.addActionRowComponents(actionRow(
     iconButton(id('back'), 'mp_back', ButtonStyle.Secondary, !canRestart && !hasHistory(state.guildId)),
     iconButton(id('pause'), state.paused ? 'mp_play' : 'mp_pause', ButtonStyle.Primary),

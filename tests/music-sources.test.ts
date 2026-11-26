@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_YOUTUBE, bestMatch, classifyQuery, isAudioAttachment, isPublicHttpsUrl, mapLimit, matchScore } from '../src/music/sources';
-import { RADIO_FILE, availableStations, parseRadioConfig, radioConfig } from '../src/music/radio';
+import { NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, bestMatch, classifyQuery, isAudioAttachment, isPublicHttpsUrl, mapLimit, matchScore, mirrorService } from '../src/music/sources';
 import { getCommandList } from '../src/framework/commandList';
 import '../src/framework/registry';
 
@@ -9,7 +8,11 @@ describe('what /play accepts', () => {
     for (const q of ['https://www.youtube.com/watch?v=abc', 'https://youtu.be/abc', 'https://music.youtube.com/watch?v=x', 'https://m.youtube.com/watch?v=x', 'youtu.be/abc', 'www.youtube.com/watch?v=1', 'https://www.youtube-nocookie.com/embed/x']) {
       expect(classifyQuery(q), q).toBe('youtube');
     }
-    expect(NO_YOUTUBE).toBe("YouTube isn't supported. Try the song name, a SoundCloud link, or /radio.");
+    expect(NO_YOUTUBE).toBe("YouTube isn't supported. Try the song name, a SoundCloud or Bandcamp link, or upload an audio file.");
+    expect(SEARCH_DOWN).toBe('Song search is temporarily unavailable. Try a Bandcamp link, a direct audio link, or upload a file.');
+    expect(NO_SPOTIFY).toBe("Spotify links aren't supported yet.");
+    expect(mirrorService('https://open.spotify.com/track/x')).toBe('Spotify');
+    expect(mirrorService('https://music.apple.com/us/song/x/1')).toBe('Apple Music');
   });
 
   it('Spotify/Apple links are matched, others play directly, text is searched', () => {
@@ -73,44 +76,10 @@ describe('matching Spotify/Apple songs to SoundCloud', () => {
   });
 });
 
-describe('radio', () => {
-  it('the shipped station file is valid and covers the genres', () => {
-    const config = radioConfig(RADIO_FILE);
-    expect(config.stations.length).toBeGreaterThan(5);
-    for (const g of ['lofi', 'chill', 'hiphop', 'pop', 'rock', 'edm']) expect(config.stations.some((s) => s.genre === g), g).toBe(true);
-    expect(config.stations.every((s) => !/youtu/i.test(s.url))).toBe(true);
-  });
-
-  it('only stations with recorded permission on the real bot', () => {
-    const config = parseRadioConfig({ genres: { a: 'A' }, stations: [
-      { id: 'ok', name: 'OK', genre: 'a', url: 'https://radio.example.com/s.mp3', permission: 'Email from the owner, 2026-11-26' },
-      { id: 'test', name: 'Test', genre: 'a', url: 'https://radio.example.com/t.mp3', permission: null },
-    ] });
-    expect(availableStations(config, false).map((s) => s.id)).toEqual(['ok']);
-    expect(availableStations(config, true).map((s) => s.id)).toEqual(['ok', 'test']);
-  });
-
-  it('rejects bad files', () => {
-    expect(() => parseRadioConfig({ genres: {}, stations: [{ id: 'x', name: 'X', genre: 'nope', url: 'https://a.example.com/x' }] })).toThrow(/unknown genre/);
-    expect(() => parseRadioConfig({ genres: { a: 'A' }, stations: [{ id: 'x', name: 'X', genre: 'a', url: 'http://10.0.0.1/x' }] })).toThrow();
-  });
-
-  it('the radio panel shows the station and LIVE, no bar', async () => {
-    const { nowPlayingPanel } = await import('../src/music/panel.js');
-    const track = { encoded: 'r', info: { title: 'stream title', uri: 'https://x', author: 'x', duration: 0, isStream: true, isSeekable: false, artworkUrl: null }, userData: { radio: { id: 'rp', name: 'Radio Paradise', genre: 'Eclectic', website: 'https://radioparadise.com' } } };
-    const state = { guildId: 'g', paused: false, repeatMode: 'off', volume: 80, upNext: 0, position: 60_000, voiceChannelId: 'vc' };
-    const json = JSON.stringify(nowPlayingPanel(state as never, track as never).components[0]!.toJSON());
-    expect(json).toContain('Radio Paradise');
-    expect(json).toContain('Eclectic radio');
-    expect(json).toContain('`LIVE`');
-    expect(json).not.toMatch(/[▰▱]/);
-    expect(json).not.toContain('stream title');
-  });
-});
-
 describe('no YouTube anywhere users can see', () => {
-  it('command names, descriptions and options never mention it', () => {
+  it('command names, descriptions and options never mention it (or the removed /radio)', () => {
     const text = JSON.stringify(getCommandList().map((c) => c.data.toJSON()));
     expect(text).not.toMatch(/youtube/i);
+    expect(text).not.toMatch(/radio/i);
   });
 });

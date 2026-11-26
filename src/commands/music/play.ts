@@ -7,7 +7,8 @@ import { UserError } from '../../lib/errors';
 import { icon, titleIcon } from '../../lib/icons';
 import { escapeTitle, formatTime } from '../../music/panel';
 import { lavalink, nodeReady, voiceCheck } from '../../music/manager';
-import { NO_YOUTUBE, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, sourceRules } from '../../music/sources';
+import { env } from '../../config/env';
+import { NO_LIVE, NO_SPOTIFY, NO_YOUTUBE, SEARCH_DOWN, SUPPORTED, bestMatch, classifyQuery, isAudioAttachment, mapLimit, mirrorService, sourceRules } from '../../music/sources';
 
 type Found = { tracks: Track[]; name?: string; skipped?: number; total?: number };
 
@@ -24,7 +25,7 @@ async function search(player: Player, query: string, user: User, source?: 'scsea
 /** Plain text: the first SoundCloud result that isn't a 30-second preview. */
 async function fromSearch(player: Player, query: string, user: User): Promise<Found> {
   const res = await search(player, query, user, 'scsearch');
-  if (res.failed) throw new UserError('SoundCloud search is having trouble right now. Try again in a bit, or use /radio.');
+  if (res.failed) throw new UserError(SEARCH_DOWN);
   const pick = res.tracks.find((t) => t.info.duration !== 30_000) ?? res.tracks[0];
   if (!pick) throw new UserError(`Nothing found on SoundCloud for **${escapeTitle(query.slice(0, 80))}**.`);
   return { tracks: [pick] };
@@ -32,14 +33,17 @@ async function fromSearch(player: Player, query: string, user: User): Promise<Fo
 
 /** Spotify / Apple Music: read the songs, then find each one on SoundCloud (only close matches). */
 async function fromMirror(player: Player, url: string, user: User): Promise<Found> {
-  const service = /apple/i.test(url) ? 'Apple Music' : 'Spotify';
+  const service = mirrorService(url);
   const res = await search(player, url, user);
   if (!res.tracks.length) throw new UserError(`Couldn't read that ${service} link. Check that it's a song, album or public playlist.`);
   const songs = res.tracks.slice(0, sourceRules.maxMatchedTracks);
+  let searchDown = 0;
   const matched = await mapLimit(songs, sourceRules.matchConcurrency, async (song) => {
     const found = await search(player, `${song.info.author} ${song.info.title}`, user, 'scsearch');
+    if (found.failed) searchDown++;
     return bestMatch(song.info, found.tracks.slice(0, sourceRules.candidates));
   });
+  if (searchDown === songs.length) throw new UserError(SEARCH_DOWN);
   const tracks = matched.filter((t): t is Track => !!t);
   if (!tracks.length) {
     throw new UserError(songs.length === 1
@@ -62,6 +66,7 @@ export default defineCommand({
     if (!query && !file) throw new UserError(`Give a song name or link, or upload an audio file. ${SUPPORTED}`);
     const kind = file ? 'file' : classifyQuery(query);
     if (kind === 'youtube') throw new UserError(NO_YOUTUBE);
+    if (kind === 'mirror' && mirrorService(query) === 'Spotify' && !(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET)) throw new UserError(NO_SPOTIFY);
     if (kind === 'unsafe') throw new UserError(`That link can't be played. Links must be public https addresses. ${SUPPORTED}`);
     if (file && !isAudioAttachment(file)) throw new UserError('That file isn\'t audio. Upload an mp3, ogg, wav, flac or m4a file.');
 
@@ -97,6 +102,8 @@ export default defineCommand({
         const res = await search(player, query, interaction.user);
         if (!res.tracks.length) throw new UserError(`Couldn't play that link. ${SUPPORTED}`);
         found = { tracks: res.playlist ? res.tracks : [res.tracks[0]!], name: res.playlist };
+        if (found.tracks.every((t) => t.info.isStream)) throw new UserError(NO_LIVE);
+        found.tracks = found.tracks.filter((t) => !t.info.isStream);
       } else {
         found = await fromSearch(player, query, interaction.user);
       }

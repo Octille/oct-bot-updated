@@ -148,8 +148,6 @@ describe('music panel', () => {
     expect(b.every((x) => !x.label)).toBe(true);
     // No artwork: no section
     expect(json(nowPlayingPanel(state(), track('Song', { artworkUrl: null }))).components![0]!.type).toBe(10);
-    // Streams: no bar
-    expect(texts(json(nowPlayingPanel(state(), track('Live', { isStream: true }))))).not.toMatch(/[▰▱]/);
   });
 
   it('loop and play/pause show their state; ended panels lose their buttons', async () => {

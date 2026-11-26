@@ -10,6 +10,9 @@ const schema = z.object({
   DEV_GUILD_ID: z.string().optional(),
   /** Comma-separated servers for `npm run deploy:guild` (falls back to DEV_GUILD_ID). */
   DEV_GUILD_IDS: z.string().optional(),
+  /** Spotify links work only when both are set (Lavalink reads them too, via lavalink server/start.sh). */
+  SPOTIFY_CLIENT_ID: z.string().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().optional(),
   /** The test bot's application id. deploy:global refuses to run for it without --force. */
   TEST_CLIENT_ID: z.string().default('816413181793665056'),
   ERROR_LOG_CHANNEL_ID: z.string().optional(),

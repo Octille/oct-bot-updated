@@ -4,7 +4,10 @@
  * each song is then matched on SoundCloud (and skipped when no match is close enough).
  */
 
-export const NO_YOUTUBE = "YouTube isn't supported. Try the song name, a SoundCloud link, or /radio.";
+export const NO_YOUTUBE = "YouTube isn't supported. Try the song name, a SoundCloud or Bandcamp link, or upload an audio file.";
+export const SEARCH_DOWN = 'Song search is temporarily unavailable. Try a Bandcamp link, a direct audio link, or upload a file.';
+export const NO_SPOTIFY = "Spotify links aren't supported yet.";
+export const NO_LIVE = "Live streams aren't supported. Try a song, a playlist or an audio file.";
 export const SUPPORTED = 'Supported: song names (searched on SoundCloud), SoundCloud, Bandcamp, Spotify and Apple Music links, direct audio links and uploaded audio files.';
 
 export const sourceRules = {
@@ -22,6 +25,11 @@ export type QueryKind = 'youtube' | 'mirror' | 'direct' | 'unsafe' | 'search';
 
 const YOUTUBE = /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com|youtubekids\.com)$/i;
 const MIRROR = /(^|\.)(open\.spotify\.com|spotify\.link|music\.apple\.com)$/i;
+
+/** Which streaming service a mirror link is from. */
+export function mirrorService(query: string): 'Spotify' | 'Apple Music' {
+  return /apple/i.test(query) ? 'Apple Music' : 'Spotify';
+}
 
 /** Hostnames and IPs that must never be fetched on a user's behalf (Lavalink would reach them from our server). */
 export function isPublicHttpsUrl(raw: string): boolean {
