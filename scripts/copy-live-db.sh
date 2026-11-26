@@ -19,10 +19,10 @@ LIVE_DB="$(printf '%s' "$LIVE_URI" | sed -E 's#^[^/]*//[^/]*/?##; s#\?.*$##')"
 
 mkdir -p "$BACKUP_DIR"
 FILE="$BACKUP_DIR/live-$(date +%Y%m%d-%H%M%S).archive.gz"
-echo "Dumping live database \"$LIVE_DB\" (read-only) to $FILE…"
+echo "Dumping live database \"${LIVE_DB}\" (read-only) to ${FILE}…"
 docker exec -e LIVE_URI="$LIVE_URI" octbot-mongo sh -c 'mongodump --uri "$LIVE_URI" --archive --gzip --readPreference=secondaryPreferred' > "$FILE"
 
-echo "Restoring into local database \"$TARGET_DB\" (replacing it)…"
+echo "Restoring into local database \"${TARGET_DB}\" (replacing it)…"
 docker exec -i octbot-mongo mongorestore --archive --gzip --drop --nsFrom "$LIVE_DB.*" --nsTo "$TARGET_DB.*" < "$FILE"
 
 echo "Done. Dry run:"
