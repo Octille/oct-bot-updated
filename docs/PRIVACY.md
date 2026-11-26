@@ -18,17 +18,11 @@ OctBot only stores what it needs to run its features. All of it is tied to Disco
 - An **AFK note** you set yourself with /afk, until you come back.
 
 **About servers that use OctBot:**
-- Server settings chosen by the server's admins: channels, roles, the welcome message, level rewards and similar.
+- Server settings chosen by the server's admins: channels, level-reward roles and similar.
 - Moderation records made by that server's moderators with OctBot: warnings (the reason they typed, who gave it and when) and case numbers.
-- Ticket records: who opened a ticket, its number, and when it was opened and closed. The ticket's messages stay in Discord. OctBot doesn't copy them.
 - Role panels and the role each button gives.
 
-**Message text.** OctBot can read messages so it can:
-- ignore very short messages for chat XP;
-- remove invite links, when a server turns that on;
-- reply to old `!commands` with a pointer to the new slash commands.
-
-It doesn't save message text, apart from the warning reasons and AFK notes described above.
+**Messages and member lists.** OctBot doesn't read the text of your messages and doesn't download servers' member lists (it doesn't ask Discord for either). It only notices *that* you sent a message, for chat XP (at most once a minute), and who you mentioned, to point out AFK members. The only text it saves is what you type into its own commands, such as warning reasons and AFK notes.
 
 **Music.** OctBot keeps the queue and recent songs in memory while it's playing in your server. Nothing about music is saved. To find and play songs, what you type in /play is sent to Spotify, YouTube and YouTube Music, SoundCloud and Deezer. Only the search words are sent, not who typed them.
 

@@ -4,10 +4,10 @@ import { titleIcon } from '../lib/icons';
 import { logError } from '../lib/logger';
 import { GuildSettings, getGuildSettings } from '../models/GuildSettings';
 
-export type ModAction = 'ban' | 'unban' | 'kick' | 'timeout' | 'untimeout' | 'warn' | 'purge' | 'invite';
+export type ModAction = 'ban' | 'unban' | 'kick' | 'timeout' | 'untimeout' | 'warn' | 'purge';
 
 const LABEL: Record<ModAction, string> = {
-  ban: 'Banned', unban: 'Unbanned', kick: 'Kicked', timeout: 'Timed out', untimeout: 'Timeout removed', warn: 'Warned', purge: 'Messages purged', invite: 'Invite link removed',
+  ban: 'Banned', unban: 'Unbanned', kick: 'Kicked', timeout: 'Timed out', untimeout: 'Timeout removed', warn: 'Warned', purge: 'Messages purged',
 };
 
 /**
@@ -80,5 +80,4 @@ export function parseDuration(input: string): number | null {
 }
 
 export const MAX_TIMEOUT_MS = 28 * 86_400_000;
-export const INVITE_RE = /(?:discord\.gg|dsc\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i;
 export { PermissionFlagsBits };

@@ -71,7 +71,7 @@ bot/
                              bosses, levels, prestige, balance (all tunable numbers)
     models/                  User, MemberLevel, Guild, Transaction, ShopRotation, Raid,
                              CommunityGoal, Season, SeasonScore, Warning, RolePanel,
-                             Ticket, Afk
+                             Afk
     services/                economy, inventory, cooldowns, accountXp, chatXp, achievements,
                              quests, crates, pets, business, gambling, shop, raids, drops,
                              seasons, leaderboard, modlog
@@ -86,7 +86,7 @@ bot/
       music/    play, queue, nowplaying, skip, stop, pause, resume, volume, loop, shuffle,
                 seek, jump, restart, join, leave
       mod/      ban, kick, timeout, purge, warn, warnings, settings
-      utility/  help, ping, avatar, serverinfo, userinfo, afk, poll, rolepanel, ticket
+      utility/  help, ping, avatar, serverinfo, userinfo, afk, poll, rolepanel
       owner/    eco
     components/              button/select/modal handlers keyed by customId prefix
     events/                  ready, interactionCreate, messageCreate (chat XP, drops, AFK,
@@ -141,7 +141,7 @@ migratedFromV2: bool
 | Model | Fields | Notes |
 |---|---|---|
 | MemberLevel (per server) | `{ guildId, userId, xp, level, messages, voiceMinutes, lastXpAt }` | unique index `guildId+userId` |
-| Guild | `levels { announce: channel/same/dm/off, channelId, rewards[{level, roleId}], stackRewards, noXpChannels[], multipliers[{targetId, mult}], voiceXp, doubleXpUntil }`, `drops { enabled, channelIds[], perHour }`, `welcome { channelId, card }`, `modLogChannelId`, `automod { inviteFilter }`, `autoRoleId`, `tickets { panelChannelId, staffRoleId, counter, mode: thread/channel }` | |
+| Guild | `levels { announce: channel/same/dm/off, channelId, rewards[{level, roleId}], stackRewards, noXpChannels[], multipliers[{targetId, mult}], voiceXp, doubleXpUntil }`, `drops { enabled, channelIds[], perHour }`, `events { channelId }`, `modLogChannelId`, `gamblingEnabled` | |
 | Transaction | `{ userId, delta, field: wallet/bank/item, itemId?, source, meta, at }` | indexed by user and time; feeds `/eco stats` |
 | ShopRotation | `{ day, stock[{ itemId, price, remaining }] }` | |
 | Raid | `{ guildId, bossId, hp, maxHp, damage { userId: n }, endsAt, status }` | |
@@ -149,7 +149,6 @@ migratedFromV2: bool
 | Season / SeasonScore | `{ number, startsAt, endsAt }` / `{ season, userId, points }` | |
 | Warning | `{ guildId, userId, modId, reason, at }` | |
 | RolePanel | `{ guildId, channelId, messageId, style: buttons/select, roles[{ roleId, label, emoji }] }` | |
-| Ticket | `{ guildId, threadId, ownerId, number, status, closedAt }` | |
 | Afk | as today | |
 
 Trade, duel, heist lobbies and crash rounds are short-lived, so they live in memory. Their final settlement is one DB transaction, so a restart mid-trade loses nothing.
@@ -165,7 +164,7 @@ Trade, duel, heist lobbies and crash rounds are short-lived, so they live in mem
   - ignores bots, messages under 5 characters and command invocations
   - voice XP is 10/min when the user is not alone, muted or deafened
   - multipliers per channel/role, plus double-XP weekends.
-  - **Needs the privileged Message Content intent** (to measure message length). The bot already uses it, but if the real bot is in 100+ servers, the intent must stay approved in the developer portal.
+  - **No privileged intents (owner decision 2026-11-26).** OctBot never reads message text: any message counts, and the 60-second cooldown is the only limit.
 - **Bank capacity** = base + per-level growth + bank notes. Wallet is robbable, bank is safe.
 - **Work minigames:** unscramble (modal), quick maths (buttons), emoji memory (buttons), colour click. All are pure functions in `lib/minigames.ts`, so they're testable.
 - **Gambling:**
@@ -177,8 +176,8 @@ Trade, duel, heist lobbies and crash rounds are short-lived, so they live in mem
   - **Counterplay:** a padlock is consumed to block a rob, a guard-dog pet lowers the odds, and the victim gets a 30s "🚨 Catch them!" button.
   - Failure means a fine, which can also land the robber in jail.
 - **Polls:** Discord's native poll API.
-- **Tickets:** private threads by default, with a channel mode option. Close and Transcript buttons; the transcript is a `.txt` attachment posted to the mod log.
-- **Roles:** button/select role panels replace emoji reaction roles. Autorole is kept.
+- **Tickets:** removed before launch (owner decision 2026-11-26: OctBot launches with no privileged intents and focuses on economy and music).
+- **Roles:** button/select role panels replace emoji reaction roles. Autorole was removed before launch (it needed the Server Members intent).
 - **Music:**
   - **YouTube behind the scenes (owner decision 2026-11-26, replacing "No YouTube, ever").** Songs are played from YouTube Music when it has them: the official Lavalink YouTube plugin (`dev.lavalink.youtube:youtube-plugin`), signed in with OAuth on a **throwaway Google account, never a personal one** (docs/DEPLOY.md, "YouTube sign-in"). Players never see YouTube: YouTube links stay refused, YouTube URLs are never shown (a song from Spotify links to its Spotify page), and `/help` never mentions it. **Playback is never charged for**; premium music perks stay features only. If YouTube blocks the server (bot check, sign-in wall, rate limit) or fails 3 times in 10 minutes, it's logged once ("YouTube blocked") and skipped for 15 minutes; a failed YouTube track is replaced by the same song from SoundCloud (`music/youtube.ts`, `music/resolve.ts`). On the server, signatures come from the `yt-cipher` container, and the plugin is pinned to snapshot e41dd95, because release 1.18.2 lacks the TV-client fix for "The page needs to be reloaded" (youtube-source #226/#233). Move back to a release once one includes it.
   - **Sources:** YouTube Music (found with `ytmsearch`, played behind the scenes), SoundCloud (fallback), Bandcamp, public https audio links and uploaded audio files. No radio and no live streams. Autocomplete suggests from Spotify (re-ranked by Deezer popularity), or SoundCloud without Spotify keys. A picked or top Spotify song is matched on YouTube Music first (artist, title, version, length within ±3 s; official audio / "Topic" uploads over music videos), then SoundCloud (no 30-second previews); a song with no upload naming the artist isn't played. Plain text without Spotify keys: YouTube Music's top result, else SoundCloud's. Spotify links need `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`.
@@ -187,7 +186,7 @@ Trade, duel, heist lobbies and crash rounds are short-lived, so they live in mem
   - A Components V2 now-playing panel (album art, requester, time + emoji progress bar, 11 pieces) refreshed every 15s while playing (global edit cap; stops once 10+ newer messages bury it), with Back / Play-Pause / Skip / Loop / Controls; Controls opens volume, shuffle, queue, seek and stop privately.
   - Never mention YouTube in `/help`, the bot description or directory listings.
 - **Images (`@napi-rs/canvas`):**
-  - rank card, profile card (badges, title, prestige), level-up card, welcome card
+  - rank card, profile card (badges, title, prestige), level-up card
   - streak calendar, crate reveal and fishdex grid
   - Cards are cached per user for 60s to avoid re-rendering on spam.
 
@@ -220,14 +219,14 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - daily/weekly quests (reroll, bonus chest), DM reminders
   - random drops, weekly boss raids, community goals, pets, business expansion (manager auto-collect, events, offline cap)
   - seasons and leaderboards (6 metrics, server/global, paginated).
-- [x] **6. Utility port** (**6a done**: music with a now-playing panel, moderation with mod log, warnings and the invite filter; music panel redesigned as a Components V2 container with an emoji progress bar, Back/history and private Controls; **6b done**: `/rolepanel` (buttons or menu, dangerous-permission and role-order checks), autorole, thread/channel tickets with transcripts to the mod log, welcome message + card, `/afk`, `/avatar`, `/userinfo`, `/serverinfo`, `/poll`, and `/settings` as one dashboard):
+- [x] **6. Utility port** (**6a done**: music with a now-playing panel, moderation with mod log and warnings; music panel redesigned as a Components V2 container with an emoji progress bar, Back/history and private Controls; **6b done**: `/rolepanel` (buttons or menu, dangerous-permission and role-order checks), `/afk`, `/avatar`, `/userinfo`, `/serverinfo`, `/poll`, and `/settings` as one dashboard):
   - music as slash commands with a control panel
-  - ban, kick, timeout, purge, warn/warnings and mod log, invite filter automod
-  - role panels, autorole, thread tickets with transcripts, welcome (card)
+  - ban, kick, timeout, purge, warn/warnings and mod log
+  - role panels. Removed before launch (no privileged intents, 2026-11-26): welcome messages and card, autorole, tickets, the invite filter
   - afk, avatar, serverinfo, userinfo, ping, poll, interactive help, `/settings` dashboard.
 - [ ] **7. Polish.** Split so the live database is only touched after the owner has checked the dry-run:
   - **7a (done):** the migration script, the on-demand import and guild settings import, with tests on synthetic v2 data. The owner then copies the live data to a local database (`mongodump`, read-only), runs `--dry-run` against the copy, and checks the summary.
-  - **7b (done):** `/eco give/take/reset/log/stats` (owner only, hidden from /help; stats net player-to-player moves, wallet↔bank and `migration.v2` out, group sources so gambling shows the house edge, daily money-supply snapshots at 00:01 UTC), the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries), and the 30-day prefix notice (decision 3; starts at `LAUNCH_DATE`, once per channel per hour, old command names only, needs Message Content). Old reaction roles: loaded from `reactionroles` at startup, roles with moderator powers are never given, and the server owner gets one DM asking them to move to /rolepanel.
+  - **7b (done):** `/eco give/take/reset/log/stats` (owner only, hidden from /help; stats net player-to-player moves, wallet↔bank and `migration.v2` out, group sources so gambling shows the house edge, daily money-supply snapshots at 00:01 UTC), the legacy reaction-role listener (decision 2 in §7; the 50 old `reactionroles` entries) (the 30-day prefix notice was removed before launch: it needed Message Content). Old reaction roles: loaded from `reactionroles` at startup, roles with moderator powers are never given, and the server owner gets one DM asking them to move to /rolepanel.
   - **7c (built, owner deploys):** Docker (bot image, Lavalink container with the optional patched jar, daily backups, a staging-only replica-set Mongo for a **copy** of the data), `.env.example`, and docs/DEPLOY.md: any Ubuntu server, Google Cloud (e2-medium in Toronto, ~$35/month, budget alert, end of trial), staging, everyday tasks, going live, moving hosts. Still to do: BALANCE.md and README.
   - **7d (cutover, owner present):** runbook in docs/DEPLOY.md "Going live". Built before it: v2 code removed (`npm start` runs `dist/index.js`); `/eco` registered only in `OWNER_GUILD_ID`; offsite backups to a Cloud Storage bucket (`offsite` container, `BACKUP_BUCKET`, 30-day lifecycle); `deploy/rollback.sh` (restore + drop collections created after the backup, using the `.collections.txt` from copy-live-db); server join/leave log; no relaunch announcement (owner decision 2026-11-26; the bot's status says `/menu`); v2 profiles never imported are deleted 12 months after `LAUNCH_DATE` (daily job, docs/PRIVACY.md); docs/TERMS.md and docs/PRIVACY.md (CONTACT_EMAIL placeholder must be replaced before the portal links). Review fixes: rob fines read the robber's wallet inside the transaction, trades re-check locked/tradable when settling, direct music links must resolve to public addresses.
   - Full list:
@@ -235,7 +234,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - Veteran tiers awarded by the migration (counts in the dry-run summary); one-time welcome-back message on a veteran's first v3 command
   - Remove `ANTI_ALT_*` overrides from the production `.env` (the real bot logs an error at startup if they weaken the defaults)
   - The migration sets `account.best` to the migrated level (unlocks and level achievements read it)
-  - Check the real bot's privileged intents (Message Content, Server Members) in the developer portal; the bot falls back safely if they're off, but chat XP is better with Message Content
+  - No privileged intents: in the developer portal, Message Content, Server Members and Presence can all be switched off (the bot never asks for them)
   - `/eco stats` shows **coins created vs destroyed per day** (from the Transaction log: creation sources like activities, quests, drops and payouts, vs destruction like repairs, purchases, taxes, the casino edge and prestige wipes), net inflation, and the money supply over time, so real inflation can be watched after launch
   - BALANCE.md and README
   - Docker update (replset Mongo, build step), `.env.example`
@@ -254,8 +253,8 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
 | `Mine.toolTier` | owned pickaxe item at full durability |
 | `Items.*Fish`, `FishingRod`, `Cookies`, `Shirt`, `Pants` | inventory items (fish map to the new species by rarity; Shirt/Pants/Cookies become collectibles) |
 | `Company.workers` / `hasManager` / pending wages | one starter business with equivalent workers and manager; pending wages paid out once |
-| guild `welcomeID`, `autoRoleID`, `InviteLinks`, `ticket.*` | new guild settings |
-| old `autoroles` collection | `autoRoleId` |
+| guild `welcomeID`, `autoRoleID`, `InviteLinks`, `ticket.*` | not carried over (the features were removed before launch) |
+| old `autoroles` collection | not carried over |
 
 **As built (7a).** The details:
 - **Conversion.** `src/migration/v2.ts` holds pure functions shared by the script and the on-demand import (`services/legacyImport.ts`), so a profile converts the same way whichever path imports it first.
@@ -271,7 +270,7 @@ Each phase ends with `tsc --noEmit`, `vitest run`, a boot test against Discord, 
   - the join date is the oldest one.
 - **Transaction log.** Imported coins are logged with source `migration.v2`. `/eco stats` must leave that source out of "coins created".
 - **v3 profile already exists.** If a qualifying v3 profile was made before the migration ran, it keeps its balances and only gets the tier.
-- **Server settings** are created only for servers with no v3 settings yet.
+- **Server settings** aren't carried over: all v2 ones belonged to features removed before launch (welcome, autorole, tickets, invite filter).
 - **Running it.** `scripts/copy-live-db.sh` dumps live to `~/octbot-backups` (read-only) and restores it into a local `octbot_v2copy`. Then run `npm run migrate -- --uri <local copy> --dry-run`. The script refuses a hosted URI without `--live`, and refuses to write to one without `--i-have-a-backup`.
 
 The script never deletes old collections. Each user doc is marked `migratedFromV2`, so re-running the script skips users already converted. `--dry-run` prints the full summary without writing.
@@ -282,11 +281,11 @@ The script never deletes old collections. Each user doc is marked `migratedFromV
 
 1. **Corrupt balances:** wallet, bank, items and workers are capped at a ceiling derived from the late-game numbers in BALANCE.md (not a fixed number). Veteran tiers are based on old activity, never balance (see §9).
 2. **Old reaction roles** keep working through a legacy listener; admins get a one-time nudge to move to `/rolepanel`.
-3. **Prefix notice** for 30 days after launch, at most once per channel per hour.
+3. ~~Prefix notice~~ for 30 days after launch: removed before launch (it needed the Message Content intent).
 4. **Gambling** has a per-server toggle, on by default.
 5. **Seasons** are monthly; Season 1 starts 2 weeks after launch.
 6. **Process:** work on the `v3` branch; never write to the live database during development (enforced in code — see `config/env.ts`); take a `mongodump` backup before any migration; run the migration with `--dry-run` against a copy first and show the summary.
-7. **Message Content intent:** if it isn't available, chat XP falls back to cooldown-only (no message-length check).
+7. **No privileged intents:** chat XP is cooldown-only (no message-length check); "this server" leaderboards use the players who earned XP here.
 
 ## 8. Original questions
 

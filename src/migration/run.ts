@@ -1,18 +1,17 @@
 import mongoose from 'mongoose';
 import { veteranCosmetics, veteranInfo, veteranThresholds, type VeteranTier } from '../content/veteran';
-import { GuildSettings } from '../models/GuildSettings';
 import { User } from '../models/User';
 import { insertImported } from '../services/legacyImport';
 import {
-  autoroleGuildOf, convert, convertGuild, legacyCollections, mergeLegacy, migrationCaps, readLegacy, type Legacy,
+  convert, legacyCollections, mergeLegacy, migrationCaps, readLegacy, type Legacy,
 } from './v2';
 
 /**
  * The v2 → v3 migration. Reads the v2 collections (never changes or deletes them) and:
  *  - imports the profiles with real activity up front (the rest are imported on demand);
- *  - grants veteran tiers, computed over every v2 profile;
- *  - creates server settings from the v2 `guilds` and `autoroles` collections.
- * Idempotent: profiles and servers that already exist in v3 are skipped. With `dryRun` nothing is written.
+ *  - grants veteran tiers, computed over every v2 profile.
+ * v2 server settings aren't carried over (they were all for removed features: welcome, autorole,
+ * tickets, invite filter). Idempotent: profiles that already exist in v3 are skipped. With `dryRun` nothing is written.
  */
 
 export interface MigrationSummary {
@@ -53,7 +52,6 @@ export interface MigrationSummary {
     unknownItems: Record<string, number>;
     commandCounts: Record<string, number>;
   };
-  guilds: { docs: number; created: number; alreadyExists: number; skippedNoId: number; withSettings: number; autorolesMatched: number };
   /** Up to 20 example users per notable case, for spot checks. */
   examples: Record<string, string[]>;
 }
@@ -77,7 +75,6 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
       businesses: 0, pickaxes: 0,
       joinedByYear: {}, topLevelFields: {}, itemKeys: {}, unknownItems: {}, commandCounts: {},
     },
-    guilds: { docs: 0, created: 0, alreadyExists: 0, skippedNoId: 0, withSettings: 0, autorolesMatched: 0 },
     examples: {},
   };
   const example = (kind: string, userId: string) => {
@@ -160,37 +157,6 @@ export async function runMigration(opts: { dryRun: boolean; now?: Date; log?: (l
     }
   }
 
-  // ── Server settings ──────────────────────────────────────────────────────────────────
-  const autoroles = new Map<string, Record<string, unknown>>();
-  for await (const row of db.collection(legacyCollections.autoroles).find({})) {
-    const g = autoroleGuildOf(row);
-    if (g) autoroles.set(g, row);
-  }
-  for await (const raw of db.collection(legacyCollections.guilds).find({})) {
-    s.guilds.docs++;
-    const guildIdRaw = (raw.guildID ?? raw.guildId) as string | undefined;
-    const { guildId, fields } = convertGuild(raw, guildIdRaw ? autoroles.get(guildIdRaw) : null);
-    if (!guildId) {
-      s.guilds.skippedNoId++;
-      continue;
-    }
-    if (guildIdRaw && autoroles.has(guildIdRaw) && fields.autoRoleId) s.guilds.autorolesMatched++;
-    if (Object.keys(fields).length === 0) continue; // nothing set in v2: defaults on first use
-    s.guilds.withSettings++;
-    if (await GuildSettings.exists({ _id: guildId })) {
-      s.guilds.alreadyExists++;
-      continue;
-    }
-    if (!opts.dryRun) {
-      const res = await GuildSettings.updateOne({ _id: guildId }, { $setOnInsert: fields }, { upsert: true });
-      if (!res.upsertedCount) {
-        s.guilds.alreadyExists++;
-        continue;
-      }
-    }
-    s.guilds.created++;
-  }
-
   return s;
 }
 
@@ -220,7 +186,7 @@ export function formatSummary(s: MigrationSummary): string {
     `  Item keys with no v3 item (not imported): ${top(p.unknownItems)}`,
     '',
     'Servers',
-    `  v2 guilds: ${n(s.guilds.docs)} · with settings to carry over: ${n(s.guilds.withSettings)} · ${verb} created: ${n(s.guilds.created)} · already in v3: ${n(s.guilds.alreadyExists)} · no guild id: ${n(s.guilds.skippedNoId)} · autoroles matched: ${n(s.guilds.autorolesMatched)}`,
+    '  No server settings are carried over: the v2 ones were welcome, autorole, tickets and the invite filter, which OctBot no longer has. Servers start with the defaults.',
     '',
     'Examples (user ids)',
     ...Object.entries(s.examples).map(([k, ids]) => `  ${k}: ${ids.join(', ')}`),

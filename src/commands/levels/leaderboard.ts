@@ -1,4 +1,4 @@
-import { ButtonStyle, escapeMarkdown, GatewayIntentBits, SlashCommandBuilder, type Guild } from 'discord.js';
+import { ButtonStyle, escapeMarkdown, SlashCommandBuilder, type Guild } from 'discord.js';
 import { MemberLevel } from '../../models/MemberLevel';
 import { defineCommand } from '../../framework/types';
 import { achievements } from '../../content/achievements';
@@ -45,20 +45,14 @@ function unpack(metric: Metric, value: number): Pick<Row, 'value' | 'prestige' |
 const names = new Map<string, { at: number; name: string }>();
 const memberLists = new Map<string, { at: number; ids: string[] }>();
 
+/**
+ * "This server" leaderboards: everyone who has earned XP here, plus the members in the cache. OctBot
+ * doesn't ask for the Server Members intent, so it never downloads a server's member list.
+ */
 async function memberIds(guild: Guild): Promise<string[]> {
   const hit = memberLists.get(guild.id);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.ids;
-  let ids: string[];
-  if (guild.client.options.intents.has(GatewayIntentBits.GuildMembers)) {
-    try {
-      ids = [...(await guild.members.fetch({ time: 10_000 })).filter((m) => !m.user.bot).keys()];
-    } catch {
-      ids = await activeHere(guild);
-    }
-  } else {
-    // Without the Server Members intent: everyone who has earned XP here, plus the cached members
-    ids = await activeHere(guild);
-  }
+  const ids = await activeHere(guild);
   memberLists.set(guild.id, { at: Date.now(), ids });
   return ids;
 }

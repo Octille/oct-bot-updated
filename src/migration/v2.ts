@@ -17,7 +17,7 @@ import { hourly, scenarios } from '../game/balance';
  */
 
 /** The v2 collections (left untouched; the migration only reads them). */
-export const legacyCollections = { profiles: 'profilemodels', guilds: 'guilds', autoroles: 'autoroles' } as const;
+export const legacyCollections = { profiles: 'profilemodels' } as const;
 
 /**
  * The "corrupt" line: about 30 days of heavy late-game play: late-game gross ₪/hour
@@ -401,36 +401,3 @@ export function convert(l: Legacy, now = new Date()): Converted {
 
 /** The coins a conversion created out of v2 balances (logged with its own source, not as income). */
 export const MIGRATION_SOURCE = 'migration.v2';
-
-/* ── Guild settings ─────────────────────────────────────────────────────────────────── */
-
-const SNOWFLAKE = /^\d{15,21}$/;
-const id = (value: unknown): string | null => (typeof value === 'string' && SNOWFLAKE.test(value) ? value : null);
-
-/** Fields for a new `guild_settings` document from a v2 `guilds` doc and the old `autoroles` row. */
-export function convertGuild(raw: Raw, autoroleRaw?: Raw | null): { guildId: string | null; fields: Record<string, unknown> } {
-  const guildId = id(raw.guildID ?? raw.guildId);
-  const ticket = obj(raw.ticket);
-  const fields: Record<string, unknown> = {};
-  const welcome = id(raw.welcomeID); // '0' means unset
-  if (welcome) fields['welcome.channelId'] = welcome;
-  if (num(raw.InviteLinks) > 0 || raw.InviteLinks === true) fields['automod.inviteFilter'] = true;
-  const autoRole = id(raw.autoRoleID) ?? (autoroleRaw ? autoroleIdOf(autoroleRaw) : null);
-  if (autoRole) fields.autoRoleId = autoRole;
-  const staff = id(ticket.roleID);
-  if (staff) fields['tickets.staffRoleId'] = staff;
-  const counter = clampInt(ticket.number, 0, 1_000_000);
-  if (counter > 0) fields['tickets.counter'] = counter;
-  return { guildId, fields };
-}
-
-/** v12 `autoroles` rows: the guild and role fields' exact names varied, so match them loosely. */
-export function autoroleGuildOf(raw: Raw): string | null {
-  for (const [k, v] of Object.entries(raw)) if (/guild/i.test(k) && id(v)) return v as string;
-  return null;
-}
-
-export function autoroleIdOf(raw: Raw): string | null {
-  for (const [k, v] of Object.entries(raw)) if (/role/i.test(k) && id(v)) return v as string;
-  return null;
-}

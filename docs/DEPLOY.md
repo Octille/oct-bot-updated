@@ -322,7 +322,7 @@ The old bot has been offline for years, so this is a relaunch, not a live switch
 **Before**
 1. **[You] Developer portal (real bot):**
    - Reset the token. That also cuts off any forgotten old copy.
-   - Check the bot is still verified, and that **Message Content** and **Server Members** are approved, not just switched on.
+   - Check the bot is still verified. OctBot needs **no privileged intents**: you can switch Presence, Server Members and Message Content off under **Bot → Privileged Gateway Intents**.
    - **Blocking:** replace `CONTACT_EMAIL` and `LAUNCH_DATE` in `docs/PRIVACY.md` and `docs/TERMS.md`, push, then paste their GitHub links into **General Information → Terms of Service URL / Privacy Policy URL**. Don't paste them before the placeholders are gone.
 2. **[You] Atlas → Network Access:** add the laptop's IP as a **temporary** entry (6 hours). The backup, the migration and the icon sync run from the laptop.
 3. **[Me] Back up live:** `sh scripts/copy-live-db.sh`. That writes `~/octbot-backups/live-….archive.gz` and its `.collections.txt`. **[You]** Upload **both** files to the VM's `backups/`, so a rollback still works once only the VM can reach Atlas.

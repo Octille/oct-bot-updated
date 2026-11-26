@@ -70,8 +70,6 @@ export const chatXp = {
   message: [15, 25] as const,
   /** Only one message per user per server counts in this window. */
   cooldownSeconds: 60,
-  /** Shorter messages don't count (only checked when the bot has the Message Content intent). */
-  minLength: 5,
   /** XP per minute in voice, when at least one other eligible person is in the channel. */
   voicePerMinute: 10,
   /** Channel/role multipliers admins can set. */

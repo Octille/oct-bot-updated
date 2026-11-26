@@ -35,7 +35,7 @@ interface MemberLike { id: string; permissions: Readonly<PermissionsBitField>; r
 
 /**
  * Why this role can't be handed out by the bot, or null. With `invoker` (setting a panel or the
- * autorole up), the role must also sit below the invoker's highest role (the owner is exempt).
+ * role panel up), the role must also sit below the invoker's highest role (the owner is exempt).
  */
 export function roleBlocker(role: RoleLike, guild: { id: string; ownerId: string }, me: MemberLike, invoker?: MemberLike): string | null {
   if (role.id === guild.id) return "@everyone can't be handed out.";

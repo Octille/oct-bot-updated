@@ -43,7 +43,7 @@ export interface ComponentContext<I extends ComponentInteraction = ComponentInte
 }
 
 /**
- * Handles persistent components (role panels, ticket buttons, drop claims...) by customId prefix.
+ * Handles persistent components (role panels, drop claims...) by customId prefix.
  * Short-lived game UIs use collectors instead, with prefixes starting `~` (see lib/collect.ts).
  */
 export interface ComponentHandler {

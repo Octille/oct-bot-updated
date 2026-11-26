@@ -7,7 +7,7 @@ import { bankCapacity, economyConfig } from '../src/content/economy';
 import { veteranThresholds } from '../src/content/veteran';
 import { getItem } from '../src/content/items';
 import {
-  convert, convertGuild, isActive, itemMap, mergeLegacy, migrationCaps, migrationCeiling, MIGRATION_SOURCE, readLegacy, veteranTierOf,
+  convert, isActive, itemMap, mergeLegacy, migrationCaps, migrationCeiling, MIGRATION_SOURCE, readLegacy, veteranTierOf,
 } from '../src/migration/v2';
 import { runMigration } from '../src/migration/run';
 import { User } from '../src/models/User';
@@ -145,18 +145,6 @@ describe('v2 conversion (pure)', () => {
     expect(convert(readLegacy(v2('1', '2021-03-01', {})), NOW).fields.createdAt).toEqual(NOW);
     expect(isActive(readLegacy(v2('1', '2021-03-01', {})))).toBe(false);
   });
-
-  it('converts guild settings, treating "0" as unset', () => {
-    expect(convertGuild({ guildID: '333333333333333333', welcomeID: '0', InviteLinks: 0 }).fields).toEqual({});
-    const g = convertGuild(
-      { guildID: '333333333333333333', welcomeID: '444444444444444444', InviteLinks: 1, ticket: { roleID: '555555555555555555', number: 12 } },
-      { GuildID: '333333333333333333', RoleID: '666666666666666666' },
-    );
-    expect(g.fields).toEqual({
-      'welcome.channelId': '444444444444444444', 'automod.inviteFilter': true, autoRoleId: '666666666666666666',
-      'tickets.staffRoleId': '555555555555555555', 'tickets.counter': 12,
-    });
-  });
 });
 
 describe('v2 migration (database)', () => {
@@ -200,7 +188,6 @@ describe('v2 migration (database)', () => {
     expect(await snapshot()).toEqual(before);
     expect(s.profiles).toMatchObject({ docs: 5, users: 4, duplicates: 1, active: 3, dormant: 1, corrupt: 1, imported: 3 });
     expect(s.profiles.tiers).toEqual({ veteran: 2, elite: 0, founder: 1 });
-    expect(s.guilds).toMatchObject({ docs: 2, withSettings: 2, created: 2, autorolesMatched: 1 });
   });
 
   it('imports active players up front, once, and leaves v2 untouched', async () => {
@@ -230,15 +217,14 @@ describe('v2 migration (database)', () => {
     expect(rows.every((r) => r.source === MIGRATION_SOURCE)).toBe(true);
     expect(rows.reduce((n, r) => n + r.delta, 0)).toBe((founder?.wallet ?? 0) + (founder?.bank ?? 0));
 
-    expect(await GuildSettings.findById('800000000000000001').lean()).toMatchObject({ welcome: { channelId: '800000000000000009' }, automod: { inviteFilter: true } });
-    expect((await GuildSettings.findById('800000000000000002').lean())?.autoRoleId).toBe('800000000000000008');
+    // v2 server settings (welcome, invite filter, autorole) belong to removed features: none are created
+    expect(await GuildSettings.countDocuments()).toBe(0);
 
     const players = await snapshot();
     const second = await runMigration({ dryRun: false, now: NOW });
     expect(await snapshot()).toEqual(players); // a second run changes nothing at all
     expect(second.profiles.imported).toBe(0);
     expect(second.profiles.alreadyImported).toBe(3);
-    expect(second.guilds.created).toBe(0);
     expect(await legacy().find({}).sort({ _id: 1 }).toArray()).toEqual(v2Before);
   });
 

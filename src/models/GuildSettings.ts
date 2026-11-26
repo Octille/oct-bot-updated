@@ -31,28 +31,9 @@ const guildSettingsSchema = new Schema(
       channelId: { type: String, default: null },
     },
 
-    welcome: {
-      channelId: { type: String, default: null },
-      card: { type: Boolean, default: true },
-      /** {user}, {name}, {server} and {count} are filled in. */
-      message: { type: String, default: null, maxlength: 1000 },
-    },
-
     modLogChannelId: { type: String, default: null },
     /** Moderation case numbers (warnings, bans, kicks, timeouts) count up per server. */
     modCaseCounter: { type: Number, default: 0 },
-    automod: {
-      inviteFilter: { type: Boolean, default: false },
-    },
-    autoRoleId: { type: String, default: null },
-
-    tickets: {
-      panelChannelId: { type: String, default: null },
-      staffRoleId: { type: String, default: null },
-      counter: { type: Number, default: 0 },
-      mode: { type: String, enum: ['thread', 'channel'], default: 'thread' },
-    },
-
     gamblingEnabled: { type: Boolean, default: true },
 
     /** One-time notice to admins about moving old reaction roles to /rolepanel. */

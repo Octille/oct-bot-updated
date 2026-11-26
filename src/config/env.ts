@@ -27,7 +27,7 @@ const schema = z.object({
   ANTI_ALT_PROFILE_DAYS: z.coerce.number().min(0).optional(),
   ANTI_ALT_DISCORD_DAYS: z.coerce.number().min(0).optional(),
 
-  /** Relaunch date (ISO). Old `!commands` get a slash-command notice for 30 days after it; unset = off. */
+  /** Relaunch date (ISO). Old v2 profiles nobody imported are deleted 12 months after it; unset = never. */
   LAUNCH_DATE: z.string().optional(),
 
   /** When Season 1 starts (ISO date). Unset = seasons haven't started. */

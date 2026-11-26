@@ -2,12 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { PermissionFlagsBits, PermissionsBitField } from 'discord.js';
 import { useTestDatabase } from './helpers/db';
 import { parsePanelEmoji, renderRolePanel, roleBlocker, toggleRoles } from '../src/services/roles';
-import { DEFAULT_WELCOME, welcomeText } from '../src/services/welcome';
-import { formatTranscript, ticketName } from '../src/services/tickets';
 import { parseAnswers } from '../src/commands/utility/poll';
 import { cleanReason } from '../src/services/afk';
 import { SECTIONS, settingsScreen, type Section, type Settings } from '../src/ui/settings';
-import { Ticket } from '../src/models/Ticket';
 import { getCommandList } from '../src/framework/commandList';
 import { canSee } from '../src/ui/screens/help';
 import '../src/framework/registry';
@@ -60,31 +57,7 @@ describe('role safety', () => {
   });
 });
 
-describe('welcome', () => {
-  it('fills the template once, escapes names and only mentions the new member', () => {
-    expect(welcomeText(null, { id: '1', name: 'A', server: 'S', count: 1234 })).toBe(DEFAULT_WELCOME.replace('{server}', 'S').replace('{user}', '<@1>').replace('{count}', '1,234'));
-    const t = welcomeText('{name} joined {server} {user}', { id: '1', name: '{user} @everyone **x**', server: '[link](http://x)', count: 2 });
-    expect(t).not.toMatch(/@everyone/);
-    expect(t.match(/<@1>/g)).toHaveLength(1);
-    expect(t).toContain('\\*\\*x\\*\\*');
-    expect(t).not.toMatch(/\[link\]\(/);
-  });
-});
-
-describe('tickets', () => {
-  it('transcript is oldest first with attachments, and names are tidy', () => {
-    const at = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s));
-    const text = formatTranscript({ server: 'S', channel: 'ticket-0001-a', number: 1, ownerId: '9', truncated: false }, [
-      { at: at(5), author: 'b', authorId: '2', bot: false, content: 'second', attachments: ['https://cdn/x.png'], embeds: 0 },
-      { at: at(1), author: 'a', authorId: '1', bot: true, content: 'first', attachments: [], embeds: 1 },
-    ]);
-    expect(text.indexOf('first')).toBeLessThan(text.indexOf('second'));
-    expect(text).toContain('[attachment] https://cdn/x.png');
-    expect(text).toContain('[bot]');
-    expect(ticketName(7, 'Cool Guy!!')).toBe('ticket-0007-cool-guy');
-    expect(ticketName(12, '___')).toBe('ticket-0012-member');
-  });
-
+describe('role panels', () => {
   describe('database rules', () => {
     useTestDatabase();
     it('role panels never grow past 25 roles, even with concurrent adds', async () => {
@@ -94,14 +67,6 @@ describe('tickets', () => {
       const results = await Promise.all([add('x'), add('y')]);
       expect(results.filter(Boolean)).toHaveLength(1);
       expect((await RolePanel.findById(p._id))!.roles).toHaveLength(25);
-    });
-
-    it('a second open ticket is refused, a new one after closing is fine', async () => {
-      await Ticket.create({ guildId: 'g', ownerId: 'u', number: 1, mode: 'thread' });
-      await expect(Ticket.create({ guildId: 'g', ownerId: 'u', number: 2, mode: 'thread' })).rejects.toMatchObject({ code: 11000 });
-      await Ticket.updateOne({ number: 1 }, { $set: { status: 'closed' } });
-      await expect(Ticket.create({ guildId: 'g', ownerId: 'u', number: 3, mode: 'thread' })).resolves.toBeTruthy();
-      await expect(Ticket.create({ guildId: 'other', ownerId: 'u', number: 1, mode: 'thread' })).resolves.toBeTruthy();
     });
   });
 });
@@ -128,9 +93,7 @@ describe('/settings dashboard', () => {
       stackRewards: true, noXpChannelIds: Array.from({ length: 25 }, (_, i) => `3${String(i).padStart(17, '0')}`), voiceXp: true, weekendDoubleXp: false },
     drops: { enabled: true, channelIds: ['444444444444444444'], perHour: 3 },
     events: { channelId: '555555555555555555' },
-    welcome: { channelId: '666666666666666666', card: true, message: 'x'.repeat(1000) },
-    modLogChannelId: '777777777777777777', automod: { inviteFilter: true }, autoRoleId: '888888888888888888',
-    tickets: { panelChannelId: '999999999999999999', staffRoleId: '101010101010101010', mode: 'channel' },
+    modLogChannelId: '777777777777777777',
     gamblingEnabled: true,
   };
   const owner = '123456789012345678';
@@ -158,7 +121,8 @@ describe('/settings dashboard', () => {
 
   it('home lists every section; sections have a Back button', () => {
     const home = settingsScreen('home', full, owner);
-    expect(home.embeds[0]!.toJSON().description).toContain('Tickets');
+    expect(home.embeds[0]!.toJSON().description).toContain('Moderation');
+    expect(home.embeds[0]!.toJSON().description).not.toMatch(/welcome|autorole|ticket|invite/i);
     const ids = (section: Section) => settingsScreen(section, full, owner).components.flatMap((r) => (r.toJSON().components as { custom_id: string }[]).map((c) => c.custom_id));
     for (const section of Object.keys(SECTIONS) as Section[]) expect(ids(section)).toContain(`st:${owner}:nav`);
   });

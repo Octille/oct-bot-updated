@@ -10,8 +10,7 @@ import { dropRules } from '../content/events';
 import { chatXp } from '../content/levels';
 import { makeId } from '../lib/customId';
 import { embed } from '../lib/embeds';
-import { icon, titleIcon } from '../lib/icons';
-import { DEFAULT_WELCOME } from '../services/welcome';
+import { titleIcon } from '../lib/icons';
 import { btn, MAIN, NAV, type Payload, type Row } from './kit';
 
 /**
@@ -24,10 +23,7 @@ export const SECTIONS = {
   rewards: { title: 'Level rewards & XP rules', blurb: 'Reward roles and no-XP channels' },
   drops: { title: 'Drops', blurb: 'Random coin drops in chat' },
   events: { title: 'Events', blurb: 'Weekly boss raids and community goals' },
-  welcome: { title: 'Welcome', blurb: 'Welcome message and card' },
-  moderation: { title: 'Moderation', blurb: 'Mod log and invite filter' },
-  roles: { title: 'Roles', blurb: 'Autorole for new members' },
-  tickets: { title: 'Tickets', blurb: 'Private support tickets' },
+  moderation: { title: 'Moderation', blurb: 'Mod log' },
 } as const;
 export type Section = keyof typeof SECTIONS;
 export const isSection = (s: string | undefined): s is Section => !!s && s in SECTIONS;
@@ -45,11 +41,7 @@ export interface Settings {
   } | null;
   drops?: { enabled?: boolean | null; channelIds?: readonly string[]; perHour?: number | null } | null;
   events?: { channelId?: string | null } | null;
-  welcome?: { channelId?: string | null; card?: boolean | null; message?: string | null } | null;
   modLogChannelId?: string | null;
-  automod?: { inviteFilter?: boolean | null } | null;
-  autoRoleId?: string | null;
-  tickets?: { panelChannelId?: string | null; staffRoleId?: string | null; mode?: string | null } | null;
   gamblingEnabled?: boolean | null;
 }
 
@@ -64,10 +56,6 @@ function channelSelect(id: string, placeholder: string, current: string[], max =
     .setMinValues(0).setMaxValues(max).setDefaultChannels(current.slice(0, max));
 }
 
-function roleSelect(id: string, placeholder: string, current: string | null | undefined): RoleSelectMenuBuilder {
-  return new RoleSelectMenuBuilder().setCustomId(id).setPlaceholder(placeholder).setMinValues(0).setMaxValues(1).setDefaultRoles(current ? [current] : []);
-}
-
 const toggle = (id: string, label: string, on: boolean | null | undefined) => btn(id, `${label}: ${on ? 'On' : 'Off'}`, on ? MAIN : NAV);
 
 /** One-line summary per section for the home screen. */
@@ -78,10 +66,7 @@ function summary(section: Section, s: Settings): string {
     case 'rewards': return `${s.levels?.rewards?.length ?? 0} reward roles · ${s.levels?.noXpChannelIds?.length ?? 0} no-XP channels`;
     case 'drops': return s.drops?.enabled && s.drops.channelIds?.length ? `${s.drops.channelIds.length} channels · up to ${s.drops.perHour}/hour` : 'Off';
     case 'events': return s.events?.channelId ? `Announced in ${ch(s.events.channelId)}` : 'Off';
-    case 'welcome': return s.welcome?.channelId ? `${ch(s.welcome.channelId)} · card ${onOff(s.welcome.card)}` : 'Off';
-    case 'moderation': return `Mod log ${ch(s.modLogChannelId)} · invite filter ${onOff(s.automod?.inviteFilter)}`;
-    case 'roles': return `Autorole ${role(s.autoRoleId)}`;
-    case 'tickets': return s.tickets?.panelChannelId ? `Panel in ${ch(s.tickets.panelChannelId)} · ${s.tickets.mode === 'channel' ? 'channels' : 'threads'}` : 'Not set up';
+    case 'moderation': return `Mod log ${ch(s.modLogChannelId)}`;
   }
 }
 
@@ -173,46 +158,10 @@ export function settingsScreen(section: Section | 'home', s: Settings, owner: st
       components.push(rowOf(channelSelect(id(section, 'evch'), 'Events channel (clear to turn off)', s.events?.channelId ? [s.events.channelId] : [])), rowOf(back));
       break;
 
-    case 'welcome': {
-      const w = s.welcome;
-      lines.push(
-        `**Channel:** ${ch(w?.channelId)}`,
-        `**Welcome card:** ${onOff(w?.card)}`,
-        `**Message:** ${w?.message || `${DEFAULT_WELCOME} (default)`}`,
-        '-# In the message: {user} mentions them, {name} is their name, {server} and {count} (member number).',
-      );
-      components.push(
-        rowOf(channelSelect(id(section, 'wch'), 'Welcome channel (clear to turn off)', w?.channelId ? [w.channelId] : [])),
-        rowOf(back, toggle(id(section, 'card'), 'Card', w?.card), btn(id(section, 'wmsg'), 'Edit message', NAV), btn(id(section, 'wtest'), 'Send a test', NAV, { disabled: !w?.channelId })),
-      );
-      break;
-    }
-
     case 'moderation':
-      lines.push(`**Mod log:** ${ch(s.modLogChannelId)}`, `**Invite filter:** ${onOff(s.automod?.inviteFilter)}`, '-# The invite filter deletes Discord invite links (members with Manage Messages are exempt). Ticket transcripts go to the mod log.');
-      components.push(rowOf(channelSelect(id(section, 'modlog'), 'Mod-log channel (clear to turn off)', s.modLogChannelId ? [s.modLogChannelId] : [])), rowOf(back, toggle(id(section, 'invite'), 'Invite filter', s.automod?.inviteFilter)));
+      lines.push(`**Mod log:** ${ch(s.modLogChannelId)}`, '-# Bans, kicks, timeouts, warnings and purges made with OctBot are logged here.');
+      components.push(rowOf(channelSelect(id(section, 'modlog'), 'Mod-log channel (clear to turn off)', s.modLogChannelId ? [s.modLogChannelId] : [])), rowOf(back));
       break;
-
-    case 'roles':
-      lines.push(`**Autorole:** ${role(s.autoRoleId)}`, '-# Given to every new member (after membership screening, if you use it). Bots don\'t get it.', `-# ${icon('roles')} Self-assign role panels: \`/rolepanel\`.`);
-      components.push(rowOf(roleSelect(id(section, 'autorole'), 'Autorole (clear to turn off)', s.autoRoleId)), rowOf(back));
-      break;
-
-    case 'tickets': {
-      const t = s.tickets;
-      lines.push(
-        `**Panel channel:** ${ch(t?.panelChannelId)}`,
-        `**Staff role:** ${role(t?.staffRoleId)}`,
-        `**Tickets are:** ${t?.mode === 'channel' ? 'private channels (next to the panel)' : 'private threads (in the panel channel)'}`,
-        '-# Pick the channel and staff role, then post the panel. Transcripts go to the mod log when a ticket closes.',
-      );
-      components.push(
-        rowOf(channelSelect(id(section, 'tkch'), 'Channel for the ticket panel', t?.panelChannelId ? [t.panelChannelId] : [], 1, [ChannelType.GuildText])),
-        rowOf(roleSelect(id(section, 'staff'), 'Staff role (sees every ticket)', t?.staffRoleId)),
-        rowOf(back, btn(id(section, 'mode'), t?.mode === 'channel' ? 'Mode: Channels' : 'Mode: Threads', NAV), btn(id(section, 'post'), 'Post panel', MAIN, { disabled: !t?.panelChannelId })),
-      );
-      break;
-    }
   }
   e.setDescription(`${top}${lines.join('\n')}`.slice(0, 4000));
   return { embeds: [e], components };

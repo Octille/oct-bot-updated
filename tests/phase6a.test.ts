@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PermissionFlagsBits } from 'discord.js';
 import { useTestDatabase } from './helpers/db';
-import { INVITE_RE, moderationBlocker, nextCase, parseDuration } from '../src/services/moderation';
+import { moderationBlocker, nextCase, parseDuration } from '../src/services/moderation';
 import { parsePosition } from '../src/music/actions';
 import { formatTime, queuePage } from '../src/music/panel';
 import { canSee } from '../src/ui/screens/help';
@@ -31,8 +31,6 @@ describe('moderation rules', () => {
     expect(parseDuration('2w')).toBe(1_209_600_000);
     expect(parseDuration('ten minutes')).toBeNull();
     expect(parseDuration('10x')).toBeNull();
-    for (const link of ['discord.gg/abc', 'https://discord.com/invite/x-y', 'discordapp.com/invite/Z']) expect(INVITE_RE.test(link), link).toBe(true);
-    expect(INVITE_RE.test('discord.com/channels/1/2')).toBe(false);
   });
 
   it('moderation commands are hidden from members without the permission', () => {
@@ -79,11 +77,6 @@ describe('moderation cases (database)', () => {
 });
 
 describe('review fixes', () => {
-  it('catches dsc.gg and captures the invite code (for the vanity exemption)', () => {
-    expect(INVITE_RE.exec('join dsc.gg/cool')?.[1]).toBe('cool');
-    expect(INVITE_RE.exec('https://discord.gg/AbC-12')?.[1]).toBe('AbC-12');
-  });
-
   it('escapes track titles so they can\'t break links or bold', async () => {
     const { escapeTitle } = await import('../src/music/panel.js');
     expect(escapeTitle('[Official] **Song**')).toBe('Official \\*\\*Song\\*\\*');
