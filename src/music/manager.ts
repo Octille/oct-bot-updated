@@ -1,9 +1,10 @@
 import { LavalinkManager, type Player, type Track } from 'lavalink-client';
-import { PermissionFlagsBits, type Client, type GuildMember, type SendableChannels } from 'discord.js';
+import { DiscordAPIError, PermissionFlagsBits, RESTJSONErrorCodes, type Client, type GuildMember, type SendableChannels } from 'discord.js';
 import { env } from '../config/env';
 import { logError, logInfo } from '../lib/logger';
 import { musicRules } from '../content/music';
-import { escapeTitle, nowPlayingPanel } from './panel';
+import { escapeTitle, nowPlayingPanel, panelState, type PanelState } from './panel';
+import { clearHistory, recordStart } from './history';
 
 /**
  * Music (Lavalink). One manager per process. If Lavalink isn't reachable the rest of the bot works;
@@ -15,8 +16,11 @@ export function lavalink(): LavalinkManager | null {
   return manager;
 }
 
-/** Message id of the current now-playing panel per guild, so the old one loses its buttons. */
-const panels = new Map<string, { channelId: string; messageId: string; track: string }>();
+/** The current now-playing panel per guild (the old one loses its buttons). `state` is kept for the ended view. */
+interface LivePanel { channelId: string; messageId: string; track: Track; state: PanelState; lastEdit: number }
+const panels = new Map<string, LivePanel>();
+/** Guilds with a panel edit in flight (the ticker never stacks edits). */
+const editing = new Set<string>();
 /** Last track-error notice per guild (at most one a minute). */
 const errorNotes = new Map<string, number>();
 /** Panel posts per guild run one after another, so fast skips can't leave two live panels. */
@@ -35,6 +39,7 @@ export function createLavalink(client: Client): void {
     sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
     client: { id: env.CLIENT_ID },
     autoSkip: true,
+    queueOptions: { maxPreviousTracks: musicRules.historySize },
     playerOptions: { defaultSearchPlatform: 'ytmsearch', volumeDecrementer: 1, onDisconnect: { autoReconnect: false, destroyPlayer: true }, onEmptyQueue: { destroyAfterMs: musicRules.idleLeaveMs },
       // A few broken tracks in a playlist shouldn't kill the player
       maxErrorsPerTime: { threshold: 60_000, maxAmount: musicRules.maxErrorsPerMinute } },
@@ -67,6 +72,7 @@ export function createLavalink(client: Client): void {
   });
 
   manager.on('trackStart', (player, track) => {
+    if (track) recordStart(player.guildId, track, player.repeatMode === 'track');
     const prev = panelQueue.get(player.guildId) ?? Promise.resolve();
     const next = prev.then(() => postPanel(client, player, track)).catch((err) => logError('music panel', err));
     panelQueue.set(player.guildId, next);
@@ -82,10 +88,13 @@ export function createLavalink(client: Client): void {
   });
   manager.on('playerDestroy', (player) => {
     clearLeave(player.guildId);
+    clearHistory(player.guildId);
     errorNotes.delete(player.guildId);
     panelQueue.delete(player.guildId);
     void retirePanel(client, player.guildId, 'Stopped.').catch(() => undefined);
   });
+
+  setInterval(() => refreshTick(client), musicRules.panelRefreshMs).unref();
 }
 
 export async function initLavalink(client: Client<true>): Promise<void> {
@@ -112,34 +121,91 @@ async function postPanel(client: Client, player: Player, track: Track | null): P
   if (!channel || !track) return;
   // Looping the same track: refresh the panel instead of posting a new one each time
   const current = panels.get(player.guildId);
-  if (current && current.track === track.encoded && player.repeatMode === 'track') return refreshPanel(client, player);
+  if (current && current.track.encoded === track.encoded && player.repeatMode === 'track') return refreshPanel(client, player);
   await retirePanel(client, player.guildId, null);
-  const msg = await channel.send(nowPlayingPanel(player, track));
+  const state = panelState(player);
+  const msg = await channel.send(nowPlayingPanel(state, track));
   // Destroyed while sending: don't keep a live panel for a dead player
   if (!manager?.getPlayer(player.guildId)) {
-    await msg.edit({ components: [] }).catch(() => undefined);
+    await msg.edit(nowPlayingPanel(state, track, 'Stopped.')).catch(() => undefined);
     return;
   }
-  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id, track: track.encoded ?? '' });
+  panels.set(player.guildId, { channelId: msg.channelId, messageId: msg.id, track, state, lastEdit: Date.now() });
 }
 
-/** Refreshes the current panel in place (after pause, loop, volume…). */
+/** The panel message is gone or out of reach: stop tracking it. */
+function panelGone(err: unknown): boolean {
+  return err instanceof DiscordAPIError && ([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess, RESTJSONErrorCodes.MissingPermissions] as number[]).includes(Number(err.code));
+}
+
+/** Players whose panel the ticker should move along: playing, not paused, someone listening, panel is this track's. */
+function refreshable(client: Client, guildId: string, p: LivePanel): boolean {
+  const player = manager?.getPlayer(guildId);
+  const track = player?.queue.current;
+  if (!player || !track || !player.playing || player.paused || track.info.isStream) return false;
+  if (track.encoded !== p.track.encoded) return false;
+  const voice = player.voiceChannelId ? client.channels.cache.get(player.voiceChannelId) : null;
+  return voice?.isVoiceBased() ? voice.members.some((m) => !m.user.bot) : false;
+}
+
+/**
+ * Which panels to refresh this tick under the global cap: least recently edited first, so with more
+ * playing servers than the cap allows, every panel still moves along in turn.
+ */
+export function pickRefreshes(candidates: { guildId: string; lastEdit: number }[], cap: number): string[] {
+  return [...candidates].sort((a, b) => a.lastEdit - b.lastEdit).slice(0, Math.max(0, cap)).map((c) => c.guildId);
+}
+
+function refreshTick(client: Client): void {
+  const cap = Math.floor(musicRules.panelEditsPerSecond * (musicRules.panelRefreshMs / 1000));
+  const due = pickRefreshes([...panels].filter(([g, p]) => !editing.has(g) && refreshable(client, g, p)).map(([guildId, p]) => ({ guildId, lastEdit: p.lastEdit })), cap);
+  // Spread the edits over the tick instead of sending them all at once
+  const gap = 1000 / musicRules.panelEditsPerSecond;
+  due.forEach((guildId, i) => setTimeout(() => {
+    const player = manager?.getPlayer(guildId);
+    if (player) void refreshPanel(client, player).catch((err) => logError('music panel refresh', err));
+  }, i * gap).unref());
+}
+
+/** Refreshes the current panel in place (after pause, loop, volume…, and every 15s while playing). */
 export async function refreshPanel(client: Client, player: Player): Promise<void> {
   const p = panels.get(player.guildId);
   const track = player.queue.current;
-  if (!p || !track) return;
+  if (!p || !track || editing.has(player.guildId)) return;
   const ch = client.channels.cache.get(p.channelId);
   if (!ch?.isTextBased()) return;
-  await ch.messages.edit(p.messageId, nowPlayingPanel(player, track)).catch(() => undefined);
+  editing.add(player.guildId);
+  try {
+    p.state = panelState(player);
+    p.track = track;
+    p.lastEdit = Date.now();
+    await ch.messages.edit(p.messageId, nowPlayingPanel(p.state, track));
+  } catch (err) {
+    if (panelGone(err)) panels.delete(player.guildId);
+  } finally {
+    editing.delete(player.guildId);
+  }
 }
 
+/** Marks a panel edited by a button press (interaction.update), so the ticker doesn't redo it right away. */
+export function notePanelEdited(player: Player): void {
+  const p = panels.get(player.guildId);
+  if (p && player.queue.current) Object.assign(p, { state: panelState(player), track: player.queue.current, lastEdit: Date.now() });
+}
+
+/** Whether this message is the guild's current panel. */
+export function isCurrentPanel(guildId: string, messageId: string): boolean {
+  return panels.get(guildId)?.messageId === messageId;
+}
+
+/** Ends the panel: buttons removed, the note shown in place of the progress line. */
 async function retirePanel(client: Client, guildId: string, note: string | null): Promise<void> {
   const p = panels.get(guildId);
   if (!p) return;
   panels.delete(guildId);
   const ch = client.channels.cache.get(p.channelId);
   if (!ch?.isTextBased()) return;
-  await ch.messages.edit(p.messageId, { components: [], ...(note ? { content: note } : {}) }).catch(() => undefined);
+  await ch.messages.edit(p.messageId, nowPlayingPanel(p.state, p.track, note ?? 'Finished.')).catch(() => undefined);
 }
 
 function clearLeave(guildId: string): void {

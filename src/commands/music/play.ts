@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder, type GuildMember } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder, type GuildMember } from 'discord.js';
 import { defineCommand } from '../../framework/types';
 import { musicRules } from '../../content/music';
 import { embed } from '../../lib/embeds';
@@ -12,7 +12,7 @@ export default defineCommand({
     .addStringOption((o) => o.setName('query').setDescription('Song name, or a YouTube / YouTube Music link').setRequired(true).setMaxLength(300)),
   category: 'music',
   guildOnly: true,
-  // Not deferred up front: problems are answered privately, then the search reply is public
+  // Not deferred up front, and all replies are private: the now-playing panel is the public message
   async execute({ interaction }) {
     const manager = lavalink();
     if (!manager || !nodeReady()) throw new UserError('Music is unavailable right now. Try again in a minute.');
@@ -24,7 +24,7 @@ export default defineCommand({
     const me = interaction.guild!.members.me;
     const perms = me ? channel.permissionsFor(me) : null;
     if (!perms?.has(PermissionFlagsBits.Connect) || !perms.has(PermissionFlagsBits.Speak)) throw new UserError(`I need permission to connect and speak in <#${channel.id}>.`);
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const player = existing ?? manager.createPlayer({
       guildId: interaction.guildId!, voiceChannelId: channel.id, textChannelId: interaction.channelId, selfDeaf: true, volume: musicRules.defaultVolume,
@@ -43,6 +43,8 @@ export default defineCommand({
       if (!player.queue.current) await player.destroy('no results').catch(() => undefined);
       throw new UserError(`Nothing found for **${query.slice(0, 80)}**.`);
     }
+    // Nothing playing yet: this starts right away and the panel says so
+    const startsNow = !player.queue.current;
     const room = musicRules.maxQueue - player.queue.tracks.length;
     if (room <= 0) throw new UserError(`The queue is full (${musicRules.maxQueue} tracks).`);
     const toAdd = result.loadType === 'playlist' ? result.tracks.slice(0, room) : [result.tracks[0]!];
@@ -50,9 +52,10 @@ export default defineCommand({
     if (!player.playing && !player.paused) await player.play();
 
     const first = toAdd[0]!;
+    if (startsNow && result.loadType !== 'playlist') return interaction.deleteReply();
     const text = result.loadType === 'playlist'
       ? `${icon('success')} Added **${toAdd.length}** tracks from **${escapeTitle(result.playlist?.name ?? 'a playlist')}**${toAdd.length < result.tracks.length ? ` (the queue holds ${musicRules.maxQueue})` : ''}.`
-      : `${icon('success')} Added **[${escapeTitle(first.info.title)}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)}${player.queue.tracks.length ? ` · #${player.queue.tracks.length} in the queue` : ''}.`;
+      : `${icon('success')} Queued **[${escapeTitle(first.info.title)}](${first.info.uri})** · ${formatTime(first.info.duration ?? 0)} · #${player.queue.tracks.length} in the queue.`;
     return interaction.editReply({ embeds: [embed('music').setTitle(`${titleIcon('music')} Play`).setDescription(text)] });
   },
 });

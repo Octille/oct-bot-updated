@@ -28,9 +28,25 @@ export interface IconDef {
   fallback: string;
   /** A fixed colour (rarity, badges): rendered once, used everywhere instead of the variants. */
   color?: string;
+  /** Drawn by us instead of Tabler (the music progress bar pieces): a full 64×64 SVG. */
+  svg?: string;
 }
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
+
+/**
+ * Music progress bar pieces, drawn edge to edge so they tile: a rounded track (fill = brand, empty = grey)
+ * with a round knob. The knob has start/end versions so no stub of track sticks out past the caps.
+ */
+export const BAR_COLORS = { fill: '#6066ae', knob: '#7f83be', track: '#4e5058' } as const;
+const BAR_Y = 20;
+const BAR_H = 24;
+const barSvg = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${body}</svg>`;
+const seg = (x: number, w: number, color: string, rounded = false) =>
+  `<rect x="${x}" y="${BAR_Y}" width="${w}" height="${BAR_H}"${rounded ? ` rx="${BAR_H / 2}"` : ''} fill="${color}"/>`;
+const knob = `<circle cx="32" cy="32" r="22" fill="${BAR_COLORS.knob}"/><circle cx="32" cy="32" r="8" fill="#ffffff" fill-opacity="0.9"/>`;
+const bar = (fallback: string, body: string): IconDef => ({ tabler: '', fallback, color: 'custom', svg: barSvg(body) });
+
 const rarity = (r: Rarity, tabler: string, fallback: string): IconDef => ({ tabler, fallback, color: hex(rarityInfo[r].color) });
 
 export const iconDefs = {
@@ -95,6 +111,27 @@ export const iconDefs = {
   season_top10: { tabler: 'medal', fallback: '🥈', color: '#7f83be' },
   season_top100: { tabler: 'award', fallback: '🎖️', color: '#7f83be' },
   music: { tabler: 'music', fallback: '🎵' },
+  // Music panel transport buttons (grey icons on grey buttons, white on blue)
+  mp_back: { tabler: 'player-skip-back', fallback: '⏮️' },
+  mp_play: { tabler: 'player-play', fallback: '▶️' },
+  mp_pause: { tabler: 'player-pause', fallback: '⏸️' },
+  mp_next: { tabler: 'player-skip-forward', fallback: '⏭️' },
+  mp_loop: { tabler: 'repeat', fallback: '🔁' },
+  mp_loop1: { tabler: 'repeat-once', fallback: '🔂' },
+  mp_shuffle: { tabler: 'arrows-shuffle', fallback: '🔀' },
+  mp_stop: { tabler: 'player-stop', fallback: '⏹️' },
+  mp_voldown: { tabler: 'volume-2', fallback: '🔉' },
+  mp_volup: { tabler: 'volume-3', fallback: '🔊' },
+  mp_queue: { tabler: 'playlist', fallback: '📜' },
+  mp_controls: { tabler: 'adjustments', fallback: '🎛️' },
+  // Music progress bar (see BAR_COLORS)
+  bar_lf: bar('▰', seg(4, 74, BAR_COLORS.fill, true)),
+  bar_f: bar('▰', seg(0, 64, BAR_COLORS.fill)),
+  bar_k: bar('●', seg(0, 32, BAR_COLORS.fill) + seg(32, 32, BAR_COLORS.track) + knob),
+  bar_ks: bar('●', seg(32, 32, BAR_COLORS.track) + knob),
+  bar_ke: bar('●', seg(0, 32, BAR_COLORS.fill) + knob),
+  bar_e: bar('▱', seg(0, 64, BAR_COLORS.track)),
+  bar_re: bar('▱', seg(-14, 74, BAR_COLORS.track, true)),
   moderation: { tabler: 'shield-check', fallback: '🛡️' },
   // Veteran badges (exclusive, see content/veteran.ts)
   badge_veteran: { tabler: 'shield', fallback: '🛡️', color: '#7f83be' },

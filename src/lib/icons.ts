@@ -26,6 +26,11 @@ function lookup(key: IconKey, variant: IconVariant) {
   return loaded.get(`${key}.${fixed ? VARIANT_CODE.fixed : VARIANT_CODE[variant]}`);
 }
 
+/** Whether this icon's application emoji is uploaded (so pieces that must tile, like the music bar, can fall back together). */
+export function hasIcon(key: IconKey): boolean {
+  return !!lookup(key, 'grey');
+}
+
 function inline(key: IconKey, variant: IconVariant): string {
   const e = lookup(key, variant);
   return e ? `<:${e.name}:${e.id}>` : iconDefs[key].fallback;
@@ -41,9 +46,14 @@ export function titleIcon(key: IconKey): string {
   return inline(key, 'brand');
 }
 
-/** Icon for a green or blue button (white, matching the label). Grey buttons never get icons. */
+/** Icon for a green or blue button (white, matching the label). Grey buttons never get icons (except the music panel). */
 export function buttonIcon(key: IconKey): string {
   return inline(key, 'white');
+}
+
+/** Icon for a grey music-panel button (grey #80848e, readable on light and dark). */
+export function greyButtonIcon(key: IconKey): string {
+  return inline(key, 'grey');
 }
 
 export function rarityIcon(rarity: Rarity): string {

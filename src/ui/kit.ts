@@ -15,7 +15,7 @@ import type { Profile } from '../services/economy';
  *
  * Button order everywhere: [Back] (grey) → other navigation (grey) → main action (green) → cancel (red).
  * Buttons are text only; an icon is allowed only on main actions and hub activities (never on Back/Menu/Prev/Next).
- * Exception: the music panel's transport controls are icon-only standard emojis (music/panel.ts).
+ * Exception: the music panel's transport controls are icon-only, with grey icons on grey buttons (music/panel.ts).
  */
 
 export type Row = ActionRowBuilder<MessageActionRowComponentBuilder>;

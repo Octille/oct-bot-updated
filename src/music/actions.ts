@@ -2,6 +2,7 @@ import type { Player } from 'lavalink-client';
 import { UserError } from '../lib/errors';
 import { escapeTitle } from './panel';
 import { musicRules } from '../content/music';
+import { takePrevious } from './history';
 
 /** Shared player actions for /music and the panel buttons. Each returns a short confirmation. */
 export async function togglePause(player: Player): Promise<string> {
@@ -21,6 +22,20 @@ export async function skip(player: Player): Promise<string> {
   }
   await player.skip();
   return `Skipped **${title}**.`;
+}
+
+/** Back: restart the song if it's more than a few seconds in, otherwise play the previous one (the current one goes back to the front of the queue). */
+export async function back(player: Player): Promise<string> {
+  const current = player.queue.current;
+  if (current && player.position > musicRules.backRestartMs && current.info.isSeekable && !current.info.isStream) {
+    await player.seek(0);
+    return 'Restarted the song.';
+  }
+  const prev = takePrevious(player.guildId);
+  if (!prev) throw new UserError('Nothing to go back to yet.');
+  if (current) await player.queue.add(current, 0);
+  await player.play({ clientTrack: prev });
+  return `Back to **${escapeTitle(prev.info.title)}**.`;
 }
 
 export async function stop(player: Player): Promise<string> {

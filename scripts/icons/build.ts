@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
-import { ICON_STROKE, iconDefs, iconImages } from '../../src/content/icons';
+import { ICON_STROKE, iconDefs, iconImages, type IconDef } from '../../src/content/icons';
 
 const SIZE = 64;
 const root = join(__dirname, '..', '..');
@@ -17,8 +17,8 @@ const outDir = join(root, 'assets', 'icons');
 mkdirSync(outDir, { recursive: true });
 for (const f of readdirSync(outDir)) if (f.endsWith('.png')) rmSync(join(outDir, f));
 
-function render(tabler: string, color: string): Buffer {
-  const svg = readFileSync(join(tablerDir, `${tabler}.svg`), 'utf8')
+function render(tabler: string, color: string, custom?: string): Buffer {
+  const svg = custom ?? readFileSync(join(tablerDir, `${tabler}.svg`), 'utf8')
     .replace(/stroke="currentColor"/g, `stroke="${color}"`)
     .replace(/stroke-width="[\d.]+"/g, `stroke-width="${ICON_STROKE}"`);
   return Buffer.from(new Resvg(svg, { fitTo: { mode: 'width', value: SIZE }, background: 'rgba(0,0,0,0)' }).render().asPng());
@@ -26,7 +26,7 @@ function render(tabler: string, color: string): Buffer {
 
 const manifest: Record<string, string> = {};
 for (const { key, variant, color } of iconImages()) {
-  const png = render(iconDefs[key].tabler, color);
+  const png = render(iconDefs[key].tabler, color, (iconDefs[key] as IconDef).svg);
   writeFileSync(join(outDir, `${key}.${variant}.png`), png);
   manifest[`${key}.${variant}`] = createHash('sha256').update(png).digest('hex').slice(0, 6);
 }
