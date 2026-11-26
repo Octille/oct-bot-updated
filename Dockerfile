@@ -1,19 +1,24 @@
-FROM eclipse-temurin:17-jdk-jammy
+# OctBot 3.0. Lavalink runs in its own container (see docker-compose.yml).
+#   docker compose up -d --build
 
-RUN apt-get update && apt-get install -y curl dos2unix && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs
-
+# ── Build: compile TypeScript ──────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS build
 WORKDIR /app
+# mongodb-memory-server (tests only) would otherwise download a MongoDB binary here
+ENV MONGOMS_DISABLE_POSTINSTALL=1
 COPY package*.json ./
 RUN npm ci
-COPY . .
+COPY tsconfig.json tsconfig.build.json ./
+COPY src ./src
+RUN npm run build
 
-# Download the jar directly using curl for reliability
-RUN mkdir -p lavalink && \
-    curl -L https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar -o ./lavalink/Lavalink.jar
-
-RUN dos2unix start.sh && chmod +x start.sh
-
-# Use ENTRYPOINT instead of CMD to prevent Railway overrides
-ENTRYPOINT ["./start.sh"]
+# ── Run: production dependencies, compiled code and assets only ────────────────────────
+FROM node:20-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/dist ./dist
+COPY assets ./assets
+USER node
+CMD ["node", "dist/index.js"]

@@ -1,6 +1,27 @@
-node_modules
+# Only package*.json, tsconfig*, src and assets go into the image (see Dockerfile)
+.git
 .env
-.DS_Store
-lavalink/logs
-lavalink/plugins
+.env.*
+node_modules
+dist
+coverage
+tests
+docs
+scripts
+backups
+deploy
+lavalink
+logs
 *.jar
+*.md
+.DS_Store
+# The original (v2) bot
+commands
+events
+functions
+handlers
+models
+index.js
+utils.js
+config.json
+wallpaper.jpg

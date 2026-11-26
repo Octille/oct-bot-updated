@@ -1,4 +1,4 @@
-# Lavalink config used by the Docker image (start.sh runs Lavalink from /app/lavalink).
+# Lavalink config used by the lavalink container in docker-comp.yml (lavalink/start.sh picks the jar).
 # Secrets come from environment variables — nothing sensitive is stored here.
 server:
   port: ${LAVALINK_PORT:2333}

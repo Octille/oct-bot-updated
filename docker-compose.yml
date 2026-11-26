@@ -1,22 +1,78 @@
-# Runs the bot (with its built-in Lavalink) plus a MongoDB database.
-#   docker compose up -d --build
-# Uses the values in .env; MONGODB_SRV is overridden to point at the bundled database.
-services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
+# OctBot 3.0: the bot, Lavalink (music) and daily database backups. See docs/DEPLOY.md.
+#
+#   docker compose up -d --build      start / update
+#   docker compose logs -f bot        follow the bot's logs
+#   docker compose ps                 what's running
+#
+# Production uses MongoDB Atlas (MONGODB_URI in .env); no database runs here.
+# COMPOSE_PROFILES=staging (in .env) adds a local replica-set MongoDB holding a COPY of the data,
+# for trying the bot on a server before the cutover.
 
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "5" }
+
+services:
   bot:
     build: .
     restart: unless-stopped
     env_file: .env
     environment:
-      MONGODB_SRV: mongodb://mongo:27017/octbot
-      LAVALINK_HOST: localhost
+      NODE_ENV: production
+      LAVALINK_HOST: lavalink
+      LAVALINK_PORT: "2333"
     depends_on:
-      - mongo
+      lavalink: { condition: service_started }
+      mongo: { condition: service_healthy, required: false }
+    logging: *logging
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4.2.2
+    restart: unless-stopped
+    # Picks the patched SoundCloud build when LAVALINK_PATCHED=true and the jar is in ./lavalink
+    entrypoint: ["sh", "/opt/Lavalink/custom/start.sh"]
+    environment:
+      LAVALINK_PASSWORD: ${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in .env}
+      LAVALINK_PATCHED: ${LAVALINK_PATCHED:-false}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      APPLE_MUSIC_TOKEN: ${APPLE_MUSIC_TOKEN:-}
+      JAVA_OPTS: ${LAVALINK_JAVA_OPTS:--Xmx512m}
+    volumes:
+      - ./lavalink:/opt/Lavalink/custom:ro
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    # Plugins (LavaSrc) download into the container on start. No ports published: only the bot (on this Docker network) can reach Lavalink
+    logging: *logging
+
+  # Daily mongodump of whatever MONGODB_URI points at, kept for BACKUP_KEEP_DAYS (default 14)
+  backup:
+    image: mongo:7
+    restart: unless-stopped
+    env_file: .env
+    entrypoint: ["sh", "/deploy/backup.sh"]
+    volumes:
+      - ./deploy:/deploy:ro
+      - ./backups:/backups
+    depends_on:
+      mongo: { condition: service_healthy, required: false }
+    logging: *logging
+
+  # ── Staging only: a local copy of the data ───────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    profiles: [staging]
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo-data:/data/db
+      - ./backups:/backups
+    # Transactions need a replica set: start one the first time
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"]
+      interval: 10s
+      start_period: 20s
+      retries: 10
+    logging: *logging
 
 volumes:
   mongo-data:
